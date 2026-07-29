@@ -1,0 +1,36 @@
+services:
+  banco:
+    image: postgres:16-alpine
+    container_name: oficina-banco
+    environment:
+      POSTGRES_DB: oficina
+      POSTGRES_USER: oficina
+      POSTGRES_PASSWORD: oficina_local
+    ports:
+      - "5432:5432"
+    volumes:
+      - dados_banco:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oficina -d oficina"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: oficina-app
+    depends_on:
+      banco:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://banco:5432/oficina
+      SPRING_DATASOURCE_USERNAME: oficina
+      SPRING_DATASOURCE_PASSWORD: oficina_local
+      JWT_SEGREDO: trocar-este-segredo-local
+    ports:
+      - "8080:8080"
+
+volumes:
+  dados_banco:

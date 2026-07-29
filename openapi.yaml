@@ -1,0 +1,617 @@
+# Contrato da API do oficina-mecanica-api
+# Nomes seguem a Linguagem Ubiqua (linguagem-ubiqua.md), identificadores sem acento.
+# Endpoints administrativos exigem JWT (security global do documento).
+# Endpoints da tag Acompanhamento sao publicos, protegidos pelo Codigo de
+# acompanhamento opaco da OS (ADR-007, [DECISÃO PENDENTE DO ALUNO]).
+# Todos os endpoints administrativos respondem 401 (NaoAutorizado) sem JWT valido;
+# para nao repetir, o 401 so aparece nos exemplos de referencia (Auth e Clientes).
+# Escopo deliberado: sem paginacao e sem filtros avancados (teto do trabalho);
+# erros comuns definidos uma vez em components.responses e referenciados.
+# Estilo YAML compacto (flow) por teto de volume do trabalho: 500 a 700 linhas.
+openapi: 3.0.3
+info:
+  title: API da Oficina Mecanica
+  description: Back-end monolitico do MVP da oficina. Status da OS - Recebida, Em diagnostico, Aguardando aprovacao, Em execucao, Finalizada, Entregue; Cancelada e proposta de 7o status (ADR-008).
+  version: 1.0.0
+servers:
+  - {url: 'http://localhost:8080/api/v1', description: ambiente local via docker-compose}
+tags:
+  - {name: Autenticacao, description: emissao de token JWT para as APIs administrativas}
+  - {name: OrdensServico, description: fluxo da Ordem de Servico (administrativo)}
+  - {name: Acompanhamento, description: consulta e aprovacao pelo Cliente via Codigo de acompanhamento, sem JWT}
+  - {name: Clientes, description: CRUD de clientes (referencia completa dos quatro verbos)}
+  - {name: Veiculos, description: CRUD de veiculos}
+  - {name: Servicos, description: CRUD de servicos do catalogo}
+  - {name: Pecas, description: CRUD de pecas e insumos, com controle de estoque}
+security:
+  - jwtAdministrativo: []
+
+paths:
+  /auth/login:
+    post:
+      tags: [Autenticacao]
+      summary: Autentica um usuario administrativo e emite o JWT
+      security: []
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/Credenciais'}}}}
+      responses:
+        '200': {description: Token emitido, content: {application/json: {schema: {$ref: '#/components/schemas/TokenJwt'}}}}
+        '400': {$ref: '#/components/responses/RequisicaoInvalida'}
+        '401': {$ref: '#/components/responses/NaoAutorizado'}
+
+  /ordens-servico:
+    post:
+      tags: [OrdensServico]
+      summary: Criar Ordem de Servico
+      description: Executado pelo Atendente. Identificacao do Cliente pelo Documento (CPF/CNPJ). A OS nasce RECEBIDA, gera o Codigo de acompanhamento e registra a primeira Transicao de status.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/OrdemServicoCriacao'}}}}
+      responses:
+        '201': {description: OS criada, content: {application/json: {schema: {$ref: '#/components/schemas/OrdemServico'}}}}
+        '400': {$ref: '#/components/responses/RequisicaoInvalida'}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+    get:
+      tags: [OrdensServico]
+      summary: Listar Ordens de Servico
+      description: Fila de OSs por status (filtro opcional).
+      parameters:
+        - {name: status, in: query, required: false, schema: {$ref: '#/components/schemas/StatusOS'}}
+      responses:
+        '200': {description: Lista de OSs, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/OrdemServicoResumo'}}}}}
+
+  /ordens-servico/{id}:
+    get:
+      tags: [OrdensServico]
+      summary: Detalhar Ordem de Servico
+      description: Detalhe da OS com itens, versoes de Orcamento e Transicoes de status.
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      responses:
+        '200': {description: Detalhe da OS, content: {application/json: {schema: {$ref: '#/components/schemas/OrdemServico'}}}}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+
+  /ordens-servico/{id}/diagnostico/inicio:
+    post:
+      tags: [OrdensServico]
+      summary: Iniciar diagnostico
+      description: Executado pelo Mecanico. Transicao automatica do agregado para EM_DIAGNOSTICO.
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      responses:
+        '200': {description: Diagnostico iniciado, content: {application/json: {schema: {$ref: '#/components/schemas/OrdemServico'}}}}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+        '409': {$ref: '#/components/responses/ConflitoDeEstado'}
+
+  /ordens-servico/{id}/itens:
+    post:
+      tags: [OrdensServico]
+      summary: Incluir itens na OS
+      description: Itens de servico e Itens de peca, com preco copiado como snapshot na inclusao. Exige EM_DIAGNOSTICO (ou retorno por Reparo adicional).
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ItensEntrada'}}}}
+      responses:
+        '200': {description: Itens incluidos, content: {application/json: {schema: {$ref: '#/components/schemas/OrdemServico'}}}}
+        '400': {$ref: '#/components/responses/RequisicaoInvalida'}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+        '409': {$ref: '#/components/responses/ConflitoDeEstado'}
+
+  /ordens-servico/{id}/diagnostico/conclusao:
+    post:
+      tags: [OrdensServico]
+      summary: Concluir diagnostico
+      description: Dispara o servico de dominio Orcamento automatico - gera a Versao do orcamento, envia ao Cliente por e-mail e leva a OS a AGUARDANDO_APROVACAO.
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      responses:
+        '200': {description: Orcamento gerado e enviado, content: {application/json: {schema: {$ref: '#/components/schemas/OrdemServico'}}}}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+        '409': {$ref: '#/components/responses/ConflitoDeEstado'}
+
+  /ordens-servico/{id}/reparos-adicionais:
+    post:
+      tags: [OrdensServico]
+      summary: Registrar reparo adicional
+      description: Gera nova Versao do orcamento (a anterior permanece imutavel) e devolve a OS a AGUARDANDO_APROVACAO (CDC art. 40).
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReparoAdicional'}}}}
+      responses:
+        '200': {description: Nova versao gerada e enviada, content: {application/json: {schema: {$ref: '#/components/schemas/OrdemServico'}}}}
+        '400': {$ref: '#/components/responses/RequisicaoInvalida'}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+        '409': {$ref: '#/components/responses/ConflitoDeEstado'}
+
+  /ordens-servico/{id}/execucao/conclusao:
+    post:
+      tags: [OrdensServico]
+      summary: Concluir execucao
+      description: Transicao automatica para FINALIZADA, com Baixa de estoque das pecas reservadas.
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      responses:
+        '200': {description: Execucao finalizada, content: {application/json: {schema: {$ref: '#/components/schemas/OrdemServico'}}}}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+        '409': {$ref: '#/components/responses/ConflitoDeEstado'}
+
+  /ordens-servico/{id}/entrega:
+    post:
+      tags: [OrdensServico]
+      summary: Registrar entrega do veiculo
+      description: Transicao automatica para ENTREGUE; fecha o ciclo da OS.
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      responses:
+        '200': {description: Veiculo entregue, content: {application/json: {schema: {$ref: '#/components/schemas/OrdemServico'}}}}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+        '409': {$ref: '#/components/responses/ConflitoDeEstado'}
+
+  /ordens-servico/metricas/tempo-medio-execucao:
+    get:
+      tags: [OrdensServico]
+      summary: Tempo medio de execucao
+      description: Media do intervalo entre as Transicoes de status EM_EXECUCAO e FINALIZADA, dos timestamps gravados; recorte opcional por Servico (ADR-008).
+      parameters:
+        - {name: servicoId, in: query, required: false, description: restringe a media as OSs que contem o Servico, schema: {type: string, format: uuid}}
+      responses:
+        '200': {description: Metrica calculada, content: {application/json: {schema: {$ref: '#/components/schemas/TempoMedioExecucao'}}}}
+
+  /acompanhamento/{codigoAcompanhamento}:
+    get:
+      tags: [Acompanhamento]
+      summary: Consultar progresso da OS (Cliente, sem JWT)
+      description: Consumido pelo Aplicativo do Cliente. O Codigo de acompanhamento da acesso somente a esta OS (ADR-007).
+      security: []
+      parameters: [{$ref: '#/components/parameters/CodigoAcompanhamento'}]
+      responses:
+        '200': {description: Status, historico e Orcamento vigente, content: {application/json: {schema: {$ref: '#/components/schemas/Acompanhamento'}}}}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+
+  /acompanhamento/{codigoAcompanhamento}/orcamento/aprovacao:
+    post:
+      tags: [Acompanhamento]
+      summary: Aprovar orcamento (Cliente, sem JWT)
+      description: Aprovacao do orcamento vigente. Leva a OS a EM_EXECUCAO (transicao automatica do agregado) e ativa a Reserva de pecas.
+      security: []
+      parameters: [{$ref: '#/components/parameters/CodigoAcompanhamento'}]
+      responses:
+        '200': {description: Orcamento aprovado, content: {application/json: {schema: {$ref: '#/components/schemas/Acompanhamento'}}}}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+        '409': {$ref: '#/components/responses/ConflitoDeEstado'}
+
+  /acompanhamento/{codigoAcompanhamento}/orcamento/reprovacao:
+    post:
+      tags: [Acompanhamento]
+      summary: Reprovar orcamento (Cliente, sem JWT)
+      description: Reprovacao do orcamento vigente. Desfecho proposto - CANCELADA (ADR-008, [DECISÃO PENDENTE DO ALUNO]).
+      security: []
+      parameters: [{$ref: '#/components/parameters/CodigoAcompanhamento'}]
+      responses:
+        '200': {description: Orcamento reprovado, content: {application/json: {schema: {$ref: '#/components/schemas/Acompanhamento'}}}}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+        '409': {$ref: '#/components/responses/ConflitoDeEstado'}
+
+  # CRUD de referencia, completo com os quatro verbos e todas as respostas: Clientes
+  /clientes:
+    post:
+      tags: [Clientes]
+      summary: Cadastrar cliente
+      description: Documento (CPF/CNPJ) com digito verificador validado no dominio; unico no cadastro.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ClienteEntrada'}}}}
+      responses:
+        '201': {description: Cliente cadastrado, content: {application/json: {schema: {$ref: '#/components/schemas/Cliente'}}}}
+        '400': {$ref: '#/components/responses/RequisicaoInvalida'}
+        '401': {$ref: '#/components/responses/NaoAutorizado'}
+        '409': {$ref: '#/components/responses/ConflitoDeEstado'}
+    get:
+      tags: [Clientes]
+      summary: Listar clientes
+      description: Filtro opcional por Documento (identificacao no balcao).
+      parameters:
+        - {name: documento, in: query, required: false, schema: {type: string, pattern: '^[0-9]{11}$|^[0-9]{14}$'}}
+      responses:
+        '200': {description: Lista de clientes, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Cliente'}}}}}
+        '401': {$ref: '#/components/responses/NaoAutorizado'}
+
+  /clientes/{id}:
+    get:
+      tags: [Clientes]
+      summary: Detalhar cliente
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      responses:
+        '200': {description: Cliente, content: {application/json: {schema: {$ref: '#/components/schemas/Cliente'}}}}
+        '401': {$ref: '#/components/responses/NaoAutorizado'}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+    put:
+      tags: [Clientes]
+      summary: Alterar cliente
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ClienteEntrada'}}}}
+      responses:
+        '200': {description: Cliente alterado, content: {application/json: {schema: {$ref: '#/components/schemas/Cliente'}}}}
+        '400': {$ref: '#/components/responses/RequisicaoInvalida'}
+        '401': {$ref: '#/components/responses/NaoAutorizado'}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+    delete:
+      tags: [Clientes]
+      summary: Remover cliente
+      description: Recusado (409) se houver OS ativa referenciando o cliente.
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      responses:
+        '204': {description: Cliente removido}
+        '401': {$ref: '#/components/responses/NaoAutorizado'}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+        '409': {$ref: '#/components/responses/ConflitoDeEstado'}
+
+  # CRUDs compactos: quatro verbos declarados, schemas reaproveitados, descricoes curtas
+  /veiculos:
+    post:
+      tags: [Veiculos]
+      summary: Cadastrar veiculo
+      description: Placa validada (formatos antigo e Mercosul); vinculo por ID com Cliente existente.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/VeiculoEntrada'}}}}
+      responses:
+        '201': {description: Veiculo cadastrado, content: {application/json: {schema: {$ref: '#/components/schemas/Veiculo'}}}}
+        '400': {$ref: '#/components/responses/RequisicaoInvalida'}
+        '409': {$ref: '#/components/responses/ConflitoDeEstado'}
+    get:
+      tags: [Veiculos]
+      summary: Listar veiculos
+      parameters:
+        - {name: placa, in: query, required: false, schema: {type: string, pattern: '^[A-Z]{3}[0-9]{4}$|^[A-Z]{3}[0-9][A-Z][0-9]{2}$'}}
+      responses:
+        '200': {description: Lista de veiculos, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Veiculo'}}}}}
+
+  /veiculos/{id}:
+    get:
+      tags: [Veiculos]
+      summary: Detalhar veiculo
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      responses:
+        '200': {description: Veiculo, content: {application/json: {schema: {$ref: '#/components/schemas/Veiculo'}}}}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+    put:
+      tags: [Veiculos]
+      summary: Alterar veiculo
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/VeiculoEntrada'}}}}
+      responses:
+        '200': {description: Veiculo alterado, content: {application/json: {schema: {$ref: '#/components/schemas/Veiculo'}}}}
+        '400': {$ref: '#/components/responses/RequisicaoInvalida'}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+    delete:
+      tags: [Veiculos]
+      summary: Remover veiculo
+      description: Recusado (409) se houver OS ativa referenciando o veiculo.
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      responses:
+        '204': {description: Veiculo removido}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+        '409': {$ref: '#/components/responses/ConflitoDeEstado'}
+
+  /servicos:
+    post:
+      tags: [Servicos]
+      summary: Cadastrar servico
+      description: Item do catalogo, com Valor de mao de obra.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ServicoEntrada'}}}}
+      responses:
+        '201': {description: Servico cadastrado, content: {application/json: {schema: {$ref: '#/components/schemas/Servico'}}}}
+        '400': {$ref: '#/components/responses/RequisicaoInvalida'}
+    get:
+      tags: [Servicos]
+      summary: Listar servicos
+      responses:
+        '200': {description: Catalogo de servicos, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Servico'}}}}}
+
+  /servicos/{id}:
+    get:
+      tags: [Servicos]
+      summary: Detalhar servico
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      responses:
+        '200': {description: Servico, content: {application/json: {schema: {$ref: '#/components/schemas/Servico'}}}}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+    put:
+      tags: [Servicos]
+      summary: Alterar servico
+      description: Nao altera snapshots ja copiados para Itens de servico de OSs existentes.
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ServicoEntrada'}}}}
+      responses:
+        '200': {description: Servico alterado, content: {application/json: {schema: {$ref: '#/components/schemas/Servico'}}}}
+        '400': {$ref: '#/components/responses/RequisicaoInvalida'}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+    delete:
+      tags: [Servicos]
+      summary: Remover servico
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      responses:
+        '204': {description: Servico removido}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+        '409': {$ref: '#/components/responses/ConflitoDeEstado'}
+
+  /pecas:
+    post:
+      tags: [Pecas]
+      summary: Cadastrar peca
+      description: Peca ou Insumo (unidade de medida), com preco, saldo inicial e Estoque minimo.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PecaEntrada'}}}}
+      responses:
+        '201': {description: Peca cadastrada, content: {application/json: {schema: {$ref: '#/components/schemas/Peca'}}}}
+        '400': {$ref: '#/components/responses/RequisicaoInvalida'}
+    get:
+      tags: [Pecas]
+      summary: Listar pecas
+      description: O filtro abaixoDoMinimo entrega a visao Pecas abaixo do Estoque minimo (alerta de reposicao).
+      parameters:
+        - {name: abaixoDoMinimo, in: query, required: false, schema: {type: boolean}}
+      responses:
+        '200': {description: Lista de pecas com saldo, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Peca'}}}}}
+
+  /pecas/{id}:
+    get:
+      tags: [Pecas]
+      summary: Detalhar peca
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      responses:
+        '200': {description: Peca, content: {application/json: {schema: {$ref: '#/components/schemas/Peca'}}}}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+    put:
+      tags: [Pecas]
+      summary: Alterar peca
+      description: Preco e Estoque minimo; o saldo so muda por Entrada de estoque, Reserva e Baixa.
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PecaEntrada'}}}}
+      responses:
+        '200': {description: Peca alterada, content: {application/json: {schema: {$ref: '#/components/schemas/Peca'}}}}
+        '400': {$ref: '#/components/responses/RequisicaoInvalida'}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+    delete:
+      tags: [Pecas]
+      summary: Remover peca
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      responses:
+        '204': {description: Peca removida}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+        '409': {$ref: '#/components/responses/ConflitoDeEstado'}
+
+  /pecas/{id}/entradas-estoque:
+    post:
+      tags: [Pecas]
+      summary: Registrar entrada de estoque
+      description: Executado pelo Estoquista. Recebimento de compra; aumenta o Saldo em estoque (diagramas/event-storming-estoque.md, fase Entrada).
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/EntradaEstoque'}}}}
+      responses:
+        '201': {description: Entrada registrada, saldo atualizado, content: {application/json: {schema: {$ref: '#/components/schemas/Peca'}}}}
+        '400': {$ref: '#/components/responses/RequisicaoInvalida'}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+
+components:
+  securitySchemes:
+    jwtAdministrativo:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT das APIs administrativas (requisito do enunciado); obtido em /auth/login. Toda rota administrativa responde 401 sem token valido.
+
+  parameters:
+    IdRecurso:
+      {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    CodigoAcompanhamento:
+      {name: codigoAcompanhamento, in: path, required: true, description: token opaco gerado na criacao da OS, schema: {type: string, minLength: 20, maxLength: 64}}
+
+  responses:
+    RequisicaoInvalida:
+      description: Dados invalidos (inclui Documento ou Placa reprovados na validacao de dominio)
+      content: {application/json: {schema: {$ref: '#/components/schemas/Erro'}}}
+    NaoAutorizado:
+      description: JWT ausente, invalido ou expirado
+      content: {application/json: {schema: {$ref: '#/components/schemas/Erro'}}}
+    NaoEncontrado:
+      description: Recurso inexistente
+      content: {application/json: {schema: {$ref: '#/components/schemas/Erro'}}}
+    ConflitoDeEstado:
+      description: Operacao viola a maquina de estados da OS ou uma invariante de dominio (ex. saldo insuficiente)
+      content: {application/json: {schema: {$ref: '#/components/schemas/Erro'}}}
+
+  schemas:
+    Erro:
+      type: object
+      required: [codigo, mensagem]
+      properties:
+        codigo: {type: string, example: TRANSICAO_INVALIDA}
+        mensagem: {type: string}
+
+    Credenciais:
+      type: object
+      required: [login, senha]
+      properties:
+        login: {type: string}
+        senha: {type: string, format: password}
+
+    TokenJwt:
+      type: object
+      required: [token, expiraEm]
+      properties:
+        token: {type: string}
+        expiraEm: {type: string, format: date-time}
+
+    StatusOS:
+      type: string
+      description: os 6 status do enunciado; CANCELADA e proposta de 7o status (ADR-008)
+      enum: [RECEBIDA, EM_DIAGNOSTICO, AGUARDANDO_APROVACAO, EM_EXECUCAO, FINALIZADA, ENTREGUE, CANCELADA]
+
+    Dinheiro:
+      type: object
+      required: [valor, moeda]
+      properties:
+        valor: {type: number, format: double, minimum: 0}
+        moeda: {type: string, enum: [BRL]}
+
+    ClienteEntrada:
+      type: object
+      required: [nome, documento, email]
+      properties:
+        nome: {type: string, minLength: 2, maxLength: 120}
+        documento: {type: string, description: CPF (11 digitos) ou CNPJ (14 digitos) somente numeros; digito verificador validado no dominio (VO Documento), pattern: '^[0-9]{11}$|^[0-9]{14}$'}
+        email: {type: string, format: email, description: destino do envio do Orcamento}
+        telefone: {type: string, maxLength: 20}
+
+    Cliente:
+      allOf:
+        - {$ref: '#/components/schemas/ClienteEntrada'}
+        - type: object
+          required: [id]
+          properties:
+            id: {type: string, format: uuid}
+
+    VeiculoEntrada:
+      type: object
+      required: [placa, marca, modelo, ano, clienteId]
+      properties:
+        placa: {type: string, description: formato antigo AAA9999 ou Mercosul AAA9A99, caixa alta, sem hifen (VO Placa), pattern: '^[A-Z]{3}[0-9]{4}$|^[A-Z]{3}[0-9][A-Z][0-9]{2}$'}
+        marca: {type: string, maxLength: 60}
+        modelo: {type: string, maxLength: 60}
+        ano: {type: integer, minimum: 1950, maximum: 2100}
+        clienteId: {type: string, format: uuid, description: referencia por ID ao agregado Cliente}
+
+    Veiculo:
+      allOf:
+        - {$ref: '#/components/schemas/VeiculoEntrada'}
+        - type: object
+          required: [id]
+          properties:
+            id: {type: string, format: uuid}
+
+    ServicoEntrada:
+      type: object
+      required: [nome, valorMaoDeObra]
+      properties:
+        nome: {type: string, maxLength: 120, example: Troca de oleo}
+        descricao: {type: string, maxLength: 500}
+        valorMaoDeObra: {$ref: '#/components/schemas/Dinheiro'}
+
+    Servico:
+      allOf:
+        - {$ref: '#/components/schemas/ServicoEntrada'}
+        - type: object
+          required: [id]
+          properties:
+            id: {type: string, format: uuid}
+
+    PecaEntrada:
+      type: object
+      required: [nome, preco, estoqueMinimo]
+      properties:
+        nome: {type: string, maxLength: 120, example: Filtro de oleo}
+        unidadeMedida: {type: string, description: para Insumo (ex. litro); pecas seriadas usam unidade, default: unidade}
+        preco: {$ref: '#/components/schemas/Dinheiro'}
+        saldoInicial: {type: integer, minimum: 0, default: 0}
+        estoqueMinimo: {type: integer, minimum: 0}
+
+    Peca:
+      allOf:
+        - {$ref: '#/components/schemas/PecaEntrada'}
+        - type: object
+          required: [id, saldoEmEstoque, quantidadeReservada]
+          properties:
+            id: {type: string, format: uuid}
+            saldoEmEstoque: {type: integer, minimum: 0, description: invariante de dominio, nunca negativo}
+            quantidadeReservada: {type: integer, minimum: 0}
+
+    EntradaEstoque:
+      type: object
+      required: [quantidade]
+      properties:
+        quantidade: {type: integer, minimum: 1}
+        observacao: {type: string, maxLength: 200}
+
+    OrdemServicoCriacao:
+      type: object
+      required: [documentoCliente, veiculoId]
+      properties:
+        documentoCliente: {type: string, description: identificacao do Cliente por CPF/CNPJ (requisito do enunciado), pattern: '^[0-9]{11}$|^[0-9]{14}$'}
+        veiculoId: {type: string, format: uuid}
+        relatoDoProblema: {type: string, maxLength: 1000}
+
+    ItemServico:
+      type: object
+      required: [servicoId]
+      properties:
+        servicoId: {type: string, format: uuid}
+        valorMaoDeObraSnapshot: {$ref: '#/components/schemas/Dinheiro'}
+
+    ItemPeca:
+      type: object
+      required: [pecaId, quantidade]
+      properties:
+        pecaId: {type: string, format: uuid}
+        quantidade: {type: integer, minimum: 1}
+        precoSnapshot: {$ref: '#/components/schemas/Dinheiro'}
+
+    ItensEntrada:
+      type: object
+      properties:
+        itensServico: {type: array, items: {$ref: '#/components/schemas/ItemServico'}}
+        itensPeca: {type: array, items: {$ref: '#/components/schemas/ItemPeca'}}
+
+    ReparoAdicional:
+      type: object
+      required: [descricao]
+      properties:
+        descricao: {type: string, maxLength: 500}
+        itensServico: {type: array, items: {$ref: '#/components/schemas/ItemServico'}}
+        itensPeca: {type: array, items: {$ref: '#/components/schemas/ItemPeca'}}
+
+    Orcamento:
+      type: object
+      required: [versao, situacao, total]
+      properties:
+        versao: {type: integer, minimum: 1}
+        situacao: {type: string, enum: [PENDENTE, APROVADO, REPROVADO]}
+        total: {$ref: '#/components/schemas/Dinheiro'}
+        dataEnvio: {type: string, format: date-time}
+        dataResposta: {type: string, format: date-time}
+        validadeDias: {type: integer, default: 10, description: validade padrao de 10 dias (CDC art. 40)}
+
+    TransicaoStatus:
+      type: object
+      required: [de, para, dataHora]
+      properties:
+        de: {$ref: '#/components/schemas/StatusOS'}
+        para: {$ref: '#/components/schemas/StatusOS'}
+        dataHora: {type: string, format: date-time, description: timestamp que viabiliza o Tempo medio de execucao}
+
+    OrdemServicoResumo:
+      type: object
+      required: [id, status, clienteId, veiculoId]
+      properties:
+        id: {type: string, format: uuid}
+        status: {$ref: '#/components/schemas/StatusOS'}
+        clienteId: {type: string, format: uuid}
+        veiculoId: {type: string, format: uuid}
+        criadaEm: {type: string, format: date-time}
+
+    OrdemServico:
+      allOf:
+        - {$ref: '#/components/schemas/OrdemServicoResumo'}
+        - type: object
+          properties:
+            codigoAcompanhamento: {type: string}
+            relatoDoProblema: {type: string}
+            itensServico: {type: array, items: {$ref: '#/components/schemas/ItemServico'}}
+            itensPeca: {type: array, items: {$ref: '#/components/schemas/ItemPeca'}}
+            orcamentos: {type: array, description: versoes imutaveis apos envio (ADR-006), items: {$ref: '#/components/schemas/Orcamento'}}
+            transicoesStatus: {type: array, items: {$ref: '#/components/schemas/TransicaoStatus'}}
+
+    Acompanhamento:
+      type: object
+      description: visao do Cliente (modelo de leitura Consulta de acompanhamento)
+      required: [status]
+      properties:
+        status: {$ref: '#/components/schemas/StatusOS'}
+        veiculo: {type: string, example: VW Gol ABC1D23}
+        orcamentoVigente: {$ref: '#/components/schemas/Orcamento'}
+        transicoesStatus: {type: array, items: {$ref: '#/components/schemas/TransicaoStatus'}}
+
+    TempoMedioExecucao:
+      type: object
+      required: [tempoMedioHoras, quantidadeOSsConsideradas, recorte]
+      properties:
+        tempoMedioHoras: {type: number, format: double}
+        quantidadeOSsConsideradas: {type: integer}
+        recorte: {type: string, description: intervalo medido, de EM_EXECUCAO a FINALIZADA (ADR-008), example: EM_EXECUCAO_A_FINALIZADA}
+        servicoId: {type: string, format: uuid, description: presente quando recortada por Servico}

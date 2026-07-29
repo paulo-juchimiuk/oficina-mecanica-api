@@ -1,3 +1,6 @@
+# Build
+target/
+
 # Compiled class file
 *.class
 
@@ -22,3 +25,29 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.settings/
+.project
+.classpath
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Segredos e ambiente local: nunca versionar
+.env
+.env.*
+!.env.example
+application-local.yml
+application-local.properties
+
+# Saida das ferramentas de seguranca. Os relatorios sao anexados ao documento
+# de entrega em PDF, nao versionados.
+dependency-check-report.*
+zap-report.*
