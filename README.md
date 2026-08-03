@@ -4,30 +4,44 @@ API de gestão para oficina mecânica de médio porte: ordem de serviço, orçam
 
 Tech Challenge da Fase 1 da pós-graduação em Arquitetura de Software (FIAP).
 
-> **Estado atual: esqueleto.** A estrutura, o build, a infraestrutura e o contrato da API já estão definidos. A implementação das regras de negócio depende das decisões de modelagem ainda em aberto (ADRs 006 a 010). Esta nota sai quando o MVP estiver completo.
+> **Estado atual: em construção.** Estrutura, build, infraestrutura, contrato da API e **schema com dados de demonstração** estão prontos. As regras de negócio e os endpoints estão sendo implementados contexto por contexto. Esta nota sai quando o MVP estiver completo.
 
 ## O que o sistema faz
 
-- **Ordem de Serviço** com máquina de estados (Recebida, Em diagnóstico, Aguardando aprovação, Em execução, Finalizada, Entregue), com mudança automática de status conforme as ações no sistema.
+- **Ordem de Serviço** com máquina de estados (Recebida, Em diagnóstico, Aguardando aprovação, Em execução, Finalizada, Entregue, mais Cancelada, o sétimo status decidido no ADR-008), com mudança automática de status conforme as ações no sistema.
 - **Orçamento** gerado automaticamente a partir dos itens de serviço e de peça, enviado ao cliente, com aprovação ou reprovação via API pelo código de acompanhamento, sem exigir login do cliente.
-- **CRUDs** de clientes, veículos, serviços e peças, este último com controle de estoque (reserva, baixa, entrada e alerta de reposição por estoque mínimo).
+- **CRUDs** de clientes, veículos, serviços e peças, este último com controle de estoque (reserva, baixa, entrada e consulta de peças abaixo do estoque mínimo).
 - **Tempo médio de execução** dos serviços, calculado a partir dos timestamps das transições de status.
 - **Autenticação JWT** nas APIs administrativas e validação de dados sensíveis (documento e placa) como regra de domínio.
 
 ## Como subir o ambiente completo
 
-Pré-requisitos: Docker e Docker Compose.
+Pré-requisitos: Docker e Docker Compose, com as portas **5432**, **8080**, **1025** e **8025** livres. Se houver um PostgreSQL ou outra aplicação ocupando alguma delas na máquina, o `docker compose up` falha com `port is already allocated`: pare o serviço local, ou ajuste o mapeamento no `docker-compose.yml`.
 
 ```bash
 docker compose up --build
 ```
 
-O ambiente é projetado para subir **populado**: o Flyway cria o schema e aplica os dados de demonstração antes de a API atender, para que não seja preciso cadastrar nada para testar.
+O ambiente sobe **populado**: o Flyway cria o schema e, logo depois, o serviço `seed` carrega os dados de demonstração, então não é preciso cadastrar nada para testar.
 
-> **Ainda não vale para o esqueleto.** A migration de schema depende do modelo de domínio e será adicionada junto com as entidades. Até lá, `docker compose up` sobe o banco e a aplicação, mas sem schema nem dados. O arquivo de dados de demonstração já existe, inerte, em `src/main/resources/db/seed/`.
+**Confira que a carga terminou bem.** O `docker compose up` não propaga a falha de um contêiner de tarefa única, então ele pode devolver sucesso com o banco vazio:
 
-- API: `http://localhost:8080`
-- Banco: PostgreSQL 16 em `localhost:5432` (base, usuário e senha `oficina`, `oficina` e `oficina_local`, apenas para o ambiente local)
+```bash
+docker compose ps -a    # seed deve estar Exited (0); qualquer outro código é falha
+docker compose logs seed
+```
+
+O `seed` é um contêiner de tarefa única: espera o schema existir, carrega uma vez e termina, então vê-lo sair da lista de contêineres em execução é o esperado. Os dados de demonstração vivem em [`seed/`](seed/) e não em `db/migration`, pelo motivo registrado no ADR-015.
+
+O que já vem carregado: **uma Ordem de Serviço em cada um dos sete status**, com o histórico completo de transições (insumo do tempo médio de execução), clientes PF e PJ, veículos nos dois formatos de placa, catálogo de serviços e peças com saldo e estoque mínimo.
+
+- Usuário administrativo de demonstração: login `admin`, senha `admin123`, apenas para o ambiente local de avaliação.
+- As Ordens de Serviço em estado **vivo** (recebida, em diagnóstico, aguardando aprovação, em execução) têm datas **relativas ao momento da carga**, de propósito: elas mantêm a ordem aguardando aprovação dentro da janela em que o lembrete é devido, em vez de o ambiente envelhecer junto com o arquivo. O disparo automático do lembrete **não faz parte do MVP** (ADR-008); o que o ambiente entrega é o estado que o torna devido. As **encerradas** mantêm data absoluta no passado, porque são histórico. As duas concluídas alimentam o tempo médio de execução; a cancelada não, porque nunca entrou em execução.
+- A carga acontece na **primeira subida**. Como o banco usa volume nomeado, subir de novo não recarrega, e o serviço `seed` detecta que já há dados e não faz nada. Para recomeçar do zero, `docker compose down -v && docker compose up --build`.
+
+- API: `http://localhost:8080/api/v1`
+- Banco: PostgreSQL 18 em `localhost:5432` (base, usuário e senha `oficina`, `oficina` e `oficina_local`, apenas para o ambiente local)
+- Caixa de e-mail do ambiente: `http://localhost:8025`. É onde o orçamento chega quando o envio for implementado, sem provedor externo e sem credencial (ADR-007).
 
 ## Swagger
 
@@ -37,13 +51,25 @@ Com o ambiente de pé:
 - Especificação: http://localhost:8080/v3/api-docs
 - Contrato fonte versionado: [`openapi.yaml`](openapi.yaml)
 
+As duas primeiras servem a especificação **gerada a partir do código já implementado**, então enquanto a implementação avança elas mostram menos que o contrato. O `openapi.yaml` é a fonte de verdade do contrato completo.
+
+Enquanto o primeiro contexto de código não subir, a proteção padrão do Spring Security está ativa e ninguém passa: clientes de API recebem `401` e o navegador é redirecionado para um formulário de login vazio. A liberação da documentação entra junto da primeira fatia de implementação.
+
 ## Executar localmente sem Docker
 
-Requer **Java 21** e Maven. A versão exata do JDK está fixada em [`.sdkmanrc`](.sdkmanrc); com SDKMAN, basta `sdk env` na raiz do projeto.
+Requer **Java 25** e Maven. A versão exata do JDK está fixada em [`.sdkmanrc`](.sdkmanrc); com SDKMAN, basta `sdk env` na raiz do projeto.
 
 ```bash
-docker compose up banco -d    # sobe apenas o PostgreSQL
-mvn spring-boot:run
+docker compose up banco email -d    # sobe o PostgreSQL e a caixa de e-mail
+TZ=UTC mvn spring-boot:run          # cria o schema pelo Flyway
+```
+
+**O `TZ=UTC` não é enfeite.** As colunas de data e hora são `TIMESTAMP` sem fuso, e o driver JDBC impõe o fuso da JVM à sessão do banco, inclusive ao `NOW()` avaliado no servidor. Os dados de demonstração são carregados por um contêiner em UTC; a aplicação rodando fora do Docker herdaria o fuso da máquina, e as duas escritas ficariam em relógios diferentes. Em fuso a oeste de Brasília isso chega a gravar uma transição **antes** da transição inicial da própria Ordem de Serviço, o que corrompe o tempo médio de execução (ADR-008). Pelo `docker compose up`, todos os contêineres estão em UTC e o problema não existe.
+
+Este caminho sobe o banco **vazio**, porque o serviço `seed` não entra nele. Com a aplicação de pé e o schema criado, carregue os dados de demonstração com:
+
+```bash
+docker compose run --rm --no-deps seed
 ```
 
 ## Testes
@@ -58,21 +84,23 @@ Roda os testes unitários (Surefire, `*Test`) e os de integração (Failsafe, `*
 
 O relatório do JaCoCo fica em `target/site/jacoco/index.html` após o `mvn verify`.
 
-O build tem **gate de cobertura de 80% nos domínios críticos**, medido sobre os pacotes `dominio` de cada contexto delimitado, e não sobre o projeto inteiro. Abaixo disso, o `mvn verify` falha.
+O build tem **gate de cobertura de 80% nos domínios críticos**, medido sobre os pacotes `domain` de cada contexto delimitado, e não sobre o projeto inteiro. Abaixo disso, o `mvn verify` falha. Enquanto não existir teste, o gate não tem dados de execução e não reprova nada; ele passa a morder na primeira fatia que tenha código de domínio **e seus testes**.
 
 ## Análise de vulnerabilidades
 
-Varredura das dependências e do código:
+Varredura das dependências declaradas no projeto, casando cada uma com as CVEs conhecidas:
 
 ```bash
 mvn -Pseguranca verify
 ```
 
-O relatório sai em `dependency-check-report.html`. A varredura dinâmica da API em execução é feita com OWASP ZAP, e o resultado das duas compõe o relatório de vulnerabilidades da entrega.
+O relatório sai em `target/dependency-check-report.html`. **A primeira execução leva algo entre 30 e 60 minutos**, porque baixa a base de vulnerabilidades do NVD inteira (mais de 370 mil registros) para um cache local; as execuções seguintes são incrementais e rápidas. O download é limitado a 5 requisições por 30 segundos sem chave de API do NVD. **Salve o HTML fora de `target/` antes de qualquer `mvn clean`**, porque o diretório é descartável e não vai para o repositório.
+
+A varredura da **API em execução** com OWASP ZAP **ainda não está montada neste repositório**: ela entra quando os endpoints existirem, porque é varredura dinâmica e precisa da API respondendo. O relatório de vulnerabilidades da entrega compõe o resultado das duas ferramentas. Elas cobrem superfícies diferentes, a cadeia de dependências e o comportamento em runtime, e nenhuma das duas faz análise estática do código escrito aqui (ADR-004).
 
 ## Estrutura do projeto
 
-Monolito em camadas. Cada **contexto delimitado** do Context Map é um pacote de primeiro nível, e dentro de cada contexto ficam as **quatro camadas do DDD**:
+Monolito em camadas. Cada **contexto delimitado** do Context Map é um pacote de primeiro nível, e dentro de cada contexto ficam as **quatro camadas do DDD**. A árvore abaixo é o desenho de destino: hoje existe apenas o ponto de entrada da aplicação, e cada pacote nasce junto da fatia do seu contexto.
 
 ```
 br.com.oficinamecanica
@@ -112,16 +140,16 @@ A regra aplicada artefato por artefato:
 |---|---|---|
 | Pacotes de camada | inglês | `domain`, `application`, `infrastructure`, `api` |
 | Pacotes de contexto delimitado | português | `ordemservico`, `estoque`, `catalogo` |
-| Agregados, entidades e value objects | português | `OrdemServico`, `Orcamento`, `SaldoEstoque`, `CodigoAcompanhamento` |
-| Comportamentos do domínio | português | `aprovarOrcamento()`, `reservarPecas()`, `iniciarExecucao()` |
-| Casos de uso | português | `AbrirOrdemServico`, `CalcularTempoMedioExecucao` |
+| Agregados, entidades e value objects | português | `OrdemServico`, `Orcamento`, `SaldoEmEstoque`, `CodigoAcompanhamento` |
+| Comportamentos do domínio | português | `aprovarOrcamento()`, `reservarPecas()`, `concluirDiagnostico()` |
+| Casos de uso | português | `CriarOrdemServico`, `CalcularTempoMedioExecucao` |
 | Eventos de domínio | português, verbo no passado | `OrcamentoAprovado`, `PecasReservadas` |
 | Exceções de domínio | conceito em português, sufixo técnico em inglês | `EstoqueInsuficienteException` |
 | Padrões e mecanismos técnicos | inglês | `Controller`, `Repository`, `Mapper`, `Configuration` |
 | Métodos herdados de framework | inglês | `save()`, `findById()` |
 | DTOs e campos JSON | conceito em português, função técnica em inglês | `CriarOrdemServicoRequest`, `codigoAcompanhamento` |
 | Tabelas e colunas de domínio | português, `snake_case` | `ordem_servico`, `codigo_acompanhamento` |
-| Metadados de infraestrutura no banco | inglês | `created_at`, `updated_at`, `version` |
+| Metadados de infraestrutura no banco | inglês | `created_at` |
 | Nomes de teste de comportamento | português | `deveImpedirExecucaoSemOrcamentoAprovado()` |
 
 **Identificadores não usam acento** (`Orcamento`, e não `Orçamento`). O acento é preservado em texto, comentários, `@DisplayName` e dados. Java aceita Unicode em identificadores, mas ASCII reduz atrito de busca, teclado e ferramental.
@@ -130,17 +158,28 @@ A correspondência entre cada termo do negócio e seu identificador está no glo
 
 ## Decisões de arquitetura
 
-Todas documentadas com fundamento de negócio, fundamento técnico e o porquê.
+Todas documentadas com fundamento de negócio, fundamento técnico e o porquê. A tabela abaixo é o índice.
+
+**Os códigos `ADR-0xx` citados no código, no contrato e nos arquivos de infraestrutura referem-se a esta tabela.** O texto completo de cada decisão vive no documento de decisões arquiteturais, que é entregue junto da documentação do projeto e ainda não está publicado aqui; o link entra nesta página quando a documentação for publicada.
 
 | ADR | Decisão | Status |
 |---|---|---|
-| 001 | Java 21 e Spring Boot 3, build com Maven | decidido |
-| 002 | PostgreSQL 16 | decidido |
+| 001 | Java 25 LTS e Spring Boot 4, build com Maven | decidido |
+| 002 | PostgreSQL 18 | decidido |
 | 003 | Monolito em camadas, contextos delimitados como pacotes | decidido |
-| 004 | OWASP ZAP na API em execução, mais OWASP Dependency-Check sobre o código | decidido |
-| 005 | JUnit 5, Mockito, Testcontainers e JaCoCo com gate de 80% | proposto |
-| 006 a 010 | Modelagem: agregados, orçamento versionado, máquina de estados, autenticação, chassi | em aberto |
+| 004 | OWASP ZAP na API em execução, mais OWASP Dependency-Check nas dependências | decidido |
+| 005 | JUnit 5, Mockito, Testcontainers e JaCoCo com gate de 80% | decidido |
+| 006 | Fronteiras dos agregados de Cadastro e o Orçamento versionado | decidido |
+| 007 | Interação do cliente com o sistema, por Código de acompanhamento | decidido |
+| 008 | Máquina de estados da OS e a métrica de tempo | decidido |
+| 009 | Autenticação como subdomínio Genérico | decidido |
+| 010 | Chassi fora do MVP | decidido |
+| 011 | Identidade da entrega, nome do projeto | decidido |
 | 012 | Convenção de idioma: domínio em português, engenharia em inglês, por regra semântica | decidido |
+| 013 | Fluxo de estoque: falta vira pendência, baixa na retirada, devolução manual | decidido |
+| 014 | Remoção lógica nos cadastros, para o histórico de OS não virar registro órfão | decidido |
+| 015 | Dados de demonstração fora do fluxo de migrations, carregados por serviço próprio | decidido |
+| 016 | Política de versão: sempre numa versão que ainda recebe correção | decidido |
 
 ## Documentação DDD
 

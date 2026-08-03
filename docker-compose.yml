@@ -1,20 +1,34 @@
+# O TZ: UTC de banco, app e seed e invariante da entrega, nao preferencia: as
+# colunas de data e hora nao carregam fuso, e carga e aplicacao precisam escrever
+# no mesmo relogio para o tempo medio de execucao fechar (ADR-008).
 services:
   banco:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     container_name: oficina-banco
     environment:
       POSTGRES_DB: oficina
       POSTGRES_USER: oficina
       POSTGRES_PASSWORD: oficina_local
+      TZ: UTC
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
-      - dados_banco:/var/lib/postgresql/data
+      # A imagem 18+ guarda os dados em subdiretorio por versao maior, entao o
+      # volume monta um nivel acima do que a 16 usava.
+      - dados_banco:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U oficina -d oficina"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U oficina -d oficina"]
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # Caixa de e-mail do ambiente (ADR-007).
+  email:
+    image: axllent/mailpit:v1.21
+    container_name: oficina-email
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
 
   app:
     build:
@@ -28,9 +42,49 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://banco:5432/oficina
       SPRING_DATASOURCE_USERNAME: oficina
       SPRING_DATASOURCE_PASSWORD: oficina_local
-      JWT_SEGREDO: trocar-este-segredo-local
+      JWT_SEGREDO: trocar-este-segredo-local-de-32-bytes-ou-mais
+      TZ: UTC
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
+
+  # Carga dos dados de demonstracao (ADR-015). Existe SO neste compose, entao
+  # nenhum outro ambiente a executa por engano. Espera o schema, carrega e sai.
+  seed:
+    image: postgres:18-alpine
+    container_name: oficina-seed
+    depends_on:
+      banco:
+        condition: service_healthy
+      app:
+        condition: service_started
+    environment:
+      PGPASSWORD: oficina_local
+      TZ: UTC
+    volumes:
+      - ./seed/dados-demonstracao.sql:/dados-demonstracao.sql:ro
+    command:
+      - sh
+      - -c
+      - |
+        tentativas=0
+        until [ "$$(psql -h banco -U oficina -d oficina -tAc "select to_regclass('public.ordem_servico') is not null")" = "t" ]; do
+          tentativas=$$((tentativas + 1))
+          if [ $$tentativas -ge 120 ]; then
+            echo "seed: o schema nao apareceu em 120s; o Flyway do app nao rodou" >&2
+            exit 1
+          fi
+          sleep 1
+        done
+        existentes=$$(psql -h banco -U oficina -d oficina -tAc 'select count(*) from ordem_servico') || {
+          echo "seed: nao foi possivel consultar o banco para decidir se ja esta populado" >&2
+          exit 1
+        }
+        if [ "$$existentes" != "0" ]; then
+          echo "seed: o banco ja esta populado, nada a fazer"
+          exit 0
+        fi
+        psql -h banco -U oficina -d oficina --single-transaction -v ON_ERROR_STOP=1 -q -f /dados-demonstracao.sql \
+          && echo "seed: dados de demonstracao carregados"
 
 volumes:
   dados_banco:
