@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.3.4</version>
+        <version>4.1.0</version>
         <relativePath/>
     </parent>
 
@@ -18,10 +18,10 @@
     <description>API de gestao para oficina mecanica: ordem de servico, orcamento com aprovacao do cliente, controle de estoque e acompanhamento do atendimento</description>
 
     <properties>
-        <java.version>21</java.version>
-        <springdoc.version>2.6.0</springdoc.version>
-        <testcontainers.version>1.20.1</testcontainers.version>
-        <jacoco.version>0.8.12</jacoco.version>
+        <java.version>25</java.version>
+        <springdoc.version>3.1.0</springdoc.version>
+        <testcontainers.version>2.0.5</testcontainers.version>
+        <jacoco.version>0.8.15</jacoco.version>
         <dependency-check.version>10.0.4</dependency-check.version>
         <cobertura.minima.dominio>0.80</cobertura.minima.dominio>
     </properties>
@@ -57,8 +57,8 @@
         </dependency>
 
         <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
@@ -83,12 +83,12 @@
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>postgresql</artifactId>
+            <artifactId>testcontainers-postgresql</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -157,9 +157,10 @@
                         <configuration>
                             <rules>
                                 <rule>
-                                    <element>BUNDLE</element>
+                                    <element>PACKAGE</element>
                                     <includes>
-                                        <include>br/com/oficinamecanica/*/domain/**</include>
+                                        <include>br.com.oficinamecanica.*.domain</include>
+                                        <include>br.com.oficinamecanica.*.domain.*</include>
                                     </includes>
                                     <limits>
                                         <limit>
@@ -191,6 +192,8 @@
                                 <format>HTML</format>
                                 <format>JSON</format>
                             </formats>
+                            <!-- O OSS Index exige credencial e derruba o build com 401; o NVD ja cobre a analise. -->
+                            <ossindexAnalyzerEnabled>false</ossindexAnalyzerEnabled>
                         </configuration>
                         <executions>
                             <execution>

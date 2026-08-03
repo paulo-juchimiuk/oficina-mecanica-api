@@ -19,12 +19,6 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          secret-key: ${JWT_SEGREDO:trocar-este-segredo-local}
-
 server:
   port: 8080
 
@@ -33,6 +27,14 @@ springdoc:
     path: /swagger-ui.html
   api-docs:
     path: /v3/api-docs
+
+# Namespace proprio: chave simetrica nao e propriedade do resource server do
+# Spring, que so aceita issuer-uri, jwk-set-uri e public-key-location. Posta ali,
+# seria ignorada em silencio. O default tem 32 bytes ou mais porque o HS256 exige
+# no minimo 256 bits (RFC 7518).
+oficina:
+  jwt:
+    segredo: ${JWT_SEGREDO:trocar-este-segredo-local-de-32-bytes-ou-mais}
 
 logging:
   level:
