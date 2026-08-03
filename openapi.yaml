@@ -1,28 +1,40 @@
 # Contrato da API do oficina-mecanica-api
-# Nomes seguem a Linguagem Ubiqua (linguagem-ubiqua.md), identificadores sem acento.
+# Nomes seguem a Linguagem Ubiqua do dominio, com identificadores sem acento.
 # Endpoints administrativos exigem JWT (security global do documento).
 # Endpoints da tag Acompanhamento sao publicos, protegidos pelo Codigo de
-# acompanhamento opaco da OS (ADR-007, [DECISÃO PENDENTE DO ALUNO]).
-# Todos os endpoints administrativos respondem 401 (NaoAutorizado) sem JWT valido;
-# para nao repetir, o 401 so aparece nos exemplos de referencia (Auth e Clientes).
-# Escopo deliberado: sem paginacao e sem filtros avancados (teto do trabalho);
+# acompanhamento opaco da OS (ADR-007).
+# A convencao do 401 esta em info.description, e nao aqui, porque comentario YAML
+# nao aparece no Swagger renderizado, que e onde o contrato e lido.
+# Escopo deliberado: sem paginacao e sem filtros avancados;
 # erros comuns definidos uma vez em components.responses e referenciados.
-# Estilo YAML compacto (flow) por teto de volume do trabalho: 500 a 700 linhas.
+# Estilo YAML compacto (flow), por opcao de concisao.
+# Nomes de schema seguem a convencao de idioma do ADR-012, cuja politica completa
+# esta no README e no glossario de Linguagem Ubiqua.
+# Tetos numericos: o teto monetario espelha a coluna NUMERIC(12,2) que persiste o
+# valor. Os tetos de quantidade sao de sanidade operacional, uniformes nos campos
+# de ENTRADA, e deliberadamente menores que o limite da coluna INTEGER: nos campos
+# que somam ao saldo existente, eliminam o estouro numa unica requisicao. Schema de
+# resposta so carrega teto quando herda o schema de entrada por allOf. O teto por
+# campo NAO limita o total do Orcamento, que e soma de produtos na mesma precisao:
+# esse limite e do dominio, que recusa antes de persistir.
 openapi: 3.0.3
 info:
   title: API da Oficina Mecanica
-  description: Back-end monolitico do MVP da oficina. Status da OS - Recebida, Em diagnostico, Aguardando aprovacao, Em execucao, Finalizada, Entregue; Cancelada e proposta de 7o status (ADR-008).
+  description: |
+    Back-end monolitico do MVP da oficina. Status da OS - Recebida, Em diagnostico, Aguardando aprovacao, Em execucao, Finalizada, Entregue; Cancelada e 7o status decidido no ADR-008.
+
+    Autorizacao: todo endpoint fora da tag Acompanhamento e do login exige JWT e responde 401 sem token valido. Para nao repetir a mesma resposta em 36 operacoes, o 401 e declarado nas operacoes de referencia (os quatro verbos de Clientes, as listagens e a metrica de tempo medio); a ausencia da declaracao nas demais nao significa acesso liberado. O 401 do login e outro: ele e publico, nao envolve JWT nenhum, e responde credencial invalida.
   version: 1.0.0
 servers:
   - {url: 'http://localhost:8080/api/v1', description: ambiente local via docker-compose}
 tags:
   - {name: Autenticacao, description: emissao de token JWT para as APIs administrativas}
   - {name: OrdensServico, description: fluxo da Ordem de Servico (administrativo)}
-  - {name: Acompanhamento, description: consulta e aprovacao pelo Cliente via Codigo de acompanhamento, sem JWT}
+  - {name: Acompanhamento, description: 'consulta e aprovacao pelo Cliente via Codigo de acompanhamento, sem JWT'}
   - {name: Clientes, description: CRUD de clientes (referencia completa dos quatro verbos)}
   - {name: Veiculos, description: CRUD de veiculos}
   - {name: Servicos, description: CRUD de servicos do catalogo}
-  - {name: Pecas, description: CRUD de pecas e insumos, com controle de estoque}
+  - {name: Pecas, description: 'CRUD de pecas e insumos, com controle de estoque'}
 security:
   - jwtAdministrativo: []
 
@@ -36,26 +48,28 @@ paths:
       responses:
         '200': {description: Token emitido, content: {application/json: {schema: {$ref: '#/components/schemas/TokenJwt'}}}}
         '400': {$ref: '#/components/responses/RequisicaoInvalida'}
-        '401': {$ref: '#/components/responses/NaoAutorizado'}
+        '401': {$ref: '#/components/responses/CredenciaisInvalidas'}
 
   /ordens-servico:
     post:
       tags: [OrdensServico]
       summary: Criar Ordem de Servico
       description: Executado pelo Atendente. Identificacao do Cliente pelo Documento (CPF/CNPJ). A OS nasce RECEBIDA, gera o Codigo de acompanhamento e registra a primeira Transicao de status.
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/OrdemServicoCriacao'}}}}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CriarOrdemServicoRequest'}}}}
       responses:
         '201': {description: OS criada, content: {application/json: {schema: {$ref: '#/components/schemas/OrdemServico'}}}}
         '400': {$ref: '#/components/responses/RequisicaoInvalida'}
         '404': {$ref: '#/components/responses/NaoEncontrado'}
+        '409': {$ref: '#/components/responses/ConflitoDeEstado'}
     get:
       tags: [OrdensServico]
       summary: Listar Ordens de Servico
       description: Fila de OSs por status (filtro opcional).
       parameters:
-        - {name: status, in: query, required: false, schema: {$ref: '#/components/schemas/StatusOS'}}
+        - {name: status, in: query, required: false, schema: {$ref: '#/components/schemas/StatusOrdemServico'}}
       responses:
-        '200': {description: Lista de OSs, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/OrdemServicoResumo'}}}}}
+        '200': {description: Lista de OSs, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/OrdemServicoSummary'}}}}}
+        '401': {$ref: '#/components/responses/NaoAutorizado'}
 
   /ordens-servico/{id}:
     get:
@@ -71,7 +85,7 @@ paths:
     post:
       tags: [OrdensServico]
       summary: Iniciar diagnostico
-      description: Executado pelo Mecanico. Transicao automatica do agregado para EM_DIAGNOSTICO.
+      description: 'Executado pelo Mecanico. Exige RECEBIDA. Transicao automatica do agregado para EM_DIAGNOSTICO.'
       parameters: [{$ref: '#/components/parameters/IdRecurso'}]
       responses:
         '200': {description: Diagnostico iniciado, content: {application/json: {schema: {$ref: '#/components/schemas/OrdemServico'}}}}
@@ -82,9 +96,9 @@ paths:
     post:
       tags: [OrdensServico]
       summary: Incluir itens na OS
-      description: Itens de servico e Itens de peca, com preco copiado como snapshot na inclusao. Exige EM_DIAGNOSTICO (ou retorno por Reparo adicional).
+      description: 'Itens de servico e Itens de peca, com preco copiado como snapshot na inclusao. Exige EM_DIAGNOSTICO.'
       parameters: [{$ref: '#/components/parameters/IdRecurso'}]
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ItensEntrada'}}}}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/IncluirItensRequest'}}}}
       responses:
         '200': {description: Itens incluidos, content: {application/json: {schema: {$ref: '#/components/schemas/OrdemServico'}}}}
         '400': {$ref: '#/components/responses/RequisicaoInvalida'}
@@ -95,7 +109,7 @@ paths:
     post:
       tags: [OrdensServico]
       summary: Concluir diagnostico
-      description: Dispara o servico de dominio Orcamento automatico - gera a Versao do orcamento, envia ao Cliente por e-mail e leva a OS a AGUARDANDO_APROVACAO.
+      description: 'Executado pelo Mecanico. Exige EM_DIAGNOSTICO. Dispara o servico de dominio Orcamento automatico - CONSOLIDA a Versao do orcamento, que ja existe como rascunho desde a inclusao do primeiro item (ADR-006), envia ao Cliente por e-mail e leva a OS a AGUARDANDO_APROVACAO.'
       parameters: [{$ref: '#/components/parameters/IdRecurso'}]
       responses:
         '200': {description: Orcamento gerado e enviado, content: {application/json: {schema: {$ref: '#/components/schemas/OrdemServico'}}}}
@@ -106,7 +120,7 @@ paths:
     post:
       tags: [OrdensServico]
       summary: Registrar reparo adicional
-      description: Gera nova Versao do orcamento (a anterior permanece imutavel) e devolve a OS a AGUARDANDO_APROVACAO (CDC art. 40).
+      description: 'Executado pelo Mecanico. **Exige EM_EXECUCAO**, porque reparo adicional e necessidade descoberta durante a execucao: chamado em AGUARDANDO_APROVACAO criaria uma segunda versao PENDENTE ao lado da primeira, e o MVP nao tem renegociacao (ADR-008). Gera nova Versao do orcamento (a anterior permanece imutavel) e devolve a OS a AGUARDANDO_APROVACAO (CDC art. 40).'
       parameters: [{$ref: '#/components/parameters/IdRecurso'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReparoAdicional'}}}}
       responses:
@@ -119,7 +133,7 @@ paths:
     post:
       tags: [OrdensServico]
       summary: Concluir execucao
-      description: Transicao automatica para FINALIZADA, com Baixa de estoque das pecas reservadas.
+      description: 'Executado pelo Mecanico. Exige EM_EXECUCAO. Transicao automatica para FINALIZADA. A Baixa de estoque NAO acontece aqui: ela ocorre na retirada das pecas pelo Mecanico (ADR-013), para o saldo nao mentir durante a execucao.'
       parameters: [{$ref: '#/components/parameters/IdRecurso'}]
       responses:
         '200': {description: Execucao finalizada, content: {application/json: {schema: {$ref: '#/components/schemas/OrdemServico'}}}}
@@ -130,7 +144,7 @@ paths:
     post:
       tags: [OrdensServico]
       summary: Registrar entrega do veiculo
-      description: Transicao automatica para ENTREGUE; fecha o ciclo da OS.
+      description: 'Executado pelo Atendente. Exige FINALIZADA. Transicao automatica para ENTREGUE; fecha o ciclo da OS.'
       parameters: [{$ref: '#/components/parameters/IdRecurso'}]
       responses:
         '200': {description: Veiculo entregue, content: {application/json: {schema: {$ref: '#/components/schemas/OrdemServico'}}}}
@@ -141,11 +155,12 @@ paths:
     get:
       tags: [OrdensServico]
       summary: Tempo medio de execucao
-      description: Media do intervalo entre as Transicoes de status EM_EXECUCAO e FINALIZADA, dos timestamps gravados; recorte opcional por Servico (ADR-008).
+      description: 'Media POR ORDEM DE SERVICO da SOMA DOS SEGMENTOS em EM_EXECUCAO ate FINALIZADA, calculada dos timestamps das Transicoes de status. Quando um Reparo adicional devolve a OS a AGUARDANDO_APROVACAO e depois a EM_EXECUCAO, os segmentos sao somados e a espera do Cliente fica de fora. O filtro por Servico devolve a media das OSs que INCLUEM o servico, nao o tempo do servico isolado (ADR-008).'
       parameters:
         - {name: servicoId, in: query, required: false, description: restringe a media as OSs que contem o Servico, schema: {type: string, format: uuid}}
       responses:
         '200': {description: Metrica calculada, content: {application/json: {schema: {$ref: '#/components/schemas/TempoMedioExecucao'}}}}
+        '401': {$ref: '#/components/responses/NaoAutorizado'}
 
   /acompanhamento/{codigoAcompanhamento}:
     get:
@@ -155,14 +170,14 @@ paths:
       security: []
       parameters: [{$ref: '#/components/parameters/CodigoAcompanhamento'}]
       responses:
-        '200': {description: Status, historico e Orcamento vigente, content: {application/json: {schema: {$ref: '#/components/schemas/Acompanhamento'}}}}
+        '200': {description: 'Status, historico e Orcamento mais recente', content: {application/json: {schema: {$ref: '#/components/schemas/Acompanhamento'}}}}
         '404': {$ref: '#/components/responses/NaoEncontrado'}
 
   /acompanhamento/{codigoAcompanhamento}/orcamento/aprovacao:
     post:
       tags: [Acompanhamento]
       summary: Aprovar orcamento (Cliente, sem JWT)
-      description: Aprovacao do orcamento vigente. Leva a OS a EM_EXECUCAO (transicao automatica do agregado) e ativa a Reserva de pecas.
+      description: 'Exige AGUARDANDO_APROVACAO: o poder de aprovar expira pela maquina de estados (ADR-007). Aprovacao do orcamento mais recente. Leva a OS a EM_EXECUCAO (transicao automatica do agregado) e ativa a Reserva de pecas.'
       security: []
       parameters: [{$ref: '#/components/parameters/CodigoAcompanhamento'}]
       responses:
@@ -174,7 +189,7 @@ paths:
     post:
       tags: [Acompanhamento]
       summary: Reprovar orcamento (Cliente, sem JWT)
-      description: Reprovacao do orcamento vigente. Desfecho proposto - CANCELADA (ADR-008, [DECISÃO PENDENTE DO ALUNO]).
+      description: 'Exige AGUARDANDO_APROVACAO: o poder de reprovar expira pela maquina de estados (ADR-007). Reprovacao do orcamento mais recente. O desfecho depende de haver versao aprovada anterior nesta OS - se NAO houver, a OS vai a CANCELADA; se houver, a OS volta a EM_EXECUCAO e somente o escopo ja aprovado e concluido (ADR-008).'
       security: []
       parameters: [{$ref: '#/components/parameters/CodigoAcompanhamento'}]
       responses:
@@ -187,8 +202,8 @@ paths:
     post:
       tags: [Clientes]
       summary: Cadastrar cliente
-      description: Documento (CPF/CNPJ) com digito verificador validado no dominio; unico no cadastro.
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ClienteEntrada'}}}}
+      description: 'Documento (CPF/CNPJ) com digito verificador validado no dominio; unico no cadastro. Recusado com 409 tambem quando o Documento pertence a um cliente removido logicamente: nao ha recadastro nem reativacao no MVP (ADR-014).'
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ClienteRequest'}}}}
       responses:
         '201': {description: Cliente cadastrado, content: {application/json: {schema: {$ref: '#/components/schemas/Cliente'}}}}
         '400': {$ref: '#/components/responses/RequisicaoInvalida'}
@@ -197,7 +212,7 @@ paths:
     get:
       tags: [Clientes]
       summary: Listar clientes
-      description: Filtro opcional por Documento (identificacao no balcao).
+      description: 'Filtro opcional por Documento (identificacao no balcao). Lista apenas clientes ativos: os removidos logicamente nao aparecem (ADR-014).'
       parameters:
         - {name: documento, in: query, required: false, schema: {type: string, pattern: '^[0-9]{11}$|^[0-9]{14}$'}}
       responses:
@@ -217,16 +232,17 @@ paths:
       tags: [Clientes]
       summary: Alterar cliente
       parameters: [{$ref: '#/components/parameters/IdRecurso'}]
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ClienteEntrada'}}}}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ClienteRequest'}}}}
       responses:
         '200': {description: Cliente alterado, content: {application/json: {schema: {$ref: '#/components/schemas/Cliente'}}}}
         '400': {$ref: '#/components/responses/RequisicaoInvalida'}
         '401': {$ref: '#/components/responses/NaoAutorizado'}
         '404': {$ref: '#/components/responses/NaoEncontrado'}
+        '409': {$ref: '#/components/responses/ConflitoDeEstado'}
     delete:
       tags: [Clientes]
       summary: Remover cliente
-      description: Recusado (409) se houver OS ativa referenciando o cliente.
+      description: 'Recusado (409) se houver OS em RECEBIDA, EM_DIAGNOSTICO, AGUARDANDO_APROVACAO ou EM_EXECUCAO referenciando o cliente. A remocao e LOGICA: o registro passa a inativo, some das listagens e do detalhe, e permanece no banco porque o historico de Ordens de Servico o referencia por identidade. Nao ha reativacao no MVP, e o Documento continua reservado (ADR-014).'
       parameters: [{$ref: '#/components/parameters/IdRecurso'}]
       responses:
         '204': {description: Cliente removido}
@@ -239,19 +255,22 @@ paths:
     post:
       tags: [Veiculos]
       summary: Cadastrar veiculo
-      description: Placa validada (formatos antigo e Mercosul); vinculo por ID com Cliente existente.
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/VeiculoEntrada'}}}}
+      description: 'Placa validada (formatos antigo e Mercosul); vinculo por ID com Cliente existente. Recusado com 409 tambem quando a Placa pertence a um veiculo removido logicamente: nao ha recadastro nem reativacao no MVP (ADR-014).'
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/VeiculoRequest'}}}}
       responses:
         '201': {description: Veiculo cadastrado, content: {application/json: {schema: {$ref: '#/components/schemas/Veiculo'}}}}
         '400': {$ref: '#/components/responses/RequisicaoInvalida'}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
         '409': {$ref: '#/components/responses/ConflitoDeEstado'}
     get:
       tags: [Veiculos]
       summary: Listar veiculos
+      description: 'Lista apenas veiculos ativos: os removidos logicamente nao aparecem (ADR-014).'
       parameters:
-        - {name: placa, in: query, required: false, schema: {type: string, pattern: '^[A-Z]{3}[0-9]{4}$|^[A-Z]{3}[0-9][A-Z][0-9]{2}$'}}
+        - {name: placa, in: query, required: false, schema: {type: string, pattern: '^[A-Za-z]{3}[0-9]{4}$|^[A-Za-z]{3}[0-9][A-Za-z][0-9]{2}$'}}
       responses:
         '200': {description: Lista de veiculos, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Veiculo'}}}}}
+        '401': {$ref: '#/components/responses/NaoAutorizado'}
 
   /veiculos/{id}:
     get:
@@ -265,15 +284,16 @@ paths:
       tags: [Veiculos]
       summary: Alterar veiculo
       parameters: [{$ref: '#/components/parameters/IdRecurso'}]
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/VeiculoEntrada'}}}}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/VeiculoRequest'}}}}
       responses:
         '200': {description: Veiculo alterado, content: {application/json: {schema: {$ref: '#/components/schemas/Veiculo'}}}}
         '400': {$ref: '#/components/responses/RequisicaoInvalida'}
         '404': {$ref: '#/components/responses/NaoEncontrado'}
+        '409': {$ref: '#/components/responses/ConflitoDeEstado'}
     delete:
       tags: [Veiculos]
       summary: Remover veiculo
-      description: Recusado (409) se houver OS ativa referenciando o veiculo.
+      description: 'Recusado (409) se houver OS em RECEBIDA, EM_DIAGNOSTICO, AGUARDANDO_APROVACAO ou EM_EXECUCAO referenciando o veiculo. A remocao e LOGICA: o registro passa a inativo, some das listagens e do detalhe, e permanece no banco porque o historico de Ordens de Servico o referencia por identidade. Nao ha reativacao no MVP, e a Placa continua reservada (ADR-014).'
       parameters: [{$ref: '#/components/parameters/IdRecurso'}]
       responses:
         '204': {description: Veiculo removido}
@@ -285,15 +305,17 @@ paths:
       tags: [Servicos]
       summary: Cadastrar servico
       description: Item do catalogo, com Valor de mao de obra.
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ServicoEntrada'}}}}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ServicoRequest'}}}}
       responses:
         '201': {description: Servico cadastrado, content: {application/json: {schema: {$ref: '#/components/schemas/Servico'}}}}
         '400': {$ref: '#/components/responses/RequisicaoInvalida'}
     get:
       tags: [Servicos]
       summary: Listar servicos
+      description: 'Lista apenas servicos ativos: os removidos logicamente nao aparecem (ADR-014).'
       responses:
         '200': {description: Catalogo de servicos, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Servico'}}}}}
+        '401': {$ref: '#/components/responses/NaoAutorizado'}
 
   /servicos/{id}:
     get:
@@ -308,7 +330,7 @@ paths:
       summary: Alterar servico
       description: Nao altera snapshots ja copiados para Itens de servico de OSs existentes.
       parameters: [{$ref: '#/components/parameters/IdRecurso'}]
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ServicoEntrada'}}}}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ServicoRequest'}}}}
       responses:
         '200': {description: Servico alterado, content: {application/json: {schema: {$ref: '#/components/schemas/Servico'}}}}
         '400': {$ref: '#/components/responses/RequisicaoInvalida'}
@@ -316,6 +338,7 @@ paths:
     delete:
       tags: [Servicos]
       summary: Remover servico
+      description: 'Recusado (409) se houver OS em RECEBIDA, EM_DIAGNOSTICO, AGUARDANDO_APROVACAO ou EM_EXECUCAO referenciando o servico. A remocao e LOGICA: o registro passa a inativo, some das listagens e do detalhe, e permanece no banco porque o historico de Ordens de Servico o referencia por identidade (ADR-014).'
       parameters: [{$ref: '#/components/parameters/IdRecurso'}]
       responses:
         '204': {description: Servico removido}
@@ -326,19 +349,20 @@ paths:
     post:
       tags: [Pecas]
       summary: Cadastrar peca
-      description: Peca ou Insumo (unidade de medida), com preco, saldo inicial e Estoque minimo.
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PecaEntrada'}}}}
+      description: 'Peca ou Insumo (unidade de medida), com preco e Estoque minimo. Nasce com Saldo em estoque zero: o saldo entra pelo caminho modelado, que e a Entrada de estoque.'
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PecaRequest'}}}}
       responses:
         '201': {description: Peca cadastrada, content: {application/json: {schema: {$ref: '#/components/schemas/Peca'}}}}
         '400': {$ref: '#/components/responses/RequisicaoInvalida'}
     get:
       tags: [Pecas]
       summary: Listar pecas
-      description: O filtro abaixoDoMinimo entrega a visao Pecas abaixo do Estoque minimo (alerta de reposicao).
+      description: 'O filtro abaixoDoMinimo entrega a visao Pecas abaixo do Estoque minimo, que o Estoquista consulta. Nao e o Alerta de reposicao, que e aviso automatico e ficou fora do MVP (ADR-013). Lista apenas pecas ativas: as removidas logicamente nao aparecem (ADR-014).'
       parameters:
         - {name: abaixoDoMinimo, in: query, required: false, schema: {type: boolean}}
       responses:
         '200': {description: Lista de pecas com saldo, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Peca'}}}}}
+        '401': {$ref: '#/components/responses/NaoAutorizado'}
 
   /pecas/{id}:
     get:
@@ -351,9 +375,9 @@ paths:
     put:
       tags: [Pecas]
       summary: Alterar peca
-      description: Preco e Estoque minimo; o saldo so muda por Entrada de estoque, Reserva e Baixa.
+      description: 'Preco e Estoque minimo. O saldo so muda por Entrada de estoque, Baixa de estoque e Devolucao; a Reserva de pecas move a quantidade reservada, nao o saldo.'
       parameters: [{$ref: '#/components/parameters/IdRecurso'}]
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PecaEntrada'}}}}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PecaRequest'}}}}
       responses:
         '200': {description: Peca alterada, content: {application/json: {schema: {$ref: '#/components/schemas/Peca'}}}}
         '400': {$ref: '#/components/responses/RequisicaoInvalida'}
@@ -361,6 +385,7 @@ paths:
     delete:
       tags: [Pecas]
       summary: Remover peca
+      description: 'Recusado (409) se houver OS em RECEBIDA, EM_DIAGNOSTICO, AGUARDANDO_APROVACAO ou EM_EXECUCAO ou Reserva de peca ATIVA referenciando a peca. A remocao e LOGICA: o registro passa a inativo, some das listagens e do detalhe, e permanece no banco porque o historico de Ordens de Servico o referencia por identidade (ADR-014).'
       parameters: [{$ref: '#/components/parameters/IdRecurso'}]
       responses:
         '204': {description: Peca removida}
@@ -371,13 +396,74 @@ paths:
     post:
       tags: [Pecas]
       summary: Registrar entrada de estoque
-      description: Executado pelo Estoquista. Recebimento de compra; aumenta o Saldo em estoque (diagramas/event-storming-estoque.md, fase Entrada).
+      description: Executado pelo Estoquista. Recebimento de compra; aumenta o Saldo em estoque.
       parameters: [{$ref: '#/components/parameters/IdRecurso'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/EntradaEstoque'}}}}
       responses:
-        '201': {description: Entrada registrada, saldo atualizado, content: {application/json: {schema: {$ref: '#/components/schemas/Peca'}}}}
+        '200': {description: 'entrada registrada; devolve a Peca com o saldo atualizado. Responde 200 e nao 201 porque nenhum recurso novo nasce: o ADR-013 recusou a tabela de movimentacao, e a Entrada e registrada pelo seu efeito no saldo', content: {application/json: {schema: {$ref: '#/components/schemas/Peca'}}}}
         '400': {$ref: '#/components/responses/RequisicaoInvalida'}
         '404': {$ref: '#/components/responses/NaoEncontrado'}
+        '409': {$ref: '#/components/responses/ConflitoDeEstado'}
+
+  /ordens-servico/{id}/pecas-reservadas:
+    get:
+      tags: [Pecas]
+      summary: Consultar pecas reservadas da OS
+      description: 'Modelo de leitura Pecas reservadas por OS, que o Mecanico consulta antes de retirar. E por aqui que ele obtem o id de cada Reserva de pecas, que a retirada e a devolucao exigem na requisicao (ADR-013).'
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      responses:
+        '200': {description: 'reservas da OS', content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/ReservaPeca'}}}}}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+
+  /ordens-servico/{id}/pecas/retirada:
+    post:
+      tags: [Pecas]
+      summary: Retirar pecas reservadas
+      description: 'Executado pelo Mecanico, com a OS em EM_EXECUCAO. Consome a reserva INTEIRA e registra a Baixa de estoque, que acontece AQUI e nao na conclusao da execucao (ADR-013), para o Saldo em estoque nao mentir durante a execucao. Retirada parcial nao existe: a reserva alvo e identificada pelo seu id e passa a CONSUMIDA por completo (ADR-013). Reserva que nao esteja ATIVA e recusada com 409.'
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReservasRequest'}}}}
+      responses:
+        '200': {description: 'baixa registrada; reservas passam a CONSUMIDA', content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/ReservaPeca'}}}}}
+        '400': {$ref: '#/components/responses/RequisicaoInvalida'}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+        '409': {$ref: '#/components/responses/ConflitoDeEstado'}
+
+  /ordens-servico/{id}/pecas/devolucao:
+    post:
+      tags: [Pecas]
+      summary: Devolver peca nao utilizada
+      description: 'Executado pelo Mecanico ou Estoquista, com a OS em EM_EXECUCAO, FINALIZADA ou ENTREGUE. Os tres estados entram porque a reserva precisa ser alcancavel ate o fim da vida da OS: em qualquer status que nao aceite a devolucao, uma reserva ATIVA fica orfa e trava o saldo para sempre (ADR-013). Unico estorno do MVP, manual e por decisao registrada (ADR-013), espelhando a conferencia fisica antes de devolver ao saldo. **Reserva que ja esteja DEVOLVIDA e recusada com 409**, senao devolver duas vezes a mesma reserva somaria saldo duas vezes e criaria peca do nada. O efeito depende da situacao da reserva IDENTIFICADA na requisicao: reserva CONSUMIDA ja tirou a peca do saldo na Baixa, entao a devolucao REPOE o Saldo em estoque; reserva ATIVA nunca saiu do saldo, so da quantidade reservada, entao a devolucao LIBERA a reserva sem mexer no saldo. Aumentar o saldo nos dois casos criaria peca do nada e quebraria a invariante de que o saldo precisa ser verdadeiro. E por depender da situacao que o alvo e a reserva e nao a peca: a mesma Peca pode ter duas reservas na mesma OS em situacoes diferentes. Devolucao parcial nao existe: a reserva passa a DEVOLVIDA por completo (ADR-013).'
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReservasRequest'}}}}
+      responses:
+        '200': {description: 'devolucao registrada; reservas passam a DEVOLVIDA', content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/ReservaPeca'}}}}}
+        '400': {$ref: '#/components/responses/RequisicaoInvalida'}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+        '409': {$ref: '#/components/responses/ConflitoDeEstado'}
+
+  /ordens-servico/{id}/pecas/faltas:
+    post:
+      tags: [Pecas]
+      summary: Registrar falta de peca
+      description: 'Executado pelo Mecanico, com a OS em EM_EXECUCAO, quando identifica na execucao que uma peca do escopo aprovado nao esta disponivel. A OS SEGUE em EM_EXECUCAO e a falta vira pendencia: nao existe status Aguardando pecas (ADR-013). E o segundo caminho de entrada do modelo de leitura Pendencias de pecas por OS; o primeiro e automatico, na Reserva de pecas com estoque insuficiente.'
+      parameters: [{$ref: '#/components/parameters/IdRecurso'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/FaltaPeca'}}}}
+      responses:
+        '201': {description: 'pendencia registrada', content: {application/json: {schema: {$ref: '#/components/schemas/PendenciaPeca'}}}}
+        '400': {$ref: '#/components/responses/RequisicaoInvalida'}
+        '404': {$ref: '#/components/responses/NaoEncontrado'}
+        '409': {$ref: '#/components/responses/ConflitoDeEstado'}
+
+  /pendencias-pecas:
+    get:
+      tags: [Pecas]
+      summary: Consultar pendencias de pecas
+      description: 'Modelo de leitura Pendencias de pecas por OS, que alimenta a decisao de compra do Estoquista. Quando falta peca com o orcamento ja aprovado, a OS SEGUE em EM_EXECUCAO e a falta vive aqui: nao existe status Aguardando pecas (ADR-013).'
+      parameters:
+        - {name: ordemServicoId, in: query, required: false, schema: {type: string, format: uuid}}
+      responses:
+        '200': {description: 'pendencias', content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/PendenciaPeca'}}}}}
+        '401': {$ref: '#/components/responses/NaoAutorizado'}
 
 components:
   securitySchemes:
@@ -385,13 +471,13 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: JWT das APIs administrativas (requisito do enunciado); obtido em /auth/login. Toda rota administrativa responde 401 sem token valido.
+      description: JWT das APIs administrativas; obtido em /auth/login. Toda rota administrativa responde 401 sem token valido.
 
   parameters:
     IdRecurso:
       {name: id, in: path, required: true, schema: {type: string, format: uuid}}
     CodigoAcompanhamento:
-      {name: codigoAcompanhamento, in: path, required: true, description: token opaco gerado na criacao da OS, schema: {type: string, minLength: 20, maxLength: 64}}
+      {name: codigoAcompanhamento, in: path, required: true, description: token opaco gerado na criacao da OS, schema: {type: string, maxLength: 64}}
 
   responses:
     RequisicaoInvalida:
@@ -400,8 +486,11 @@ components:
     NaoAutorizado:
       description: JWT ausente, invalido ou expirado
       content: {application/json: {schema: {$ref: '#/components/schemas/Erro'}}}
+    CredenciaisInvalidas:
+      description: 'Login ou senha invalidos. Resposta do proprio login, que e publico e nao envolve JWT nenhum'
+      content: {application/json: {schema: {$ref: '#/components/schemas/Erro'}}}
     NaoEncontrado:
-      description: Recurso inexistente
+      description: 'Recurso inexistente. Nas rotas de acompanhamento o 404 e UNIFORME (ADR-007): codigo inexistente e codigo de outra OS respondem igual, nunca distinguindo "nao existe" de "nao e seu"'
       content: {application/json: {schema: {$ref: '#/components/schemas/Erro'}}}
     ConflitoDeEstado:
       description: Operacao viola a maquina de estados da OS ou uma invariante de dominio (ex. saldo insuficiente)
@@ -419,7 +508,7 @@ components:
       type: object
       required: [login, senha]
       properties:
-        login: {type: string}
+        login: {type: string, maxLength: 60}
         senha: {type: string, format: password}
 
     TokenJwt:
@@ -429,165 +518,226 @@ components:
         token: {type: string}
         expiraEm: {type: string, format: date-time}
 
-    StatusOS:
+    StatusOrdemServico:
       type: string
-      description: os 6 status do enunciado; CANCELADA e proposta de 7o status (ADR-008)
+      description: os 6 status do fluxo de atendimento; CANCELADA e 7o status decidido no ADR-008
       enum: [RECEBIDA, EM_DIAGNOSTICO, AGUARDANDO_APROVACAO, EM_EXECUCAO, FINALIZADA, ENTREGUE, CANCELADA]
 
     Dinheiro:
       type: object
       required: [valor, moeda]
       properties:
-        valor: {type: number, format: double, minimum: 0}
+        valor: {type: number, minimum: 0, maximum: 9999999999.99, description: 'duas casas decimais; o teto espelha a coluna NUMERIC(12,2) que persiste o valor. A validacao das casas mora no dominio, e nao em multipleOf, porque multipleOf sobre numero de ponto flutuante rejeita valores legitimos de duas casas'}
         moeda: {type: string, enum: [BRL]}
 
-    ClienteEntrada:
+    ClienteRequest:
       type: object
       required: [nome, documento, email]
       properties:
-        nome: {type: string, minLength: 2, maxLength: 120}
+        nome: {type: string, minLength: 1, maxLength: 120}
         documento: {type: string, description: CPF (11 digitos) ou CNPJ (14 digitos) somente numeros; digito verificador validado no dominio (VO Documento), pattern: '^[0-9]{11}$|^[0-9]{14}$'}
-        email: {type: string, format: email, description: destino do envio do Orcamento}
+        email: {type: string, format: email, minLength: 1, maxLength: 120, description: 'destino do envio do Orcamento; o dominio recusa valor composto so de espaco, que e o que o banco tambem recusa'}
         telefone: {type: string, maxLength: 20}
 
     Cliente:
       allOf:
-        - {$ref: '#/components/schemas/ClienteEntrada'}
+        - {$ref: '#/components/schemas/ClienteRequest'}
         - type: object
           required: [id]
           properties:
             id: {type: string, format: uuid}
 
-    VeiculoEntrada:
+    VeiculoRequest:
       type: object
       required: [placa, marca, modelo, ano, clienteId]
       properties:
-        placa: {type: string, description: formato antigo AAA9999 ou Mercosul AAA9A99, caixa alta, sem hifen (VO Placa), pattern: '^[A-Z]{3}[0-9]{4}$|^[A-Z]{3}[0-9][A-Z][0-9]{2}$'}
-        marca: {type: string, maxLength: 60}
-        modelo: {type: string, maxLength: 60}
-        ano: {type: integer, minimum: 1950, maximum: 2100}
+        placa: {type: string, description: 'formato antigo AAA9999 ou Mercosul AAA9A99, sem hifen. Aceita as duas caixas na entrada porque o VO Placa normaliza para caixa alta na construcao; persistida sempre em caixa alta', pattern: '^[A-Za-z]{3}[0-9]{4}$|^[A-Za-z]{3}[0-9][A-Za-z][0-9]{2}$'}
+        marca: {type: string, minLength: 1, maxLength: 60}
+        modelo: {type: string, minLength: 1, maxLength: 60}
+        ano: {type: integer, minimum: 1950, maximum: 2100, description: 'faixa de sanidade de digitacao, nao regra de negocio da oficina; a coluna carrega o mesmo CHECK, entao contrato e banco recusam igual'}
         clienteId: {type: string, format: uuid, description: referencia por ID ao agregado Cliente}
 
     Veiculo:
       allOf:
-        - {$ref: '#/components/schemas/VeiculoEntrada'}
+        - {$ref: '#/components/schemas/VeiculoRequest'}
         - type: object
           required: [id]
           properties:
             id: {type: string, format: uuid}
 
-    ServicoEntrada:
+    ServicoRequest:
       type: object
       required: [nome, valorMaoDeObra]
       properties:
-        nome: {type: string, maxLength: 120, example: Troca de oleo}
+        nome: {type: string, minLength: 1, maxLength: 120, example: Troca de oleo}
         descricao: {type: string, maxLength: 500}
         valorMaoDeObra: {$ref: '#/components/schemas/Dinheiro'}
 
     Servico:
       allOf:
-        - {$ref: '#/components/schemas/ServicoEntrada'}
+        - {$ref: '#/components/schemas/ServicoRequest'}
         - type: object
           required: [id]
           properties:
             id: {type: string, format: uuid}
 
-    PecaEntrada:
+    PecaRequest:
       type: object
       required: [nome, preco, estoqueMinimo]
       properties:
-        nome: {type: string, maxLength: 120, example: Filtro de oleo}
-        unidadeMedida: {type: string, description: para Insumo (ex. litro); pecas seriadas usam unidade, default: unidade}
+        nome: {type: string, minLength: 1, maxLength: 120, example: Filtro de oleo}
+        unidadeMedida: {type: string, minLength: 1, maxLength: 20, default: unidade, description: 'para Insumo (ex. litro); pecas seriadas usam unidade. Omitido, o SERVIDOR aplica o default antes de persistir, porque a coluna e NOT NULL'}
         preco: {$ref: '#/components/schemas/Dinheiro'}
-        saldoInicial: {type: integer, minimum: 0, default: 0}
-        estoqueMinimo: {type: integer, minimum: 0}
+        estoqueMinimo: {type: integer, minimum: 0, maximum: 1000000}
 
     Peca:
       allOf:
-        - {$ref: '#/components/schemas/PecaEntrada'}
+        - {$ref: '#/components/schemas/PecaRequest'}
         - type: object
           required: [id, saldoEmEstoque, quantidadeReservada]
           properties:
             id: {type: string, format: uuid}
-            saldoEmEstoque: {type: integer, minimum: 0, description: invariante de dominio, nunca negativo}
+            saldoEmEstoque: {type: integer, minimum: 0, description: 'invariante de dominio, nunca negativo'}
             quantidadeReservada: {type: integer, minimum: 0}
 
     EntradaEstoque:
       type: object
       required: [quantidade]
       properties:
-        quantidade: {type: integer, minimum: 1}
-        observacao: {type: string, maxLength: 200}
+        quantidade: {type: integer, minimum: 1, maximum: 1000000, description: 'teto operacional, menor que o da coluna de proposito, porque esta quantidade se SOMA ao Saldo em estoque existente'}
 
-    OrdemServicoCriacao:
+    CriarOrdemServicoRequest:
       type: object
       required: [documentoCliente, veiculoId]
       properties:
-        documentoCliente: {type: string, description: identificacao do Cliente por CPF/CNPJ (requisito do enunciado), pattern: '^[0-9]{11}$|^[0-9]{14}$'}
+        documentoCliente: {type: string, description: identificacao do Cliente por CPF/CNPJ, pattern: '^[0-9]{11}$|^[0-9]{14}$'}
         veiculoId: {type: string, format: uuid}
         relatoDoProblema: {type: string, maxLength: 1000}
+
+    ReservasRequest:
+      type: object
+      required: [reservas]
+      description: 'Identifica as Reservas de pecas alvo da operacao. A reserva e o alvo, e nao o par peca mais quantidade, porque ela tem ciclo de vida proprio (ativa, consumida, devolvida) e a mesma Peca pode ter mais de uma reserva na mesma OS, em situacoes diferentes, quando um Reparo adicional a inclui de novo. A operacao move a reserva INTEIRA de situacao: nao existe retirada nem devolucao parcial (ADR-013)'
+      properties:
+        reservas:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [reservaId]
+            properties:
+              reservaId: {type: string, format: uuid, description: 'identificador da Reserva de pecas, obtido na consulta de pecas reservadas da OS'}
+
+    ReservaPeca:
+      type: object
+      required: [id, pecaId, quantidade, situacao]
+      properties:
+        id: {type: string, format: uuid}
+        pecaId: {type: string, format: uuid}
+        nomePeca: {type: string}
+        quantidade: {type: integer, minimum: 1}
+        situacao: {type: string, enum: [ATIVA, CONSUMIDA, DEVOLVIDA]}
+        criadaEm: {type: string, format: date-time}
+
+    ItemOrcamento:
+      type: object
+      required: [tipo, nome, valor]
+      properties:
+        tipo: {type: string, enum: [SERVICO, PECA], description: 'o CDC art. 40 exige o orcamento discriminando mao de obra e materiais; e essa a separacao'}
+        nome: {type: string, maxLength: 120, description: 'rotulo ATUAL do Servico ou da Peca no catalogo; a imutabilidade da versao cobre valores e composicao, nao o rotulo de exibicao'}
+        quantidade: {type: integer, minimum: 1, description: 'presente nos itens de peca'}
+        valor: {allOf: [{$ref: '#/components/schemas/Dinheiro'}], description: 'valor unitario copiado como snapshot na inclusao'}
+
+    FaltaPeca:
+      type: object
+      required: [pecaId, quantidadeFaltante]
+      properties:
+        pecaId: {type: string, format: uuid}
+        quantidadeFaltante: {type: integer, minimum: 1, maximum: 1000000}
+
+    PendenciaPeca:
+      type: object
+      required: [id, ordemServicoId, pecaId, quantidadeFaltante, detectadaEm]
+      properties:
+        id: {type: string, format: uuid}
+        ordemServicoId: {type: string, format: uuid}
+        pecaId: {type: string, format: uuid}
+        nomePeca: {type: string}
+        quantidadeFaltante: {type: integer, minimum: 1}
+        detectadaEm: {type: string, format: date-time}
+        resolvidaEm: {type: string, format: date-time, nullable: true, description: 'reservada para quando a resolucao da pendencia for implementada; fora do MVP (ADR-013), entao hoje toda pendencia carregada esta aberta'}
 
     ItemServico:
       type: object
       required: [servicoId]
       properties:
         servicoId: {type: string, format: uuid}
-        valorMaoDeObraSnapshot: {$ref: '#/components/schemas/Dinheiro'}
+        valorMaoDeObraSnapshot: {allOf: [{$ref: '#/components/schemas/Dinheiro'}], readOnly: true, description: 'copiado do catalogo pelo servidor na inclusao; ignorado se enviado'}
+        versaoOrcamento: {type: integer, minimum: 1, readOnly: true, description: 'versao do Orcamento que introduziu este item (ADR-006)'}
 
     ItemPeca:
       type: object
       required: [pecaId, quantidade]
       properties:
         pecaId: {type: string, format: uuid}
-        quantidade: {type: integer, minimum: 1}
-        precoSnapshot: {$ref: '#/components/schemas/Dinheiro'}
+        quantidade: {type: integer, minimum: 1, maximum: 1000000}
+        precoSnapshot: {allOf: [{$ref: '#/components/schemas/Dinheiro'}], readOnly: true, description: 'copiado do catalogo pelo servidor na inclusao; ignorado se enviado'}
+        versaoOrcamento: {type: integer, minimum: 1, readOnly: true, description: 'versao do Orcamento que introduziu este item (ADR-006)'}
 
-    ItensEntrada:
+    IncluirItensRequest:
       type: object
+      anyOf:
+        - {required: [itensServico]}
+        - {required: [itensPeca]}
       properties:
-        itensServico: {type: array, items: {$ref: '#/components/schemas/ItemServico'}}
-        itensPeca: {type: array, items: {$ref: '#/components/schemas/ItemPeca'}}
+        itensServico: {type: array, minItems: 1, items: {$ref: '#/components/schemas/ItemServico'}}
+        itensPeca: {type: array, minItems: 1, items: {$ref: '#/components/schemas/ItemPeca'}}
 
     ReparoAdicional:
       type: object
       required: [descricao]
+      anyOf:
+        - {required: [itensServico]}
+        - {required: [itensPeca]}
       properties:
-        descricao: {type: string, maxLength: 500}
-        itensServico: {type: array, items: {$ref: '#/components/schemas/ItemServico'}}
-        itensPeca: {type: array, items: {$ref: '#/components/schemas/ItemPeca'}}
+        descricao: {type: string, minLength: 1, maxLength: 500}
+        itensServico: {type: array, minItems: 1, items: {$ref: '#/components/schemas/ItemServico'}}
+        itensPeca: {type: array, minItems: 1, items: {$ref: '#/components/schemas/ItemPeca'}}
 
     Orcamento:
       type: object
-      required: [versao, situacao, total]
+      required: [versao, situacao, total, validadeDias]
       properties:
         versao: {type: integer, minimum: 1}
+        validadeDias: {type: integer, minimum: 1, default: 10, description: 'validade padrao de 10 dias (CDC art. 40)'}
         situacao: {type: string, enum: [PENDENTE, APROVADO, REPROVADO]}
         total: {$ref: '#/components/schemas/Dinheiro'}
+        itens: {type: array, items: {$ref: '#/components/schemas/ItemOrcamento'}, description: 'valor discriminado do escopo coberto por esta versao; e o que o Cliente le antes de aprovar. Item introduzido por versao ANTERIOR ja reprovada nao entra, porque o reparo adicional recusado nao volta ao escopo (ADR-008); a propria versao nunca se autoexclui, entao uma versao reprovada exibe os itens que ela introduziu'}
         dataEnvio: {type: string, format: date-time}
         dataResposta: {type: string, format: date-time}
-        validadeDias: {type: integer, default: 10, description: validade padrao de 10 dias (CDC art. 40)}
+        descricao: {type: string, maxLength: 500, description: preenchida quando a versao nasce de um Reparo adicional; e o que o Cliente le antes de autorizar}
 
     TransicaoStatus:
       type: object
-      required: [de, para, dataHora]
+      required: [paraStatus, dataHora]
       properties:
-        de: {$ref: '#/components/schemas/StatusOS'}
-        para: {$ref: '#/components/schemas/StatusOS'}
+        deStatus: {$ref: '#/components/schemas/StatusOrdemServico'}
+        paraStatus: {$ref: '#/components/schemas/StatusOrdemServico'}
         dataHora: {type: string, format: date-time, description: timestamp que viabiliza o Tempo medio de execucao}
 
-    OrdemServicoResumo:
+    OrdemServicoSummary:
       type: object
       required: [id, status, clienteId, veiculoId]
       properties:
         id: {type: string, format: uuid}
-        status: {$ref: '#/components/schemas/StatusOS'}
+        status: {$ref: '#/components/schemas/StatusOrdemServico'}
         clienteId: {type: string, format: uuid}
         veiculoId: {type: string, format: uuid}
         criadaEm: {type: string, format: date-time}
 
     OrdemServico:
       allOf:
-        - {$ref: '#/components/schemas/OrdemServicoResumo'}
+        - {$ref: '#/components/schemas/OrdemServicoSummary'}
         - type: object
           properties:
             codigoAcompanhamento: {type: string}
@@ -602,16 +752,16 @@ components:
       description: visao do Cliente (modelo de leitura Consulta de acompanhamento)
       required: [status]
       properties:
-        status: {$ref: '#/components/schemas/StatusOS'}
-        veiculo: {type: string, example: VW Gol ABC1D23}
-        orcamentoVigente: {$ref: '#/components/schemas/Orcamento'}
+        status: {$ref: '#/components/schemas/StatusOrdemServico'}
+        veiculo: {type: string, example: Volkswagen Gol ABC1D23}
+        orcamentoMaisRecente: {allOf: [{$ref: '#/components/schemas/Orcamento'}], description: 'a versao mais recente JA ENVIADA ao Cliente; o rascunho que existe antes do envio (ADR-006) nao aparece aqui, porque o Cliente so responde ao que recebeu'}
         transicoesStatus: {type: array, items: {$ref: '#/components/schemas/TransicaoStatus'}}
 
     TempoMedioExecucao:
       type: object
       required: [tempoMedioHoras, quantidadeOSsConsideradas, recorte]
       properties:
-        tempoMedioHoras: {type: number, format: double}
+        tempoMedioHoras: {type: number, format: double, nullable: true, description: 'nulo quando quantidadeOSsConsideradas e zero, ou seja nenhuma OS concluida no recorte'}
         quantidadeOSsConsideradas: {type: integer}
-        recorte: {type: string, description: intervalo medido, de EM_EXECUCAO a FINALIZADA (ADR-008), example: EM_EXECUCAO_A_FINALIZADA}
+        recorte: {type: string, description: 'intervalo medido, de EM_EXECUCAO a FINALIZADA (ADR-008)', example: EM_EXECUCAO_A_FINALIZADA}
         servicoId: {type: string, format: uuid, description: presente quando recortada por Servico}
