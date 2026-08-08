@@ -35,6 +35,7 @@ springdoc:
 oficina:
   jwt:
     segredo: ${JWT_SEGREDO:trocar-este-segredo-local-de-32-bytes-ou-mais}
+    validade-em-minutos: ${JWT_VALIDADE_EM_MINUTOS:60}
 
 logging:
   level:
