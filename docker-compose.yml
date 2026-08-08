@@ -70,7 +70,7 @@ services:
         until [ "$$(psql -h banco -U oficina -d oficina -tAc "select to_regclass('public.ordem_servico') is not null")" = "t" ]; do
           tentativas=$$((tentativas + 1))
           if [ $$tentativas -ge 120 ]; then
-            echo "seed: o schema nao apareceu em 120s; o Flyway do app nao rodou" >&2
+            echo "seed: o schema nao apareceu em 120 tentativas; o Flyway do app nao rodou" >&2
             exit 1
           fi
           sleep 1

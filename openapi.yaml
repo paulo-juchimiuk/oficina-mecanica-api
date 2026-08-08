@@ -23,7 +23,9 @@ info:
   description: |
     Back-end monolitico do MVP da oficina. Status da OS - Recebida, Em diagnostico, Aguardando aprovacao, Em execucao, Finalizada, Entregue; Cancelada e 7o status decidido no ADR-008.
 
-    Autorizacao: todo endpoint fora da tag Acompanhamento e do login exige JWT e responde 401 sem token valido. Para nao repetir a mesma resposta em 36 operacoes, o 401 e declarado nas operacoes de referencia (os quatro verbos de Clientes, as listagens e a metrica de tempo medio); a ausencia da declaracao nas demais nao significa acesso liberado. O 401 do login e outro: ele e publico, nao envolve JWT nenhum, e responde credencial invalida.
+    Autorizacao: todo endpoint fora da tag Acompanhamento e do login exige JWT e responde 401 sem token valido. Para nao repetir a mesma resposta em 36 operacoes, o 401 e declarado nas operacoes de referencia (os quatro verbos de Clientes, as listagens dos quatro cadastros, a listagem de Ordens de Servico, a de pendencias de pecas e a metrica de tempo medio); a ausencia da declaracao nas demais nao significa acesso liberado. O 401 do login e outro: ele e publico, nao envolve JWT nenhum, e responde credencial invalida.
+
+    Erros de protocolo nao sao repetidos operacao a operacao, e todos respondem no schema Erro, inclusive nas rotas publicas: corpo ausente ou malformado e recusado com 400 nas operacoes que recebem corpo; Content-Type ausente ou diferente de application/json e recusado com 415, tambem so nas que recebem corpo, porque GET e DELETE nao consomem corpo e ignoram o cabecalho; identificador de caminho fora do formato UUID e recusado com 400 em qualquer operacao que tenha {id}; metodo nao suportado responde 405; Accept que nao aceite application/json responde 406; e falha interna responde 500.
   version: 1.0.0
 servers:
   - {url: 'http://localhost:8080/api/v1', description: ambiente local via docker-compose}
@@ -189,7 +191,7 @@ paths:
     post:
       tags: [Acompanhamento]
       summary: Reprovar orcamento (Cliente, sem JWT)
-      description: 'Exige AGUARDANDO_APROVACAO: o poder de reprovar expira pela maquina de estados (ADR-007). Reprovacao do orcamento mais recente. O desfecho depende de haver versao aprovada anterior nesta OS - se NAO houver, a OS vai a CANCELADA; se houver, a OS volta a EM_EXECUCAO e somente o escopo ja aprovado e concluido (ADR-008).'
+      description: 'Exige AGUARDANDO_APROVACAO: o poder de reprovar expira pela maquina de estados (ADR-007). Reprovacao do orcamento mais recente. O desfecho depende de haver versao aprovada nesta OS - se NAO houver, a OS vai a CANCELADA; se houver, a OS volta a EM_EXECUCAO e somente o escopo ja aprovado e concluido (ADR-008).'
       security: []
       parameters: [{$ref: '#/components/parameters/CodigoAcompanhamento'}]
       responses:
@@ -217,6 +219,7 @@ paths:
         - {name: documento, in: query, required: false, schema: {type: string, pattern: '^[0-9]{11}$|^[0-9]{14}$'}}
       responses:
         '200': {description: Lista de clientes, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Cliente'}}}}}
+        '400': {$ref: '#/components/responses/RequisicaoInvalida'}
         '401': {$ref: '#/components/responses/NaoAutorizado'}
 
   /clientes/{id}:
@@ -270,6 +273,7 @@ paths:
         - {name: placa, in: query, required: false, schema: {type: string, pattern: '^[A-Za-z]{3}[0-9]{4}$|^[A-Za-z]{3}[0-9][A-Za-z][0-9]{2}$'}}
       responses:
         '200': {description: Lista de veiculos, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Veiculo'}}}}}
+        '400': {$ref: '#/components/responses/RequisicaoInvalida'}
         '401': {$ref: '#/components/responses/NaoAutorizado'}
 
   /veiculos/{id}:
@@ -493,7 +497,7 @@ components:
       description: 'Recurso inexistente. Nas rotas de acompanhamento o 404 e UNIFORME (ADR-007): codigo inexistente e codigo de outra OS respondem igual, nunca distinguindo "nao existe" de "nao e seu"'
       content: {application/json: {schema: {$ref: '#/components/schemas/Erro'}}}
     ConflitoDeEstado:
-      description: Operacao viola a maquina de estados da OS ou uma invariante de dominio (ex. saldo insuficiente)
+      description: 'Operacao viola a maquina de estados da OS ou uma invariante de dominio (ex. Documento ou Placa ja cadastrados, cadastro com OS em andamento, saldo insuficiente)'
       content: {application/json: {schema: {$ref: '#/components/schemas/Erro'}}}
 
   schemas:
@@ -508,8 +512,8 @@ components:
       type: object
       required: [login, senha]
       properties:
-        login: {type: string, maxLength: 60}
-        senha: {type: string, format: password}
+        login: {type: string, minLength: 1, maxLength: 60}
+        senha: {type: string, format: password, minLength: 1}
 
     TokenJwt:
       type: object

@@ -4,7 +4,7 @@ API de gestão para oficina mecânica de médio porte: ordem de serviço, orçam
 
 Tech Challenge da Fase 1 da pós-graduação em Arquitetura de Software (FIAP).
 
-> **Estado atual: em construção.** Estrutura, build, infraestrutura, contrato da API e **schema com dados de demonstração** estão prontos. As regras de negócio e os endpoints estão sendo implementados contexto por contexto. Esta nota sai quando o MVP estiver completo.
+> **Estado atual: em construção.** Estrutura, build, infraestrutura, contrato da API e **schema com dados de demonstração** estão prontos. Dos cinco contextos delimitados, **Autenticação e Cadastro (clientes e veículos) estão implementados e respondendo**; Ordem de Serviço, Catálogo de Serviços e Estoque ainda não. As rotas dos contextos não implementados constam do `openapi.yaml` e, com token válido, respondem `404`; sem token respondem `401`. As rotas de acompanhamento do cliente, que o contrato declara públicas, também respondem `401` hoje: elas só passam a ser liberadas quando o contexto Ordem de Serviço existir. Esta nota sai quando o MVP estiver completo.
 
 ## O que o sistema faz
 
@@ -53,7 +53,21 @@ Com o ambiente de pé:
 
 As duas primeiras servem a especificação **gerada a partir do código já implementado**, então enquanto a implementação avança elas mostram menos que o contrato. O `openapi.yaml` é a fonte de verdade do contrato completo.
 
-Enquanto o primeiro contexto de código não subir, a proteção padrão do Spring Security está ativa e ninguém passa: clientes de API recebem `401` e o navegador é redirecionado para um formulário de login vazio. A liberação da documentação entra junto da primeira fatia de implementação.
+A documentação é pública. Todo o resto exige JWT.
+
+## Autenticação
+
+`POST /api/v1/auth/login` é público e devolve o token; as demais rotas administrativas exigem o cabeçalho `Authorization: Bearer <token>` e respondem `401` com corpo JSON `{"codigo": "NAO_AUTORIZADO", "mensagem": "..."}` quando o token está ausente, é inválido ou expirou.
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"login":"admin","senha":"admin123"}' | sed -E 's/.*"token":"([^"]+)".*/\1/')
+
+curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/clientes
+```
+
+O token é HS256, com validade padrão de 60 minutos, assinado com o segredo de `oficina.jwt.segredo`. O segredo precisa ter no mínimo 32 bytes: abaixo disso a aplicação **não sobe**, e falha com a contagem de bytes na mensagem, em vez de quebrar no primeiro login.
 
 ## Executar localmente sem Docker
 
@@ -84,7 +98,9 @@ Roda os testes unitários (Surefire, `*Test`) e os de integração (Failsafe, `*
 
 O relatório do JaCoCo fica em `target/site/jacoco/index.html` após o `mvn verify`.
 
-O build tem **gate de cobertura de 80% nos domínios críticos**, medido sobre os pacotes `domain` de cada contexto delimitado, e não sobre o projeto inteiro. Abaixo disso, o `mvn verify` falha. Enquanto não existir teste, o gate não tem dados de execução e não reprova nada; ele passa a morder na primeira fatia que tenha código de domínio **e seus testes**.
+O build tem **gate de cobertura de 80% nos domínios críticos**, medido sobre os pacotes `domain` de cada contexto delimitado mais o `shared.domain`, que guarda a hierarquia de erros do domínio, e não sobre o projeto inteiro. Abaixo disso, o `mvn verify` falha.
+
+A cobertura é medida sobre **tudo o que o `mvn verify` executa**, unitários e integração juntos: o agente do JaCoCo é preparado uma vez e as duas suítes escrevem no mesmo `target/jacoco.exec`. Rodar só uma das duas dá um número diferente, então o número que vale é o do `mvn verify` completo.
 
 ## Análise de vulnerabilidades
 
@@ -100,15 +116,15 @@ A varredura da **API em execução** com OWASP ZAP **ainda não está montada ne
 
 ## Estrutura do projeto
 
-Monolito em camadas. Cada **contexto delimitado** do Context Map é um pacote de primeiro nível, e dentro de cada contexto ficam as **quatro camadas do DDD**. A árvore abaixo é o desenho de destino: hoje existe apenas o ponto de entrada da aplicação, e cada pacote nasce junto da fatia do seu contexto.
+Monolito em camadas. Cada **contexto delimitado** do Context Map é um pacote de primeiro nível, e dentro de cada contexto ficam as **quatro camadas do DDD**. Cada pacote nasce junto da fatia do seu contexto.
 
 ```
 br.com.oficinamecanica
-├── ordemservico      Core.     Agregado: Ordem de Serviço
-├── cadastro          Suporte.  Agregados: Cliente, Veículo
-├── catalogo          Suporte.  Agregado: Serviço
-├── estoque           Suporte.  Agregado: Peça
-├── autenticacao      Genérico. Agregado: Usuário
+├── ordemservico      Core.     Agregado: Ordem de Serviço      (a implementar)
+├── cadastro          Suporte.  Agregados: Cliente, Veículo     (implementado)
+├── catalogo          Suporte.  Agregado: Serviço               (a implementar)
+├── estoque           Suporte.  Agregado: Peça                  (a implementar)
+├── autenticacao      Genérico. Agregado: Usuário               (implementado)
 └── shared            não é contexto, apenas o que não tem dono
 ```
 
