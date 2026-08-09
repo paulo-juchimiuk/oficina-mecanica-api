@@ -10,5 +10,7 @@ public interface OrdemServicoRepository {
 
     Optional<OrdemServico> buscarPorId(UUID id);
 
+    Optional<OrdemServico> buscarPorCodigoAcompanhamento(CodigoAcompanhamento codigoAcompanhamento);
+
     List<OrdemServico> listar(Optional<StatusOrdemServico> status);
 }

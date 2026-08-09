@@ -28,16 +28,15 @@ public class ConcluirDiagnosticoUseCase {
     public OrdemServico executar(UUID id) {
         OrdemServico ordemServico = ordensServico.buscarPorId(id)
                 .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
-        ordemServico.concluirDiagnostico();
+        Orcamento versaoEnviada = ordemServico.concluirDiagnostico();
         OrdemServico gravada = ordensServico.salvar(ordemServico);
-        enviarAoCliente(gravada);
+        enviarAoCliente(gravada, versaoEnviada);
         return gravada;
     }
 
-    private void enviarAoCliente(OrdemServico ordemServico) {
+    private void enviarAoCliente(OrdemServico ordemServico, Orcamento versao) {
         String email = clientes.emailDe(ordemServico.clienteId())
                 .orElseThrow(() -> new ClienteNaoEncontradoException(ordemServico.clienteId().toString()));
-        Orcamento versao = ordemServico.versaoMaisRecenteEnviada().orElseThrow();
         envioDeOrcamento.enviar(email, ordemServico.codigoAcompanhamento(), versao);
     }
 }

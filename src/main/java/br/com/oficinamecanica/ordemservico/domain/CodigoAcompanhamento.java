@@ -3,6 +3,7 @@ package br.com.oficinamecanica.ordemservico.domain;
 import br.com.oficinamecanica.shared.domain.DadosInvalidosException;
 import java.security.SecureRandom;
 import java.util.HexFormat;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 public record CodigoAcompanhamento(String valor) {
@@ -17,6 +18,13 @@ public record CodigoAcompanhamento(String valor) {
         if (valor == null || !FORMATO.matcher(valor).matches()) {
             throw new DadosInvalidosException(CODIGO, "Codigo de acompanhamento fora do formato esperado");
         }
+    }
+
+    public static Optional<CodigoAcompanhamento> de(String valor) {
+        if (valor == null || !FORMATO.matcher(valor).matches()) {
+            return Optional.empty();
+        }
+        return Optional.of(new CodigoAcompanhamento(valor));
     }
 
     public static CodigoAcompanhamento gerar() {

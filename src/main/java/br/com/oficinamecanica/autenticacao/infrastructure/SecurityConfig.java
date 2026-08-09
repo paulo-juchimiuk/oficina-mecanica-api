@@ -33,6 +33,7 @@ class SecurityConfig {
     static final String ESQUEMA_JWT = "jwtAdministrativo";
 
     private static final String ROTA_DE_LOGIN = ApiPathPrefixConfig.PREFIXO + "/auth/login";
+    private static final String ROTAS_DE_ACOMPANHAMENTO = ApiPathPrefixConfig.PREFIXO + "/acompanhamento/**";
     private static final String[] ROTAS_DA_DOCUMENTACAO = {"/v3/api-docs", "/v3/api-docs.yaml", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**"};
 
     @Bean
@@ -44,6 +45,7 @@ class SecurityConfig {
                 .sessionManagement(sessao -> sessao.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(rotas -> rotas
                         .requestMatchers(ROTA_DE_LOGIN).permitAll()
+                        .requestMatchers(ROTAS_DE_ACOMPANHAMENTO).permitAll()
                         .requestMatchers(ROTAS_DA_DOCUMENTACAO).permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())

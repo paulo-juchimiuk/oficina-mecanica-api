@@ -6,4 +6,6 @@ import java.util.UUID;
 public interface Veiculos {
 
     Optional<UUID> proprietarioDe(UUID veiculoId);
+
+    Optional<DescricaoDoVeiculo> descricaoDe(UUID veiculoId);
 }

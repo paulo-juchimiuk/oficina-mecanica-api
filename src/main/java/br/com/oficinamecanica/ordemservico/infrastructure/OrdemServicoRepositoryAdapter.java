@@ -1,5 +1,6 @@
 package br.com.oficinamecanica.ordemservico.infrastructure;
 
+import br.com.oficinamecanica.ordemservico.domain.CodigoAcompanhamento;
 import br.com.oficinamecanica.ordemservico.domain.OrdemServico;
 import br.com.oficinamecanica.ordemservico.domain.OrdemServicoRepository;
 import br.com.oficinamecanica.ordemservico.domain.StatusOrdemServico;
@@ -28,6 +29,12 @@ class OrdemServicoRepositoryAdapter implements OrdemServicoRepository {
     @Override
     public Optional<OrdemServico> buscarPorId(UUID id) {
         return repository.findById(id).map(OrdemServicoJpaEntity::paraDominio);
+    }
+
+    @Override
+    public Optional<OrdemServico> buscarPorCodigoAcompanhamento(CodigoAcompanhamento codigoAcompanhamento) {
+        return repository.findByCodigoAcompanhamento(codigoAcompanhamento.valor())
+                .map(OrdemServicoJpaEntity::paraDominio);
     }
 
     @Override

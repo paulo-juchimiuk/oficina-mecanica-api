@@ -71,11 +71,42 @@ public class OrdemServico {
         acrescentarItens(versaoCorrenteOuRascunho(), servicos, pecas);
     }
 
-    public void concluirDiagnostico() {
+    public Orcamento concluirDiagnostico() {
         exigirStatus(StatusOrdemServico.EM_DIAGNOSTICO);
         Orcamento versao = versaoMaisRecente().orElseThrow(() -> new OrdemServicoSemOrcamentoException(id));
         versao.enviar();
         transicionarPara(StatusOrdemServico.AGUARDANDO_APROVACAO);
+        return versao;
+    }
+
+    public Orcamento aprovarOrcamento() {
+        exigirStatus(StatusOrdemServico.AGUARDANDO_APROVACAO);
+        Orcamento versao = versaoAguardandoResposta();
+        versao.aprovar();
+        transicionarPara(StatusOrdemServico.EM_EXECUCAO);
+        return versao;
+    }
+
+    public void reprovarOrcamento() {
+        exigirStatus(StatusOrdemServico.AGUARDANDO_APROVACAO);
+        StatusOrdemServico destino = destinoDaReprovacao();
+        versaoAguardandoResposta().reprovar();
+        transicionarPara(destino);
+    }
+
+    private StatusOrdemServico destinoDaReprovacao() {
+        if (temVersaoAprovada()) {
+            return StatusOrdemServico.EM_EXECUCAO;
+        }
+        return StatusOrdemServico.CANCELADA;
+    }
+
+    private Orcamento versaoAguardandoResposta() {
+        return versaoMaisRecenteEnviada().orElseThrow(() -> new OrdemServicoSemOrcamentoException(id));
+    }
+
+    public List<ItemPeca> itensDePecaIntroduzidosPor(int versao) {
+        return itensPeca.stream().filter(item -> item.versaoOrigem() == versao).toList();
     }
 
     public Optional<Orcamento> versaoMaisRecente() {

@@ -236,6 +236,94 @@ class OrdemServicoTest {
         assertThat(ordemAberta().temVersaoAprovada()).isFalse();
     }
 
+    private OrdemServico ordemAguardandoAprovacao() {
+        OrdemServico ordem = ordemEmDiagnostico();
+        ordem.incluirItens(
+                List.of(new ServicoAIncluir(UUID.randomUUID(), reais("120.00"))),
+                List.of(new PecaAIncluir(UUID.randomUUID(), 2, reais("50.00"))));
+        ordem.concluirDiagnostico();
+        return ordem;
+    }
+
+    @Test
+    @DisplayName("deve aprovar o orcamento e levar a OS a Em execucao, por transicao automatica")
+    void deveAprovarELevarAEmExecucao() {
+        OrdemServico ordem = ordemAguardandoAprovacao();
+
+        ordem.aprovarOrcamento();
+
+        assertThat(ordem.status()).isEqualTo(StatusOrdemServico.EM_EXECUCAO);
+        assertThat(ordem.temVersaoAprovada()).isTrue();
+        assertThat(ordem.versaoMaisRecente().orElseThrow().situacao())
+                .isEqualTo(SituacaoOrcamento.APROVADO);
+        assertThat(ordem.versaoMaisRecente().orElseThrow().dataResposta()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("deve levar a OS a Cancelada quando o Cliente reprova e NAO existe versao aprovada")
+    void deveCancelarNaReprovacaoSemVersaoAprovada() {
+        OrdemServico ordem = ordemAguardandoAprovacao();
+
+        ordem.reprovarOrcamento();
+
+        assertThat(ordem.status()).isEqualTo(StatusOrdemServico.CANCELADA);
+        assertThat(ordem.status().encerrado()).isTrue();
+        assertThat(ordem.versaoMaisRecente().orElseThrow().situacao())
+                .isEqualTo(SituacaoOrcamento.REPROVADO);
+    }
+
+    @Test
+    @DisplayName("deve devolver a OS a Em execucao quando o Cliente reprova e JA existe versao aprovada")
+    void deveVoltarAEmExecucaoNaReprovacaoComVersaoAprovada() {
+        OrdemServico ordem = ordemComVersaoAprovadaEOutraPendente();
+
+        ordem.reprovarOrcamento();
+
+        assertThat(ordem.status()).isEqualTo(StatusOrdemServico.EM_EXECUCAO);
+        assertThat(ordem.temVersaoAprovada()).isTrue();
+    }
+
+    @Test
+    @DisplayName("deve recusar aprovar ou reprovar fora de Aguardando aprovacao, porque o poder expira pela maquina")
+    void deveRecusarRespostaForaDeAguardandoAprovacao() {
+        OrdemServico emDiagnostico = ordemEmDiagnostico();
+
+        assertThatThrownBy(emDiagnostico::aprovarOrcamento).isInstanceOf(TransicaoInvalidaException.class);
+        assertThatThrownBy(emDiagnostico::reprovarOrcamento).isInstanceOf(TransicaoInvalidaException.class);
+    }
+
+    @Test
+    @DisplayName("deve recusar responder duas vezes, porque a OS ja saiu de Aguardando aprovacao")
+    void deveRecusarSegundaResposta() {
+        OrdemServico ordem = ordemAguardandoAprovacao();
+        ordem.aprovarOrcamento();
+
+        assertThatThrownBy(ordem::aprovarOrcamento).isInstanceOf(TransicaoInvalidaException.class);
+        assertThatThrownBy(ordem::reprovarOrcamento).isInstanceOf(TransicaoInvalidaException.class);
+    }
+
+    @Test
+    @DisplayName("deve reservar somente as pecas introduzidas pela versao aprovada")
+    void deveIsolarAsPecasIntroduzidasPelaVersao() {
+        OrdemServico ordem = ordemAguardandoAprovacao();
+
+        assertThat(ordem.itensDePecaIntroduzidosPor(1)).hasSize(1);
+        assertThat(ordem.itensDePecaIntroduzidosPor(2)).isEmpty();
+    }
+
+    private OrdemServico ordemComVersaoAprovadaEOutraPendente() {
+        UUID id = UUID.randomUUID();
+        LocalDateTime agora = LocalDateTime.now();
+        Orcamento aprovada = new Orcamento(UUID.randomUUID(), 1, SituacaoOrcamento.APROVADO,
+                reais("200.00"), agora, agora, 10, null);
+        Orcamento pendente = new Orcamento(UUID.randomUUID(), 2, SituacaoOrcamento.PENDENTE,
+                reais("80.00"), agora, null, 10, "Troca da bomba d agua");
+        return new OrdemServico(id, UUID.randomUUID(), UUID.randomUUID(),
+                StatusOrdemServico.AGUARDANDO_APROVACAO, CodigoAcompanhamento.gerar(), RELATO, agora,
+                List.of(TransicaoStatus.abertura(StatusOrdemServico.RECEBIDA)),
+                List.of(aprovada, pendente), List.of(), List.of());
+    }
+
     @Test
     @DisplayName("nao deve permitir alterar orcamentos e itens por fora do agregado")
     void naoDevePermitirAlterarOrcamentosEItensPorFora() {
