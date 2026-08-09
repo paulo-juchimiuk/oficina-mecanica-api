@@ -311,6 +311,109 @@ class OrdemServicoTest {
         assertThat(ordem.itensDePecaIntroduzidosPor(2)).isEmpty();
     }
 
+    private OrdemServico ordemEmExecucao() {
+        OrdemServico ordem = ordemAguardandoAprovacao();
+        ordem.aprovarOrcamento();
+        return ordem;
+    }
+
+    @Test
+    @DisplayName("deve gerar a versao 2 ja enviada e devolver a OS a Aguardando aprovacao no reparo adicional")
+    void deveGerarNovaVersaoNoReparoAdicional() {
+        OrdemServico ordem = ordemEmExecucao();
+
+        ordem.registrarReparoAdicional("Troca da bomba d agua",
+                List.of(new ServicoAIncluir(UUID.randomUUID(), reais("80.00"))), List.of());
+
+        assertThat(ordem.status()).isEqualTo(StatusOrdemServico.AGUARDANDO_APROVACAO);
+        assertThat(ordem.orcamentos()).hasSize(2);
+        assertThat(ordem.versaoMaisRecente().orElseThrow()).satisfies(versao -> {
+            assertThat(versao.versao()).isEqualTo(2);
+            assertThat(versao.descricao()).isEqualTo("Troca da bomba d agua");
+            assertThat(versao.enviado()).isTrue();
+            assertThat(versao.situacao()).isEqualTo(SituacaoOrcamento.PENDENTE);
+        });
+    }
+
+    @Test
+    @DisplayName("deve manter a versao anterior imutavel e aprovada depois do reparo adicional")
+    void deveManterAVersaoAnteriorImutavel() {
+        OrdemServico ordem = ordemEmExecucao();
+        Dinheiro totalDaPrimeira = ordem.orcamentos().getFirst().total();
+
+        ordem.registrarReparoAdicional("Troca da bomba d agua",
+                List.of(new ServicoAIncluir(UUID.randomUUID(), reais("80.00"))), List.of());
+
+        assertThat(ordem.orcamentos().getFirst().situacao()).isEqualTo(SituacaoOrcamento.APROVADO);
+        assertThat(ordem.orcamentos().getFirst().total()).isEqualTo(totalDaPrimeira);
+    }
+
+    @Test
+    @DisplayName("deve somar no total da versao 2 o escopo que ela cobre, incluindo os itens da versao 1")
+    void deveSomarOEscopoCobertoPelaVersaoDois() {
+        OrdemServico ordem = ordemEmExecucao();
+
+        ordem.registrarReparoAdicional("Troca da bomba d agua",
+                List.of(new ServicoAIncluir(UUID.randomUUID(), reais("80.00"))), List.of());
+
+        assertThat(ordem.versaoMaisRecente().orElseThrow().total()).isEqualTo(reais("300.00"));
+        assertThat(ordem.itensDeServicoDaVersao(2)).hasSize(2);
+        assertThat(ordem.itensDeServicoDaVersao(1)).hasSize(1);
+        assertThat(ordem.itensDePecaIntroduzidosPor(2)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("deve recusar reparo adicional fora de Em execucao, porque ele nasce durante a execucao")
+    void deveRecusarReparoAdicionalForaDeEmExecucao() {
+        OrdemServico aguardando = ordemAguardandoAprovacao();
+
+        assertThatThrownBy(() -> aguardando.registrarReparoAdicional("Qualquer coisa",
+                List.of(new ServicoAIncluir(UUID.randomUUID(), reais("80.00"))), List.of()))
+                .isInstanceOf(TransicaoInvalidaException.class);
+    }
+
+    @Test
+    @DisplayName("deve devolver a OS a Em execucao quando o reparo adicional e reprovado, sem levar o escopo recusado")
+    void deveVoltarAEmExecucaoQuandoOReparoAdicionalEReprovado() {
+        OrdemServico ordem = ordemEmExecucao();
+        ordem.registrarReparoAdicional("Troca da bomba d agua",
+                List.of(new ServicoAIncluir(UUID.randomUUID(), reais("80.00"))), List.of());
+
+        ordem.reprovarOrcamento();
+
+        assertThat(ordem.status()).isEqualTo(StatusOrdemServico.EM_EXECUCAO);
+        assertThat(ordem.orcamentos().getFirst().situacao()).isEqualTo(SituacaoOrcamento.APROVADO);
+        assertThat(ordem.versaoMaisRecente().orElseThrow().situacao()).isEqualTo(SituacaoOrcamento.REPROVADO);
+        assertThat(ordem.itensDeServicoDaVersao(2)).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("deve concluir a execucao e depois registrar a entrega, fechando o ciclo")
+    void deveConcluirExecucaoERegistrarEntrega() {
+        OrdemServico ordem = ordemEmExecucao();
+
+        ordem.concluirExecucao();
+        assertThat(ordem.status()).isEqualTo(StatusOrdemServico.FINALIZADA);
+
+        ordem.registrarEntrega();
+        assertThat(ordem.status()).isEqualTo(StatusOrdemServico.ENTREGUE);
+        assertThat(ordem.status().encerrado()).isTrue();
+    }
+
+    @Test
+    @DisplayName("deve recusar concluir a execucao e registrar a entrega fora de ordem")
+    void deveRecusarConclusaoEEntregaForaDeOrdem() {
+        OrdemServico aguardando = ordemAguardandoAprovacao();
+        assertThatThrownBy(aguardando::concluirExecucao).isInstanceOf(TransicaoInvalidaException.class);
+
+        OrdemServico emExecucao = ordemEmExecucao();
+        assertThatThrownBy(emExecucao::registrarEntrega).isInstanceOf(TransicaoInvalidaException.class);
+
+        emExecucao.concluirExecucao();
+        emExecucao.registrarEntrega();
+        assertThatThrownBy(emExecucao::registrarEntrega).isInstanceOf(TransicaoInvalidaException.class);
+    }
+
     private OrdemServico ordemComVersaoAprovadaEOutraPendente() {
         UUID id = UUID.randomUUID();
         LocalDateTime agora = LocalDateTime.now();

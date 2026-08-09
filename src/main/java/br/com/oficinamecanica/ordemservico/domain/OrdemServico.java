@@ -87,6 +87,24 @@ public class OrdemServico {
         return versao;
     }
 
+    public Orcamento registrarReparoAdicional(String descricao, List<ServicoAIncluir> servicos,
+                                              List<PecaAIncluir> pecas) {
+        exigirStatus(StatusOrdemServico.EM_EXECUCAO);
+        Orcamento novaVersao = abrirRascunho(descricao);
+        acrescentarItens(novaVersao, servicos, pecas);
+        novaVersao.enviar();
+        transicionarPara(StatusOrdemServico.AGUARDANDO_APROVACAO);
+        return novaVersao;
+    }
+
+    public void concluirExecucao() {
+        transicionarPara(StatusOrdemServico.FINALIZADA);
+    }
+
+    public void registrarEntrega() {
+        transicionarPara(StatusOrdemServico.ENTREGUE);
+    }
+
     public void reprovarOrcamento() {
         exigirStatus(StatusOrdemServico.AGUARDANDO_APROVACAO);
         StatusOrdemServico destino = destinoDaReprovacao();
@@ -140,11 +158,11 @@ public class OrdemServico {
     private Orcamento versaoCorrenteOuRascunho() {
         return versaoMaisRecente()
                 .filter(orcamento -> !orcamento.enviado())
-                .orElseGet(this::abrirRascunho);
+                .orElseGet(() -> abrirRascunho(null));
     }
 
-    private Orcamento abrirRascunho() {
-        Orcamento rascunho = Orcamento.rascunho(proximaVersao(), null);
+    private Orcamento abrirRascunho(String descricao) {
+        Orcamento rascunho = Orcamento.rascunho(proximaVersao(), descricao);
         orcamentos.add(rascunho);
         return rascunho;
     }
