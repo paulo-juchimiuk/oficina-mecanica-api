@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
@@ -67,9 +69,14 @@ public class ApiExceptionHandler {
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<ErroResponse> violacaoDeUnicidade(DataIntegrityViolationException excecao) {
+    public ResponseEntity<ErroResponse> violacaoDeIntegridade(DataIntegrityViolationException excecao) {
         return resposta(HttpStatus.CONFLICT, "CONFLITO_DE_ESTADO",
-                "O registro conflita com outro ja existente");
+                "A operacao viola uma invariante de dominio protegida pelo banco");
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErroResponse> rotaNaoEncontrada(NoResourceFoundException excecao) {
+        return resposta(HttpStatus.NOT_FOUND, "RECURSO_NAO_ENCONTRADO", "Rota nao encontrada nesta API");
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
@@ -96,6 +103,8 @@ public class ApiExceptionHandler {
     }
 
     private ResponseEntity<ErroResponse> resposta(HttpStatus status, String codigo, String mensagem) {
-        return ResponseEntity.status(status).body(new ErroResponse(codigo, mensagem));
+        return ResponseEntity.status(status)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new ErroResponse(codigo, mensagem));
     }
 }

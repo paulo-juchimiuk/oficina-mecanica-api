@@ -15,13 +15,22 @@ class ApiExceptionHandlerTest {
     private final ApiExceptionHandler handler = new ApiExceptionHandler();
 
     @Test
-    @DisplayName("deve responder 409 quando a unicidade do banco derruba a gravacao, que e o que a corrida perdida produz")
-    void deveResponder409NaViolacaoDeUnicidade() {
+    @DisplayName("deve responder 409 quando o banco derruba a gravacao, que e o que a corrida perdida produz")
+    void deveResponder409NaViolacaoDeIntegridade() {
         ResponseEntity<ErroResponse> resposta =
-                handler.violacaoDeUnicidade(new DataIntegrityViolationException("duplicate key"));
+                handler.violacaoDeIntegridade(new DataIntegrityViolationException("duplicate key"));
 
         assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(resposta.getBody().codigo()).isEqualTo("CONFLITO_DE_ESTADO");
+    }
+
+    @Test
+    @DisplayName("deve responder 409 sem afirmar conflito de unicidade, porque a causa nao foi verificada")
+    void deveResponder409SemAfirmarACausa() {
+        ResponseEntity<ErroResponse> resposta =
+                handler.violacaoDeIntegridade(new DataIntegrityViolationException("invalid byte sequence"));
+
+        assertThat(resposta.getBody().mensagem()).doesNotContain("conflita com outro");
     }
 
     @Test

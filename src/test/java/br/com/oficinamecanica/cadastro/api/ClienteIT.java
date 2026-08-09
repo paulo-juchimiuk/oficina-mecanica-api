@@ -4,6 +4,8 @@ import br.com.oficinamecanica.suporte.IntegracaoBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
 import java.util.ArrayList;
 import java.util.List;
@@ -245,20 +247,36 @@ class ClienteIT extends IntegracaoBase {
                 .andExpect(jsonPath("$.codigo").value("DOCUMENTO_JA_CADASTRADO"));
     }
 
-    @Test
-    @DisplayName("deve recusar remocao de cliente com Ordem de Servico em andamento, com 409")
-    void deveRecusarRemocaoComOrdemServicoEmAndamento() throws Exception {
-        String clienteId = cadastrar("Ana", CPF, "ana@example.com");
+    private void abrirOrdemServicoComStatus(String clienteId, String status) {
         UUID veiculoId = UUID.randomUUID();
         jdbc.update("INSERT INTO veiculo (id, placa, marca, modelo, ano, cliente_id) VALUES (?, ?, ?, ?, ?, ?::uuid)",
                 veiculoId, "ABC1234", "Fiat", "Uno", 2015, clienteId);
         jdbc.update("""
                 INSERT INTO ordem_servico (id, cliente_id, veiculo_id, status, codigo_acompanhamento, criada_em)
-                VALUES (?, ?::uuid, ?, 'EM_EXECUCAO', ?, NOW())
-                """, UUID.randomUUID(), clienteId, veiculoId, "ACMP-" + UUID.randomUUID());
+                VALUES (?, ?::uuid, ?, ?, ?, NOW())
+                """, UUID.randomUUID(), clienteId, veiculoId, status, "ACMP-" + UUID.randomUUID());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"RECEBIDA", "EM_DIAGNOSTICO", "AGUARDANDO_APROVACAO", "EM_EXECUCAO"})
+    @DisplayName("deve recusar remocao de cliente com Ordem de Servico em andamento, com 409")
+    void deveRecusarRemocaoComOrdemServicoEmAndamento(String status) throws Exception {
+        String clienteId = cadastrar("Ana", CPF, "ana@example.com");
+        abrirOrdemServicoComStatus(clienteId, status);
 
         mockMvc.perform(delete(PREFIXO + "/clientes/" + clienteId).header("Authorization", "Bearer " + token))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.codigo").value("CLIENTE_COM_ORDEM_SERVICO_EM_ANDAMENTO"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"FINALIZADA", "ENTREGUE", "CANCELADA"})
+    @DisplayName("deve permitir remocao quando a Ordem de Servico do cliente ja esta encerrada")
+    void devePermitirRemocaoComOrdemServicoEncerrada(String status) throws Exception {
+        String clienteId = cadastrar("Ana", CPF, "ana@example.com");
+        abrirOrdemServicoComStatus(clienteId, status);
+
+        mockMvc.perform(delete(PREFIXO + "/clientes/" + clienteId).header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
     }
 }

@@ -4,6 +4,8 @@ import br.com.oficinamecanica.suporte.IntegracaoBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
 import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -172,28 +174,31 @@ class VeiculoIT extends IntegracaoBase {
                 .andExpect(jsonPath("$.codigo").value("PLACA_JA_CADASTRADA"));
     }
 
-    @Test
-    @DisplayName("deve recusar remocao de veiculo com Ordem de Servico em andamento, com 409")
-    void deveRecusarRemocaoComOrdemServicoEmAndamento() throws Exception {
-        String veiculoId = cadastrar("ABC1234");
+    private void abrirOrdemServicoComStatus(String veiculoId, String status) {
         jdbc.update("""
                 INSERT INTO ordem_servico (id, cliente_id, veiculo_id, status, codigo_acompanhamento, criada_em)
-                VALUES (?, ?::uuid, ?::uuid, 'RECEBIDA', ?, NOW())
-                """, UUID.randomUUID(), clienteId, veiculoId, "ACMP-" + UUID.randomUUID());
+                VALUES (?, ?::uuid, ?::uuid, ?, ?, NOW())
+                """, UUID.randomUUID(), clienteId, veiculoId, status, "ACMP-" + UUID.randomUUID());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"RECEBIDA", "EM_DIAGNOSTICO", "AGUARDANDO_APROVACAO", "EM_EXECUCAO"})
+    @DisplayName("deve recusar remocao de veiculo com Ordem de Servico em andamento, com 409")
+    void deveRecusarRemocaoComOrdemServicoEmAndamento(String status) throws Exception {
+        String veiculoId = cadastrar("ABC1234");
+        abrirOrdemServicoComStatus(veiculoId, status);
 
         mockMvc.perform(delete(PREFIXO + "/veiculos/" + veiculoId).header("Authorization", "Bearer " + token))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.codigo").value("VEICULO_COM_ORDEM_SERVICO_EM_ANDAMENTO"));
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(strings = {"FINALIZADA", "ENTREGUE", "CANCELADA"})
     @DisplayName("deve permitir remocao quando a Ordem de Servico ja esta encerrada")
-    void devePermitirRemocaoComOrdemServicoEncerrada() throws Exception {
+    void devePermitirRemocaoComOrdemServicoEncerrada(String status) throws Exception {
         String veiculoId = cadastrar("ABC1234");
-        jdbc.update("""
-                INSERT INTO ordem_servico (id, cliente_id, veiculo_id, status, codigo_acompanhamento, criada_em)
-                VALUES (?, ?::uuid, ?::uuid, 'ENTREGUE', ?, NOW())
-                """, UUID.randomUUID(), clienteId, veiculoId, "ACMP-" + UUID.randomUUID());
+        abrirOrdemServicoComStatus(veiculoId, status);
 
         mockMvc.perform(delete(PREFIXO + "/veiculos/" + veiculoId).header("Authorization", "Bearer " + token))
                 .andExpect(status().isNoContent());

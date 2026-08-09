@@ -3,8 +3,8 @@
 # Endpoints administrativos exigem JWT (security global do documento).
 # Endpoints da tag Acompanhamento sao publicos, protegidos pelo Codigo de
 # acompanhamento opaco da OS (ADR-007).
-# A convencao do 401 esta em info.description, e nao aqui, porque comentario YAML
-# nao aparece no Swagger renderizado, que e onde o contrato e lido.
+# A convencao do 401 esta em info.description, e nao em comentario, porque
+# comentario nao sobrevive a nenhuma ferramenta que processe este arquivo.
 # Escopo deliberado: sem paginacao e sem filtros avancados;
 # erros comuns definidos uma vez em components.responses e referenciados.
 # Estilo YAML compacto (flow), por opcao de concisao.
@@ -25,7 +25,7 @@ info:
 
     Autorizacao: todo endpoint fora da tag Acompanhamento e do login exige JWT e responde 401 sem token valido. Para nao repetir a mesma resposta em 36 operacoes, o 401 e declarado nas operacoes de referencia (os quatro verbos de Clientes, as listagens dos quatro cadastros, a listagem de Ordens de Servico, a de pendencias de pecas e a metrica de tempo medio); a ausencia da declaracao nas demais nao significa acesso liberado. O 401 do login e outro: ele e publico, nao envolve JWT nenhum, e responde credencial invalida.
 
-    Erros de protocolo nao sao repetidos operacao a operacao, e todos respondem no schema Erro, inclusive nas rotas publicas: corpo ausente ou malformado e recusado com 400 nas operacoes que recebem corpo; Content-Type ausente ou diferente de application/json e recusado com 415, tambem so nas que recebem corpo, porque GET e DELETE nao consomem corpo e ignoram o cabecalho; identificador de caminho fora do formato UUID e recusado com 400 em qualquer operacao que tenha {id}; metodo nao suportado responde 405; Accept que nao aceite application/json responde 406; e falha interna responde 500.
+    Erros de protocolo nao sao repetidos operacao a operacao, e todos respondem no schema Erro nas rotas desta API, isto e sob o prefixo declarado em servers, inclusive nas rotas publicas: corpo ausente ou malformado e recusado com 400 nas operacoes que recebem corpo; Content-Type ausente ou diferente de application/json e recusado com 415, tambem so nas que recebem corpo, porque GET e DELETE nao consomem corpo e ignoram o cabecalho; identificador de caminho fora do formato UUID e recusado com 400 em qualquer operacao que tenha {id}, e o formato exigido e o canonico de 36 caracteres, entao forma abreviada ou com grupos de tamanho errado e recusada em vez de completada; metodo nao suportado responde 405; Accept cujo tipo de midia nao case com application/json responde 406 nas respostas de SUCESSO que carregam corpo, e o 204 das remocoes nao carrega corpo, nao negocia formato e sai normalmente; as respostas de erro tratadas pela aplicacao saem no schema Erro em application/json mesmo quando o Accept nao o aceita, porque erro fora do envelope nao seria legivel pelo cliente da API; e falha interna responde 500. Requisicao recusada antes do despacho para o controlador, seja pelo servidor de aplicacao, pelo filtro de seguranca ou pelo tratador padrao do framework, nao alcanca esse tratamento e responde no formato de quem a recusou.
   version: 1.0.0
 servers:
   - {url: 'http://localhost:8080/api/v1', description: ambiente local via docker-compose}
@@ -541,7 +541,7 @@ components:
         nome: {type: string, minLength: 1, maxLength: 120}
         documento: {type: string, description: CPF (11 digitos) ou CNPJ (14 digitos) somente numeros; digito verificador validado no dominio (VO Documento), pattern: '^[0-9]{11}$|^[0-9]{14}$'}
         email: {type: string, format: email, minLength: 1, maxLength: 120, description: 'destino do envio do Orcamento; o dominio recusa valor composto so de espaco, que e o que o banco tambem recusa'}
-        telefone: {type: string, maxLength: 20}
+        telefone: {type: string, maxLength: 20, nullable: true, description: 'opcional; ausente na requisicao, volta como null na resposta'}
 
     Cliente:
       allOf:
@@ -574,7 +574,7 @@ components:
       required: [nome, valorMaoDeObra]
       properties:
         nome: {type: string, minLength: 1, maxLength: 120, example: Troca de oleo}
-        descricao: {type: string, maxLength: 500}
+        descricao: {type: string, maxLength: 500, nullable: true, description: 'opcional; ausente na requisicao, volta como null na resposta'}
         valorMaoDeObra: {$ref: '#/components/schemas/Dinheiro'}
 
     Servico:
