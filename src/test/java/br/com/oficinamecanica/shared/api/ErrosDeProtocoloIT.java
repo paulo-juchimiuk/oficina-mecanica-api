@@ -31,14 +31,6 @@ class ErrosDeProtocoloIT extends IntegracaoBase {
     }
 
     @Test
-    @DisplayName("deve responder 404 com envelope em rota de contexto ainda nao implementado")
-    void deveResponder404EmContextoNaoImplementado() throws Exception {
-        mockMvc.perform(get(PREFIXO + "/ordens-servico").header("Authorization", "Bearer " + token))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.codigo").value("RECURSO_NAO_ENCONTRADO"));
-    }
-
-    @Test
     @DisplayName("deve responder 404 com envelope quando a rota implementada leva barra no fim")
     void deveResponder404ComBarraNoFim() throws Exception {
         mockMvc.perform(get(PREFIXO + "/clientes/").header("Authorization", "Bearer " + token))
