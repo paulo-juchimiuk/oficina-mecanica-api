@@ -133,6 +133,39 @@ class AmbienteDeDemonstracaoIT extends IntegracaoBase {
                 .andExpect(status().isNoContent());
     }
 
+    @Test
+    @DisplayName("deve recusar a remocao de uma peca da carga que consta em Ordem de Servico em andamento")
+    void deveRecusarRemocaoDePecaComOrdemEmAndamento() throws Exception {
+        token = autenticar(LOGIN_DOCUMENTADO, SENHA_DOCUMENTADA);
+        UUID pecaReservada = jdbc.queryForObject("""
+                SELECT DISTINCT peca_id FROM reserva_peca WHERE situacao = 'ATIVA'
+                ORDER BY peca_id
+                LIMIT 1
+                """, UUID.class);
+
+        mockMvc.perform(delete(PREFIXO + "/pecas/" + pecaReservada).header("Authorization", "Bearer " + token))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.codigo").value("PECA_COM_ORDEM_SERVICO_EM_ANDAMENTO"));
+    }
+
+    @Test
+    @DisplayName("deve trazer da carga as pecas abaixo do Estoque minimo e a pendencia que alimenta a compra")
+    void deveTrazerOCenarioDeReposicaoDaCarga() throws Exception {
+        token = autenticar(LOGIN_DOCUMENTADO, SENHA_DOCUMENTADA);
+        int abaixoDoMinimoNaCarga = contar(
+                "SELECT COUNT(*) FROM peca WHERE ativo = TRUE AND saldo_em_estoque < estoque_minimo");
+        assertThat(abaixoDoMinimoNaCarga).isPositive();
+
+        mockMvc.perform(get(PREFIXO + "/pecas?abaixoDoMinimo=true").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(abaixoDoMinimoNaCarga));
+
+        mockMvc.perform(get(PREFIXO + "/pendencias-pecas").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(contar("SELECT COUNT(*) FROM pendencia_peca")))
+                .andExpect(jsonPath("$[0].nomePeca").isNotEmpty());
+    }
+
     private int contar(String consulta) {
         return jdbc.queryForObject(consulta, Integer.class);
     }

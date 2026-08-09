@@ -4,7 +4,7 @@ API de gestão para oficina mecânica de médio porte: ordem de serviço, orçam
 
 Tech Challenge da Fase 1 da pós-graduação em Arquitetura de Software (FIAP).
 
-> **Estado atual: em construção.** Estrutura, build, infraestrutura, contrato da API e **schema com dados de demonstração** estão prontos. Dos cinco contextos delimitados, **Autenticação, Cadastro (clientes e veículos) e Catálogo de Serviços estão implementados e respondendo**; Ordem de Serviço e Estoque ainda não. As rotas dos contextos não implementados constam do `openapi.yaml` e, com token válido, respondem `404`; sem token respondem `401`. As rotas de acompanhamento do cliente, que o contrato declara públicas, também respondem `401` hoje: elas só passam a ser liberadas quando o contexto Ordem de Serviço existir. Esta nota sai quando o MVP estiver completo.
+> **Estado atual: em construção.** Estrutura, build, infraestrutura, contrato da API e **schema com dados de demonstração** estão prontos. Dos cinco contextos delimitados, **Autenticação, Cadastro (clientes e veículos), Catálogo de Serviços e Estoque estão implementados e respondendo**; Ordem de Serviço ainda não. As rotas da Ordem de Serviço constam do `openapi.yaml` e, com token válido, respondem `404`; sem token respondem `401`. **As quatro rotas de peças que moram sob `/ordens-servico/{id}/` pertencem ao Estoque e já respondem.** As rotas de acompanhamento do cliente, que o contrato declara públicas, também respondem `401` hoje: elas só passam a ser liberadas quando o contexto Ordem de Serviço existir. Esta nota sai quando o MVP estiver completo.
 
 ## O que o sistema faz
 
@@ -123,7 +123,7 @@ br.com.oficinamecanica
 ├── ordemservico      Core.     Agregado: Ordem de Serviço      (a implementar)
 ├── cadastro          Suporte.  Agregados: Cliente, Veículo     (implementado)
 ├── catalogo          Suporte.  Agregado: Serviço               (implementado)
-├── estoque           Suporte.  Agregado: Peça                  (a implementar)
+├── estoque           Suporte.  Agregado: Peça                  (implementado)
 ├── autenticacao      Genérico. Agregado: Usuário               (implementado)
 └── shared            não é contexto, apenas o que não tem dono
 ```
@@ -156,11 +156,11 @@ A regra aplicada artefato por artefato:
 |---|---|---|
 | Pacotes de camada | inglês | `domain`, `application`, `infrastructure`, `api` |
 | Pacotes de contexto delimitado | português | `ordemservico`, `estoque`, `catalogo` |
-| Agregados, entidades e value objects | português | `OrdemServico`, `Orcamento`, `SaldoEmEstoque`, `CodigoAcompanhamento` |
+| Agregados, entidades e value objects | português | `OrdemServico`, `Orcamento`, `ReservaPeca`, `CodigoAcompanhamento` |
 | Comportamentos do domínio | português | `aprovarOrcamento()`, `reservarPecas()`, `concluirDiagnostico()` |
 | Casos de uso | português | `CriarOrdemServico`, `CalcularTempoMedioExecucao` |
 | Eventos de domínio | português, verbo no passado | `OrcamentoAprovado`, `PecasReservadas` |
-| Exceções de domínio | conceito em português, sufixo técnico em inglês | `EstoqueInsuficienteException` |
+| Exceções de domínio | conceito em português, sufixo técnico em inglês | `PecaComReservaAtivaException` |
 | Padrões e mecanismos técnicos | inglês | `Controller`, `Repository`, `Mapper`, `Configuration` |
 | Métodos herdados de framework | inglês | `save()`, `findById()` |
 | DTOs e campos JSON | conceito em português, função técnica em inglês | `CriarOrdemServicoRequest`, `codigoAcompanhamento` |
@@ -176,7 +176,7 @@ A correspondência entre cada termo do negócio e seu identificador está no glo
 
 Todas documentadas com fundamento de negócio, fundamento técnico e o porquê. A tabela abaixo é o índice.
 
-**Os códigos `ADR-0xx` citados no código, no contrato e nos arquivos de infraestrutura referem-se a esta tabela.** O texto completo de cada decisão vive no documento de decisões arquiteturais, que é entregue junto da documentação do projeto e ainda não está publicado aqui; o link entra nesta página quando a documentação for publicada.
+**Os códigos `ADR-0xx` citados no contrato da API referem-se a esta tabela.** O texto completo de cada decisão vive no documento de decisões arquiteturais, que é entregue junto da documentação do projeto e ainda não está publicado aqui; o link entra nesta página quando a documentação for publicada.
 
 | ADR | Decisão | Status |
 |---|---|---|
@@ -196,6 +196,9 @@ Todas documentadas com fundamento de negócio, fundamento técnico e o porquê. 
 | 014 | Remoção lógica nos cadastros, para o histórico de OS não virar registro órfão | decidido |
 | 015 | Dados de demonstração fora do fluxo de migrations, carregados por serviço próprio | decidido |
 | 016 | Política de versão: sempre numa versão que ainda recebe correção | decidido |
+| 017 | Dinheiro replicado por contexto, sem kernel compartilhado | decidido |
+| 018 | Identidade de Serviço e Peça sem chave natural | decidido |
+| 019 | Concorrência no agregado Peça: trava pessimista na raiz, com aquisição ordenada | decidido |
 
 ## Documentação DDD
 

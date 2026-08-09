@@ -345,6 +345,7 @@ paths:
         - {name: abaixoDoMinimo, in: query, required: false, schema: {type: boolean}}
       responses:
         '200': {description: Lista de pecas com saldo, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Peca'}}}}}
+        '400': {$ref: '#/components/responses/RequisicaoInvalida'}
         '401': {$ref: '#/components/responses/NaoAutorizado'}
 
   /pecas/{id}:
@@ -358,7 +359,7 @@ paths:
     put:
       tags: [Pecas]
       summary: Alterar peca
-      description: 'Preco e Estoque minimo. O saldo so muda por Entrada de estoque, Baixa de estoque e Devolucao; a Reserva de pecas move a quantidade reservada, nao o saldo.'
+      description: 'Altera os dados de cadastro da Peca: nome, unidade de medida, preco e Estoque minimo. O saldo NAO muda aqui: ele so se move por Entrada de estoque, Baixa de estoque e Devolucao; a Reserva de pecas move a quantidade reservada, nao o saldo.'
       parameters: [{$ref: '#/components/parameters/IdRecurso'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PecaRequest'}}}}
       responses:
@@ -386,7 +387,6 @@ paths:
         '200': {description: 'entrada registrada; devolve a Peca com o saldo atualizado. Responde 200 e nao 201 porque nenhum recurso novo nasce: o ADR-013 recusou a tabela de movimentacao, e a Entrada e registrada pelo seu efeito no saldo', content: {application/json: {schema: {$ref: '#/components/schemas/Peca'}}}}
         '400': {$ref: '#/components/responses/RequisicaoInvalida'}
         '404': {$ref: '#/components/responses/NaoEncontrado'}
-        '409': {$ref: '#/components/responses/ConflitoDeEstado'}
 
   /ordens-servico/{id}/pecas-reservadas:
     get:
@@ -446,6 +446,7 @@ paths:
         - {name: ordemServicoId, in: query, required: false, schema: {type: string, format: uuid}}
       responses:
         '200': {description: 'pendencias', content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/PendenciaPeca'}}}}}
+        '400': {$ref: '#/components/responses/RequisicaoInvalida'}
         '401': {$ref: '#/components/responses/NaoAutorizado'}
 
 components:
@@ -476,7 +477,7 @@ components:
       description: 'Recurso inexistente. Nas rotas de acompanhamento o 404 e UNIFORME (ADR-007): codigo inexistente e codigo de outra OS respondem igual, nunca distinguindo "nao existe" de "nao e seu"'
       content: {application/json: {schema: {$ref: '#/components/schemas/Erro'}}}
     ConflitoDeEstado:
-      description: 'Operacao viola a maquina de estados da OS ou uma invariante de dominio (ex. Documento ou Placa ja cadastrados, cadastro com OS em andamento, saldo insuficiente)'
+      description: 'Operacao viola a maquina de estados da OS ou uma invariante de dominio (ex. Documento ou Placa ja cadastrados, cadastro com OS em andamento, reserva fora da situacao que a operacao exige)'
       content: {application/json: {schema: {$ref: '#/components/schemas/Erro'}}}
 
   schemas:
