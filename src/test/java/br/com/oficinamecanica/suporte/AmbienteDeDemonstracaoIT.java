@@ -67,6 +67,72 @@ class AmbienteDeDemonstracaoIT extends IntegracaoBase {
                 .andExpect(jsonPath("$.codigo").value("CLIENTE_COM_ORDEM_SERVICO_EM_ANDAMENTO"));
     }
 
+    @Test
+    @DisplayName("deve carregar uma Ordem de Servico em cada um dos sete status, que e o que o README promete")
+    void deveCarregarOsSeteStatus() {
+        for (String status : new String[]{"RECEBIDA", "EM_DIAGNOSTICO", "AGUARDANDO_APROVACAO",
+                "EM_EXECUCAO", "FINALIZADA", "ENTREGUE", "CANCELADA"}) {
+            assertThat(contar("SELECT COUNT(*) FROM ordem_servico WHERE status = '" + status + "'"))
+                    .as("Ordens de Servico no status %s", status)
+                    .isPositive();
+        }
+    }
+
+    @Test
+    @DisplayName("deve carregar o catalogo com os dois desfechos da remocao logica, tres travados e um liberado")
+    void deveCarregarOsDoisDesfechosDaRemocao() {
+        assertThat(contar("""
+                SELECT COUNT(DISTINCT item.servico_id) FROM item_servico item
+                JOIN ordem_servico ordem ON ordem.id = item.ordem_servico_id
+                WHERE ordem.status IN ('RECEBIDA', 'EM_DIAGNOSTICO', 'AGUARDANDO_APROVACAO', 'EM_EXECUCAO')
+                """)).as("servicos travados por Ordem de Servico em andamento").isEqualTo(3);
+
+        assertThat(contar("""
+                SELECT COUNT(*) FROM servico
+                WHERE id IN (SELECT servico_id FROM item_servico)
+                AND id NOT IN (
+                    SELECT item.servico_id FROM item_servico item
+                    JOIN ordem_servico ordem ON ordem.id = item.ordem_servico_id
+                    WHERE ordem.status IN ('RECEBIDA', 'EM_DIAGNOSTICO', 'AGUARDANDO_APROVACAO', 'EM_EXECUCAO'))
+                """)).as("servicos liberados para remocao logica").isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("deve recusar a remocao de um servico da carga que consta em Ordem de Servico em andamento")
+    void deveRecusarRemocaoDeServicoComOrdemEmAndamento() throws Exception {
+        token = autenticar(LOGIN_DOCUMENTADO, SENHA_DOCUMENTADA);
+        UUID servicoBloqueado = jdbc.queryForObject("""
+                SELECT DISTINCT item.servico_id FROM item_servico item
+                JOIN ordem_servico ordem ON ordem.id = item.ordem_servico_id
+                WHERE ordem.status IN ('RECEBIDA', 'EM_DIAGNOSTICO', 'AGUARDANDO_APROVACAO', 'EM_EXECUCAO')
+                ORDER BY item.servico_id
+                LIMIT 1
+                """, UUID.class);
+
+        mockMvc.perform(delete(PREFIXO + "/servicos/" + servicoBloqueado).header("Authorization", "Bearer " + token))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.codigo").value("SERVICO_COM_ORDEM_SERVICO_EM_ANDAMENTO"));
+    }
+
+    @Test
+    @DisplayName("deve permitir a remocao de um servico da carga que so consta em Ordem de Servico encerrada")
+    void devePermitirRemocaoDeServicoSoEmOrdemEncerrada() throws Exception {
+        token = autenticar(LOGIN_DOCUMENTADO, SENHA_DOCUMENTADA);
+        UUID servicoLiberado = jdbc.queryForObject("""
+                SELECT servico.id FROM servico
+                WHERE servico.id IN (SELECT servico_id FROM item_servico)
+                AND servico.id NOT IN (
+                    SELECT item.servico_id FROM item_servico item
+                    JOIN ordem_servico ordem ON ordem.id = item.ordem_servico_id
+                    WHERE ordem.status IN ('RECEBIDA', 'EM_DIAGNOSTICO', 'AGUARDANDO_APROVACAO', 'EM_EXECUCAO'))
+                ORDER BY servico.id
+                LIMIT 1
+                """, UUID.class);
+
+        mockMvc.perform(delete(PREFIXO + "/servicos/" + servicoLiberado).header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+    }
+
     private int contar(String consulta) {
         return jdbc.queryForObject(consulta, Integer.class);
     }

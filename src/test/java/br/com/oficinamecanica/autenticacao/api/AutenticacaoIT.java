@@ -12,9 +12,15 @@ import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.yaml.snakeyaml.Yaml;
 import javax.crypto.spec.SecretKeySpec;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
+import java.util.Map;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -139,5 +145,21 @@ class AutenticacaoIT extends IntegracaoBase {
                 .andExpect(jsonPath("$.components.securitySchemes.jwtAdministrativo.scheme").value("bearer"))
                 .andExpect(jsonPath("$.security[0].jwtAdministrativo").exists())
                 .andExpect(jsonPath("$.paths['" + PREFIXO + "/auth/login'].post.security").isEmpty());
+    }
+
+    @Test
+    @DisplayName("deve identificar a especificacao gerada com o mesmo titulo e versao do contrato versionado")
+    void deveIdentificarEspecificacaoComOsDadosDoContrato() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.info.title").value(doContrato("title")))
+                .andExpect(jsonPath("$.info.version").value(doContrato("version")));
+    }
+
+    private String doContrato(String chave) throws IOException {
+        try (InputStream contrato = Files.newInputStream(Path.of("openapi.yaml"))) {
+            Map<String, Map<String, Object>> raiz = new Yaml().load(contrato);
+            return String.valueOf(raiz.get("info").get(chave));
+        }
     }
 }

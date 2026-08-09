@@ -13,8 +13,8 @@ services:
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
-      # A imagem 18+ guarda os dados em subdiretorio por versao maior, entao o
-      # volume monta um nivel acima do que a 16 usava.
+      # A imagem guarda os dados em subdiretorio por versao maior, entao o
+      # volume monta um nivel acima desse subdiretorio.
       - dados_banco:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U oficina -d oficina"]
@@ -47,8 +47,7 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
 
-  # Carga dos dados de demonstracao (ADR-015). Existe SO neste compose, entao
-  # nenhum outro ambiente a executa por engano. Espera o schema, carrega e sai.
+  # Carga dos dados de demonstracao (ADR-015). Espera o schema, carrega e sai.
   seed:
     image: postgres:18-alpine
     container_name: oficina-seed

@@ -4,7 +4,7 @@ API de gestão para oficina mecânica de médio porte: ordem de serviço, orçam
 
 Tech Challenge da Fase 1 da pós-graduação em Arquitetura de Software (FIAP).
 
-> **Estado atual: em construção.** Estrutura, build, infraestrutura, contrato da API e **schema com dados de demonstração** estão prontos. Dos cinco contextos delimitados, **Autenticação e Cadastro (clientes e veículos) estão implementados e respondendo**; Ordem de Serviço, Catálogo de Serviços e Estoque ainda não. As rotas dos contextos não implementados constam do `openapi.yaml` e, com token válido, respondem `404`; sem token respondem `401`. As rotas de acompanhamento do cliente, que o contrato declara públicas, também respondem `401` hoje: elas só passam a ser liberadas quando o contexto Ordem de Serviço existir. Esta nota sai quando o MVP estiver completo.
+> **Estado atual: em construção.** Estrutura, build, infraestrutura, contrato da API e **schema com dados de demonstração** estão prontos. Dos cinco contextos delimitados, **Autenticação, Cadastro (clientes e veículos) e Catálogo de Serviços estão implementados e respondendo**; Ordem de Serviço e Estoque ainda não. As rotas dos contextos não implementados constam do `openapi.yaml` e, com token válido, respondem `404`; sem token respondem `401`. As rotas de acompanhamento do cliente, que o contrato declara públicas, também respondem `401` hoje: elas só passam a ser liberadas quando o contexto Ordem de Serviço existir. Esta nota sai quando o MVP estiver completo.
 
 ## O que o sistema faz
 
@@ -51,7 +51,7 @@ Com o ambiente de pé:
 - Especificação: http://localhost:8080/v3/api-docs
 - Contrato fonte versionado: [`openapi.yaml`](openapi.yaml)
 
-As duas primeiras servem a especificação **gerada a partir do código já implementado**, então enquanto a implementação avança elas mostram menos que o contrato. O `openapi.yaml` é a fonte de verdade do contrato completo.
+As duas primeiras servem a especificação **gerada a partir do código já implementado**, então enquanto a implementação avança elas mostram menos que o contrato. A diferença não é só de quantidade de rotas: a especificação gerada **não publica as respostas de erro nem o schema `Erro`**, não carrega as restrições de valor monetário (mínimo, teto e moeda única), **não traz o `info.description`**, que é onde moram as convenções de autorização e de erro de protocolo, e sai em OpenAPI 3.1.0 contra 3.0.3 do arquivo versionado. **O `openapi.yaml` é a fonte de verdade do contrato completo**, e é ele que deve ser lido para conhecer o contrato; o Swagger UI serve para experimentar as chamadas.
 
 A documentação é pública. Todo o resto exige JWT.
 
@@ -122,7 +122,7 @@ Monolito em camadas. Cada **contexto delimitado** do Context Map é um pacote de
 br.com.oficinamecanica
 ├── ordemservico      Core.     Agregado: Ordem de Serviço      (a implementar)
 ├── cadastro          Suporte.  Agregados: Cliente, Veículo     (implementado)
-├── catalogo          Suporte.  Agregado: Serviço               (a implementar)
+├── catalogo          Suporte.  Agregado: Serviço               (implementado)
 ├── estoque           Suporte.  Agregado: Peça                  (a implementar)
 ├── autenticacao      Genérico. Agregado: Usuário               (implementado)
 └── shared            não é contexto, apenas o que não tem dono

@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.UUID;
 
-@Component
+@Component("ordensServicoEmAndamentoDoCadastro")
 class OrdensServicoEmAndamentoJpa implements OrdensServicoEmAndamento {
 
     private static final List<String> STATUS_EM_ANDAMENTO =

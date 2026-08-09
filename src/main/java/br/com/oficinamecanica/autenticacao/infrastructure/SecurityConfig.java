@@ -4,6 +4,7 @@ import br.com.oficinamecanica.shared.api.ApiPathPrefixConfig;
 import br.com.oficinamecanica.shared.api.ErroResponse;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
+import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import jakarta.servlet.http.HttpServletResponse;
@@ -23,7 +24,9 @@ import tools.jackson.databind.ObjectMapper;
 
 @Configuration
 @EnableWebSecurity
-@OpenAPIDefinition(security = @SecurityRequirement(name = SecurityConfig.ESQUEMA_JWT))
+@OpenAPIDefinition(
+        info = @Info(title = "API da Oficina Mecanica", version = "1.0.0"),
+        security = @SecurityRequirement(name = SecurityConfig.ESQUEMA_JWT))
 @SecurityScheme(name = SecurityConfig.ESQUEMA_JWT, type = SecuritySchemeType.HTTP, scheme = "bearer", bearerFormat = "JWT")
 class SecurityConfig {
 
