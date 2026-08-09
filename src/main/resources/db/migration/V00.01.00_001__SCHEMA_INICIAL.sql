@@ -1,6 +1,3 @@
--- Schema inicial. Nomes de tabela e coluna em portugues (ADR-012: o que existe
--- no negocio e nomeado em portugues); metadados de infraestrutura em ingles.
-
 CREATE TABLE usuario (
     id          UUID PRIMARY KEY,
     login       VARCHAR(60)  NOT NULL UNIQUE,
@@ -89,8 +86,6 @@ CREATE TABLE transicao_status (
         'RECEBIDA', 'EM_DIAGNOSTICO', 'AGUARDANDO_APROVACAO',
         'EM_EXECUCAO', 'FINALIZADA', 'ENTREGUE', 'CANCELADA'))
 );
--- Insumo do Tempo medio de execucao: a consulta varre as transicoes de uma OS
--- em ordem cronologica para somar os segmentos em Em execucao (ADR-008).
 CREATE INDEX idx_transicao_os_data ON transicao_status (ordem_servico_id, data_hora);
 
 CREATE TABLE orcamento (
@@ -103,8 +98,6 @@ CREATE TABLE orcamento (
     data_envio        TIMESTAMP,
     data_resposta     TIMESTAMP,
     validade_dias     INTEGER        NOT NULL DEFAULT 10 CHECK (validade_dias >= 1),
-    -- Preenchida quando a versao nasce de um Reparo adicional: e o que o Cliente
-    -- le antes de autorizar o servico extra.
     descricao         VARCHAR(500),
     CONSTRAINT versao_unica_por_os UNIQUE (ordem_servico_id, versao),
     CONSTRAINT situacao_do_orcamento CHECK (situacao IN ('PENDENTE', 'APROVADO', 'REPROVADO'))
@@ -120,7 +113,6 @@ CREATE TABLE item_servico (
 );
 CREATE INDEX idx_item_servico_os ON item_servico (ordem_servico_id);
 CREATE INDEX idx_item_servico_orcamento ON item_servico (orcamento_origem_id);
--- Recorte do Tempo medio de execucao por Servico: a consulta filtra por servico_id.
 CREATE INDEX idx_item_servico_servico ON item_servico (servico_id);
 
 CREATE TABLE item_peca (
@@ -134,7 +126,6 @@ CREATE TABLE item_peca (
 );
 CREATE INDEX idx_item_peca_os ON item_peca (ordem_servico_id);
 CREATE INDEX idx_item_peca_orcamento ON item_peca (orcamento_origem_id);
--- Guard do DELETE de peca (ADR-014): a recusa consulta itens e reservas pela peca.
 CREATE INDEX idx_item_peca_peca ON item_peca (peca_id);
 
 CREATE TABLE reserva_peca (
@@ -149,9 +140,6 @@ CREATE TABLE reserva_peca (
 CREATE INDEX idx_reserva_os ON reserva_peca (ordem_servico_id);
 CREATE INDEX idx_reserva_peca ON reserva_peca (peca_id);
 
--- Fonte do modelo de leitura "Pendencias de pecas por OS" (ADR-013). Quando falta
--- peca com o orcamento ja aprovado, a OS SEGUE Em execucao e a falta vive aqui;
--- nao existe status "Aguardando pecas".
 CREATE TABLE pendencia_peca (
     id                  UUID PRIMARY KEY,
     ordem_servico_id    UUID      NOT NULL REFERENCES ordem_servico (id),

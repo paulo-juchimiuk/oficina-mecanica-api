@@ -28,10 +28,6 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
-# Namespace proprio: chave simetrica nao e propriedade do resource server do
-# Spring, que so aceita issuer-uri, jwk-set-uri e public-key-location. Posta ali,
-# seria ignorada em silencio. O default tem 32 bytes ou mais porque o HS256 exige
-# no minimo 256 bits (RFC 7518).
 oficina:
   jwt:
     segredo: ${JWT_SEGREDO:trocar-este-segredo-local-de-32-bytes-ou-mais}

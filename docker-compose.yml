@@ -1,6 +1,3 @@
-# O TZ: UTC de banco, app e seed e invariante da entrega, nao preferencia: as
-# colunas de data e hora nao carregam fuso, e carga e aplicacao precisam escrever
-# no mesmo relogio para o tempo medio de execucao fechar (ADR-008).
 services:
   banco:
     image: postgres:18-alpine
@@ -22,7 +19,6 @@ services:
       timeout: 5s
       retries: 10
 
-  # Caixa de e-mail do ambiente (ADR-007).
   email:
     image: axllent/mailpit:v1.21
     container_name: oficina-email
@@ -47,7 +43,6 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
 
-  # Carga dos dados de demonstracao (ADR-015). Espera o schema, carrega e sai.
   seed:
     image: postgres:18-alpine
     container_name: oficina-seed
