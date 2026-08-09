@@ -3,13 +3,16 @@ package br.com.oficinamecanica.ordemservico.domain;
 import br.com.oficinamecanica.shared.domain.DadosInvalidosException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public class OrdemServico {
 
     private static final String CODIGO = "ORDEM_SERVICO_INVALIDA";
     private static final int TAMANHO_MAXIMO_DO_RELATO = 1000;
+    private static final int PRIMEIRA_VERSAO = 1;
     private static final StatusOrdemServico STATUS_INICIAL = StatusOrdemServico.RECEBIDA;
 
     private final UUID id;
@@ -19,11 +22,15 @@ public class OrdemServico {
     private final String relatoDoProblema;
     private final LocalDateTime criadaEm;
     private final List<TransicaoStatus> transicoes;
+    private final List<Orcamento> orcamentos;
+    private final List<ItemServico> itensServico;
+    private final List<ItemPeca> itensPeca;
     private StatusOrdemServico status;
 
     public OrdemServico(UUID id, UUID clienteId, UUID veiculoId, StatusOrdemServico status,
                         CodigoAcompanhamento codigoAcompanhamento, String relatoDoProblema,
-                        LocalDateTime criadaEm, List<TransicaoStatus> transicoes) {
+                        LocalDateTime criadaEm, List<TransicaoStatus> transicoes,
+                        List<Orcamento> orcamentos, List<ItemServico> itensServico, List<ItemPeca> itensPeca) {
         if (id == null) {
             throw new DadosInvalidosException(CODIGO, "Ordem de Servico exige identidade");
         }
@@ -44,16 +51,104 @@ public class OrdemServico {
         this.relatoDoProblema = relatoValidado(relatoDoProblema);
         this.criadaEm = criadaEm;
         this.transicoes = new ArrayList<>(transicoes);
+        this.orcamentos = new ArrayList<>(orcamentos);
+        this.itensServico = new ArrayList<>(itensServico);
+        this.itensPeca = new ArrayList<>(itensPeca);
     }
 
     public static OrdemServico abrir(UUID clienteId, UUID veiculoId, String relatoDoProblema) {
         return new OrdemServico(UUID.randomUUID(), clienteId, veiculoId, STATUS_INICIAL,
                 CodigoAcompanhamento.gerar(), relatoDoProblema, LocalDateTime.now(),
-                List.of(TransicaoStatus.abertura(STATUS_INICIAL)));
+                List.of(TransicaoStatus.abertura(STATUS_INICIAL)), List.of(), List.of(), List.of());
     }
 
     public void iniciarDiagnostico() {
         transicionarPara(StatusOrdemServico.EM_DIAGNOSTICO);
+    }
+
+    public void incluirItens(List<ServicoAIncluir> servicos, List<PecaAIncluir> pecas) {
+        exigirStatus(StatusOrdemServico.EM_DIAGNOSTICO);
+        acrescentarItens(versaoCorrenteOuRascunho(), servicos, pecas);
+    }
+
+    public void concluirDiagnostico() {
+        exigirStatus(StatusOrdemServico.EM_DIAGNOSTICO);
+        Orcamento versao = versaoMaisRecente().orElseThrow(() -> new OrdemServicoSemOrcamentoException(id));
+        versao.enviar();
+        transicionarPara(StatusOrdemServico.AGUARDANDO_APROVACAO);
+    }
+
+    public Optional<Orcamento> versaoMaisRecente() {
+        return orcamentos.stream().max(Comparator.comparingInt(Orcamento::versao));
+    }
+
+    public Optional<Orcamento> versaoMaisRecenteEnviada() {
+        return orcamentos.stream().filter(Orcamento::enviado).max(Comparator.comparingInt(Orcamento::versao));
+    }
+
+    public boolean temVersaoAprovada() {
+        return orcamentos.stream().anyMatch(Orcamento::aprovado);
+    }
+
+    public List<ItemServico> itensDeServicoDaVersao(int versao) {
+        return itensServico.stream().filter(item -> cobertoPelaVersao(item.versaoOrigem(), versao)).toList();
+    }
+
+    public List<ItemPeca> itensDePecaDaVersao(int versao) {
+        return itensPeca.stream().filter(item -> cobertoPelaVersao(item.versaoOrigem(), versao)).toList();
+    }
+
+    private void acrescentarItens(Orcamento versao, List<ServicoAIncluir> servicos, List<PecaAIncluir> pecas) {
+        servicos.forEach(servico -> itensServico.add(
+                ItemServico.incluir(servico.servicoId(), servico.valorMaoDeObra(), versao.versao())));
+        pecas.forEach(peca -> itensPeca.add(
+                ItemPeca.incluir(peca.pecaId(), peca.quantidade(), peca.preco(), versao.versao())));
+        versao.consolidar(totalDaVersao(versao.versao()));
+    }
+
+    private Orcamento versaoCorrenteOuRascunho() {
+        return versaoMaisRecente()
+                .filter(orcamento -> !orcamento.enviado())
+                .orElseGet(this::abrirRascunho);
+    }
+
+    private Orcamento abrirRascunho() {
+        Orcamento rascunho = Orcamento.rascunho(proximaVersao(), null);
+        orcamentos.add(rascunho);
+        return rascunho;
+    }
+
+    private int proximaVersao() {
+        return versaoMaisRecente().map(Orcamento::versao).map(versao -> versao + 1).orElse(PRIMEIRA_VERSAO);
+    }
+
+    private Dinheiro totalDaVersao(int versao) {
+        Dinheiro totalDosServicos = itensDeServicoDaVersao(versao).stream()
+                .map(ItemServico::subtotal)
+                .reduce(Dinheiro.zero(), Dinheiro::somar);
+        return itensDePecaDaVersao(versao).stream()
+                .map(ItemPeca::subtotal)
+                .reduce(totalDosServicos, Dinheiro::somar);
+    }
+
+    private boolean cobertoPelaVersao(int versaoOrigemDoItem, int versao) {
+        if (versaoOrigemDoItem > versao) {
+            return false;
+        }
+        if (versaoOrigemDoItem == versao) {
+            return true;
+        }
+        return !versaoFoiReprovada(versaoOrigemDoItem);
+    }
+
+    private boolean versaoFoiReprovada(int versao) {
+        return orcamentos.stream().filter(orcamento -> orcamento.versao() == versao).anyMatch(Orcamento::reprovado);
+    }
+
+    private void exigirStatus(StatusOrdemServico esperado) {
+        if (status != esperado) {
+            throw new TransicaoInvalidaException(id, status, esperado);
+        }
     }
 
     private void transicionarPara(StatusOrdemServico destino) {
@@ -106,5 +201,17 @@ public class OrdemServico {
 
     public List<TransicaoStatus> transicoes() {
         return List.copyOf(transicoes);
+    }
+
+    public List<Orcamento> orcamentos() {
+        return List.copyOf(orcamentos);
+    }
+
+    public List<ItemServico> itensServico() {
+        return List.copyOf(itensServico);
+    }
+
+    public List<ItemPeca> itensPeca() {
+        return List.copyOf(itensPeca);
     }
 }

@@ -12,6 +12,8 @@ class ClientesJpa implements Clientes {
 
     private static final String POR_DOCUMENTO =
             "SELECT id FROM cliente WHERE documento = :documento AND ativo = TRUE";
+    private static final String EMAIL_POR_IDENTIDADE =
+            "SELECT email FROM cliente WHERE id = :cliente AND ativo = TRUE";
 
     private final EntityManager entityManager;
 
@@ -21,9 +23,18 @@ class ClientesJpa implements Clientes {
 
     @Override
     public Optional<UUID> identidadePorDocumento(String documento) {
-        List<?> encontrados = entityManager.createNativeQuery(POR_DOCUMENTO)
-                .setParameter("documento", documento)
+        return primeiro(POR_DOCUMENTO, "documento", documento).map(UUID.class::cast);
+    }
+
+    @Override
+    public Optional<String> emailDe(UUID clienteId) {
+        return primeiro(EMAIL_POR_IDENTIDADE, "cliente", clienteId).map(String.class::cast);
+    }
+
+    private Optional<?> primeiro(String consulta, String parametro, Object valor) {
+        List<?> encontrados = entityManager.createNativeQuery(consulta)
+                .setParameter(parametro, valor)
                 .getResultList();
-        return encontrados.stream().findFirst().map(UUID.class::cast);
+        return encontrados.stream().findFirst();
     }
 }

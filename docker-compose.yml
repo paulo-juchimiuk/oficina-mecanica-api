@@ -34,7 +34,10 @@ services:
     depends_on:
       banco:
         condition: service_healthy
+      email:
+        condition: service_started
     environment:
+      SPRING_MAIL_HOST: email
       SPRING_DATASOURCE_URL: jdbc:postgresql://banco:5432/oficina
       SPRING_DATASOURCE_USERNAME: oficina
       SPRING_DATASOURCE_PASSWORD: oficina_local

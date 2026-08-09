@@ -6,4 +6,6 @@ import java.util.UUID;
 public interface Clientes {
 
     Optional<UUID> identidadePorDocumento(String documento);
+
+    Optional<String> emailDe(UUID clienteId);
 }

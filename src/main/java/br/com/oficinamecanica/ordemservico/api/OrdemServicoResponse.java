@@ -14,6 +14,9 @@ public record OrdemServicoResponse(
         LocalDateTime criadaEm,
         String codigoAcompanhamento,
         String relatoDoProblema,
+        List<ItemServicoResponse> itensServico,
+        List<ItemPecaResponse> itensPeca,
+        List<OrcamentoResponse> orcamentos,
         List<TransicaoStatusResponse> transicoesStatus) {
 
     static OrdemServicoResponse de(OrdemServico ordemServico) {
@@ -25,6 +28,9 @@ public record OrdemServicoResponse(
                 ordemServico.criadaEm(),
                 ordemServico.codigoAcompanhamento().valor(),
                 ordemServico.relatoDoProblema(),
+                ordemServico.itensServico().stream().map(ItemServicoResponse::de).toList(),
+                ordemServico.itensPeca().stream().map(ItemPecaResponse::de).toList(),
+                ordemServico.orcamentos().stream().map(OrcamentoResponse::de).toList(),
                 ordemServico.transicoes().stream().map(TransicaoStatusResponse::de).toList());
     }
 }

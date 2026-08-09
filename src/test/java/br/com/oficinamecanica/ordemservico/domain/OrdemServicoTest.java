@@ -3,6 +3,7 @@ package br.com.oficinamecanica.ordemservico.domain;
 import br.com.oficinamecanica.shared.domain.DadosInvalidosException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -92,12 +93,12 @@ class OrdemServicoTest {
         List<TransicaoStatus> historico = List.of(TransicaoStatus.abertura(StatusOrdemServico.RECEBIDA));
 
         assertThatThrownBy(() -> new OrdemServico(null, id, id, StatusOrdemServico.RECEBIDA,
-                codigo, RELATO, agora, historico))
+                codigo, RELATO, agora, historico, List.of(), List.of(), List.of()))
                 .isInstanceOf(DadosInvalidosException.class);
-        assertThatThrownBy(() -> new OrdemServico(id, id, id, null, codigo, RELATO, agora, historico))
+        assertThatThrownBy(() -> new OrdemServico(id, id, id, null, codigo, RELATO, agora, historico, List.of(), List.of(), List.of()))
                 .isInstanceOf(DadosInvalidosException.class);
         assertThatThrownBy(() -> new OrdemServico(id, id, id, StatusOrdemServico.RECEBIDA,
-                null, RELATO, agora, historico))
+                null, RELATO, agora, historico, List.of(), List.of(), List.of()))
                 .isInstanceOf(DadosInvalidosException.class);
     }
 
@@ -109,5 +110,142 @@ class OrdemServicoTest {
         assertThatThrownBy(() -> ordem.transicoes().add(TransicaoStatus.abertura(StatusOrdemServico.ENTREGUE)))
                 .isInstanceOf(UnsupportedOperationException.class);
         assertThat(ordem.transicoes()).hasSize(1);
+    }
+
+    private Dinheiro reais(String valor) {
+        return new Dinheiro(new BigDecimal(valor), "BRL");
+    }
+
+    private OrdemServico ordemEmDiagnostico() {
+        OrdemServico ordem = ordemAberta();
+        ordem.iniciarDiagnostico();
+        return ordem;
+    }
+
+    @Test
+    @DisplayName("deve abrir a versao 1 como rascunho na inclusao do primeiro item, como o ADR-006 descreve")
+    void deveAbrirAVersaoUmComoRascunhoNoPrimeiroItem() {
+        OrdemServico ordem = ordemEmDiagnostico();
+
+        ordem.incluirItens(List.of(new ServicoAIncluir(UUID.randomUUID(), reais("120.00"))), List.of());
+
+        assertThat(ordem.orcamentos()).singleElement().satisfies(versao -> {
+            assertThat(versao.versao()).isEqualTo(1);
+            assertThat(versao.situacao()).isEqualTo(SituacaoOrcamento.PENDENTE);
+            assertThat(versao.enviado()).isFalse();
+            assertThat(versao.dataEnvio()).isNull();
+            assertThat(versao.total()).isEqualTo(reais("120.00"));
+        });
+    }
+
+    @Test
+    @DisplayName("deve somar servicos e pecas no total da versao, multiplicando a peca pela quantidade")
+    void deveSomarOTotalDaVersao() {
+        OrdemServico ordem = ordemEmDiagnostico();
+
+        ordem.incluirItens(
+                List.of(new ServicoAIncluir(UUID.randomUUID(), reais("120.00"))),
+                List.of(new PecaAIncluir(UUID.randomUUID(), 3, reais("50.00"))));
+
+        assertThat(ordem.versaoMaisRecente().orElseThrow().total()).isEqualTo(reais("270.00"));
+    }
+
+    @Test
+    @DisplayName("deve acumular novas inclusoes na MESMA versao enquanto ela nao foi enviada")
+    void deveAcumularNaMesmaVersaoAntesDoEnvio() {
+        OrdemServico ordem = ordemEmDiagnostico();
+
+        ordem.incluirItens(List.of(new ServicoAIncluir(UUID.randomUUID(), reais("120.00"))), List.of());
+        ordem.incluirItens(List.of(new ServicoAIncluir(UUID.randomUUID(), reais("80.00"))), List.of());
+
+        assertThat(ordem.orcamentos()).hasSize(1);
+        assertThat(ordem.itensServico()).hasSize(2).allSatisfy(item ->
+                assertThat(item.versaoOrigem()).isEqualTo(1));
+        assertThat(ordem.versaoMaisRecente().orElseThrow().total()).isEqualTo(reais("200.00"));
+    }
+
+    @Test
+    @DisplayName("deve recusar incluir itens fora de Em diagnostico")
+    void deveRecusarIncluirItensForaDeEmDiagnostico() {
+        OrdemServico ordem = ordemAberta();
+
+        assertThatThrownBy(() -> ordem.incluirItens(
+                List.of(new ServicoAIncluir(UUID.randomUUID(), reais("120.00"))), List.of()))
+                .isInstanceOf(TransicaoInvalidaException.class);
+    }
+
+    @Test
+    @DisplayName("deve enviar a versao e levar a OS a Aguardando aprovacao ao concluir o diagnostico")
+    void deveEnviarAVersaoAoConcluirODiagnostico() {
+        OrdemServico ordem = ordemEmDiagnostico();
+        ordem.incluirItens(List.of(new ServicoAIncluir(UUID.randomUUID(), reais("120.00"))), List.of());
+
+        ordem.concluirDiagnostico();
+
+        assertThat(ordem.status()).isEqualTo(StatusOrdemServico.AGUARDANDO_APROVACAO);
+        assertThat(ordem.versaoMaisRecenteEnviada()).isPresent();
+        assertThat(ordem.versaoMaisRecente().orElseThrow().dataEnvio()).isNotNull();
+        assertThat(ordem.transicoes()).hasSize(3);
+    }
+
+    @Test
+    @DisplayName("deve recusar concluir o diagnostico sem nenhum item, porque nao ha Orcamento a enviar")
+    void deveRecusarConcluirDiagnosticoSemItens() {
+        OrdemServico ordem = ordemEmDiagnostico();
+
+        assertThatThrownBy(ordem::concluirDiagnostico)
+                .isInstanceOf(OrdemServicoSemOrcamentoException.class);
+        assertThat(ordem.status()).isEqualTo(StatusOrdemServico.EM_DIAGNOSTICO);
+    }
+
+    @Test
+    @DisplayName("deve recusar concluir o diagnostico de uma OS que nao esta Em diagnostico")
+    void deveRecusarConcluirDiagnosticoForaDeEmDiagnostico() {
+        OrdemServico ordem = ordemAberta();
+
+        assertThatThrownBy(ordem::concluirDiagnostico).isInstanceOf(TransicaoInvalidaException.class);
+    }
+
+    @Test
+    @DisplayName("deve recusar incluir itens depois de a versao ter sido enviada, porque ela e imutavel")
+    void deveRecusarIncluirItensDepoisDoEnvio() {
+        OrdemServico ordem = ordemEmDiagnostico();
+        ordem.incluirItens(List.of(new ServicoAIncluir(UUID.randomUUID(), reais("120.00"))), List.of());
+        ordem.concluirDiagnostico();
+
+        assertThatThrownBy(() -> ordem.incluirItens(
+                List.of(new ServicoAIncluir(UUID.randomUUID(), reais("10.00"))), List.of()))
+                .isInstanceOf(TransicaoInvalidaException.class);
+    }
+
+    @Test
+    @DisplayName("deve trazer no escopo da versao 1 os itens que ela introduziu")
+    void deveTrazerOEscopoDaVersaoUm() {
+        OrdemServico ordem = ordemEmDiagnostico();
+        ordem.incluirItens(
+                List.of(new ServicoAIncluir(UUID.randomUUID(), reais("120.00"))),
+                List.of(new PecaAIncluir(UUID.randomUUID(), 2, reais("50.00"))));
+
+        assertThat(ordem.itensDeServicoDaVersao(1)).hasSize(1);
+        assertThat(ordem.itensDePecaDaVersao(1)).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("deve nascer sem versao aprovada, que e o que o guard da reprovacao pergunta")
+    void deveNascerSemVersaoAprovada() {
+        assertThat(ordemAberta().temVersaoAprovada()).isFalse();
+    }
+
+    @Test
+    @DisplayName("nao deve permitir alterar orcamentos e itens por fora do agregado")
+    void naoDevePermitirAlterarOrcamentosEItensPorFora() {
+        OrdemServico ordem = ordemEmDiagnostico();
+        ordem.incluirItens(
+                List.of(new ServicoAIncluir(UUID.randomUUID(), reais("120.00"))),
+                List.of(new PecaAIncluir(UUID.randomUUID(), 1, reais("50.00"))));
+
+        assertThatThrownBy(() -> ordem.orcamentos().clear()).isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> ordem.itensServico().clear()).isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> ordem.itensPeca().clear()).isInstanceOf(UnsupportedOperationException.class);
     }
 }
