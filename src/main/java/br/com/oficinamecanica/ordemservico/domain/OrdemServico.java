@@ -1,12 +1,14 @@
 package br.com.oficinamecanica.ordemservico.domain;
 
 import br.com.oficinamecanica.shared.domain.DadosInvalidosException;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 public class OrdemServico {
 
@@ -125,6 +127,33 @@ public class OrdemServico {
 
     public List<ItemPeca> itensDePecaIntroduzidosPor(int versao) {
         return itensPeca.stream().filter(item -> item.versaoOrigem() == versao).toList();
+    }
+
+    public Optional<Duration> tempoEmExecucao() {
+        if (!alcancou(StatusOrdemServico.FINALIZADA)) {
+            return Optional.empty();
+        }
+        return Optional.of(somaDosSegmentosEmExecucao());
+    }
+
+    private boolean alcancou(StatusOrdemServico status) {
+        return transicoes.stream().anyMatch(transicao -> transicao.paraStatus() == status);
+    }
+
+    private Duration somaDosSegmentosEmExecucao() {
+        List<LocalDateTime> entradas = marcos(transicao ->
+                transicao.paraStatus() == StatusOrdemServico.EM_EXECUCAO);
+        List<LocalDateTime> saidas = marcos(transicao ->
+                transicao.deStatus() == StatusOrdemServico.EM_EXECUCAO);
+        Duration total = Duration.ZERO;
+        for (int segmento = 0; segmento < Math.min(entradas.size(), saidas.size()); segmento++) {
+            total = total.plus(Duration.between(entradas.get(segmento), saidas.get(segmento)));
+        }
+        return total;
+    }
+
+    private List<LocalDateTime> marcos(Predicate<TransicaoStatus> criterio) {
+        return transicoes.stream().filter(criterio).map(TransicaoStatus::dataHora).toList();
     }
 
     public Optional<Orcamento> versaoMaisRecente() {

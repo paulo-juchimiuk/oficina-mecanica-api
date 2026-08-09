@@ -46,6 +46,13 @@ class OrdemServicoRepositoryAdapter implements OrdemServicoRepository {
                 .toList();
     }
 
+    @Override
+    public List<OrdemServico> listarComExecucaoConcluida(Optional<UUID> servicoId) {
+        return repository.listarComExecucaoConcluida(servicoId.map(UUID::toString).orElse(null)).stream()
+                .map(OrdemServicoJpaEntity::paraDominio)
+                .toList();
+    }
+
     private OrdemServicoJpaEntity atualizar(OrdemServicoJpaEntity entidade, OrdemServico ordemServico) {
         entidade.sincronizar(ordemServico);
         return entidade;

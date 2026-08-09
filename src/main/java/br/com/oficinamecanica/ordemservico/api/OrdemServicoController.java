@@ -1,6 +1,7 @@
 package br.com.oficinamecanica.ordemservico.api;
 
 import br.com.oficinamecanica.ordemservico.application.ConcluirDiagnosticoUseCase;
+import br.com.oficinamecanica.ordemservico.application.ConsultarTempoMedioExecucaoUseCase;
 import br.com.oficinamecanica.ordemservico.application.ConcluirExecucaoUseCase;
 import br.com.oficinamecanica.ordemservico.application.CriarOrdemServicoUseCase;
 import br.com.oficinamecanica.ordemservico.application.DetalharOrdemServicoUseCase;
@@ -39,6 +40,7 @@ public class OrdemServicoController {
     private final RegistrarReparoAdicionalUseCase registrarReparoAdicional;
     private final ConcluirExecucaoUseCase concluirExecucao;
     private final RegistrarEntregaUseCase registrarEntrega;
+    private final ConsultarTempoMedioExecucaoUseCase consultarTempoMedio;
 
     public OrdemServicoController(CriarOrdemServicoUseCase criarOrdemServico,
                                   ListarOrdensServicoUseCase listarOrdensServico,
@@ -48,7 +50,8 @@ public class OrdemServicoController {
                                   ConcluirDiagnosticoUseCase concluirDiagnostico,
                                   RegistrarReparoAdicionalUseCase registrarReparoAdicional,
                                   ConcluirExecucaoUseCase concluirExecucao,
-                                  RegistrarEntregaUseCase registrarEntrega) {
+                                  RegistrarEntregaUseCase registrarEntrega,
+                                  ConsultarTempoMedioExecucaoUseCase consultarTempoMedio) {
         this.criarOrdemServico = criarOrdemServico;
         this.listarOrdensServico = listarOrdensServico;
         this.detalharOrdemServico = detalharOrdemServico;
@@ -58,6 +61,7 @@ public class OrdemServicoController {
         this.registrarReparoAdicional = registrarReparoAdicional;
         this.concluirExecucao = concluirExecucao;
         this.registrarEntrega = registrarEntrega;
+        this.consultarTempoMedio = consultarTempoMedio;
     }
 
     @PostMapping
@@ -125,5 +129,9 @@ public class OrdemServicoController {
         return Optional.ofNullable(itens).orElseGet(List::of).stream()
                 .map(item -> new ItemDePecaRequisitado(item.pecaId(), item.quantidade()))
                 .toList();
+    }
+    @GetMapping("/metricas/tempo-medio-execucao")
+    public TempoMedioExecucaoResponse tempoMedioDeExecucao(@RequestParam(required = false) UUID servicoId) {
+        return TempoMedioExecucaoResponse.de(consultarTempoMedio.executar(Optional.ofNullable(servicoId)));
     }
 }

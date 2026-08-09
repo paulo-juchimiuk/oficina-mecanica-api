@@ -4,6 +4,7 @@ import br.com.oficinamecanica.shared.domain.DadosInvalidosException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -412,6 +413,49 @@ class OrdemServicoTest {
         emExecucao.concluirExecucao();
         emExecucao.registrarEntrega();
         assertThatThrownBy(emExecucao::registrarEntrega).isInstanceOf(TransicaoInvalidaException.class);
+    }
+
+    private OrdemServico ordemComTransicoes(TransicaoStatus... transicoes) {
+        return new OrdemServico(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                StatusOrdemServico.FINALIZADA, CodigoAcompanhamento.gerar(), RELATO, LocalDateTime.now(),
+                List.of(transicoes), List.of(), List.of(), List.of());
+    }
+
+    private TransicaoStatus transicao(StatusOrdemServico de, StatusOrdemServico para, String horario) {
+        return new TransicaoStatus(de, para, LocalDateTime.parse("2026-07-01T" + horario));
+    }
+
+    @Test
+    @DisplayName("nao deve medir tempo de execucao de OS que nunca chegou a Finalizada")
+    void naoDeveMedirOrdemQueNaoFinalizou() {
+        assertThat(ordemEmExecucao().tempoEmExecucao()).isEmpty();
+        assertThat(ordemAberta().tempoEmExecucao()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("deve medir o segmento unico de Em execucao ate Finalizada")
+    void deveMedirOSegmentoUnico() {
+        OrdemServico ordem = ordemComTransicoes(
+                transicao(null, StatusOrdemServico.RECEBIDA, "09:00:00"),
+                transicao(StatusOrdemServico.AGUARDANDO_APROVACAO, StatusOrdemServico.EM_EXECUCAO, "11:00:00"),
+                transicao(StatusOrdemServico.EM_EXECUCAO, StatusOrdemServico.FINALIZADA, "16:30:00"));
+
+        assertThat(ordem.tempoEmExecucao()).contains(Duration.ofMinutes(330));
+    }
+
+    @Test
+    @DisplayName("deve SOMAR os segmentos na reentrada, deixando de fora a espera do Cliente pela aprovacao")
+    void deveSomarOsSegmentosNaReentrada() {
+        OrdemServico ordem = ordemComTransicoes(
+                transicao(null, StatusOrdemServico.RECEBIDA, "09:00:00"),
+                transicao(StatusOrdemServico.AGUARDANDO_APROVACAO, StatusOrdemServico.EM_EXECUCAO, "13:00:00"),
+                transicao(StatusOrdemServico.EM_EXECUCAO, StatusOrdemServico.AGUARDANDO_APROVACAO, "14:30:00"),
+                transicao(StatusOrdemServico.AGUARDANDO_APROVACAO, StatusOrdemServico.EM_EXECUCAO, "15:30:00"),
+                transicao(StatusOrdemServico.EM_EXECUCAO, StatusOrdemServico.FINALIZADA, "18:30:00"));
+
+        assertThat(ordem.tempoEmExecucao().orElseThrow())
+                .isEqualTo(Duration.ofMinutes(270))
+                .isNotEqualTo(Duration.ofMinutes(330));
     }
 
     private OrdemServico ordemComVersaoAprovadaEOutraPendente() {
