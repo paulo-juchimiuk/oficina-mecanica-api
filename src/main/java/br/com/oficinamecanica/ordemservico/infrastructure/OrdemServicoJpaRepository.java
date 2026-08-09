@@ -4,6 +4,7 @@ import br.com.oficinamecanica.ordemservico.domain.StatusOrdemServico;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -11,6 +12,28 @@ import java.util.UUID;
 interface OrdemServicoJpaRepository extends JpaRepository<OrdemServicoJpaEntity, UUID> {
 
     Optional<OrdemServicoJpaEntity> findByCodigoAcompanhamento(String codigoAcompanhamento);
+
+    boolean existsByClienteIdAndStatusIn(UUID clienteId, Collection<StatusOrdemServico> status);
+
+    boolean existsByVeiculoIdAndStatusIn(UUID veiculoId, Collection<StatusOrdemServico> status);
+
+    boolean existsByIdAndStatusIn(UUID id, Collection<StatusOrdemServico> status);
+
+    @Query("""
+            SELECT COUNT(item) > 0 FROM OrdemServicoJpaEntity ordem
+            JOIN ordem.itensServico item
+            WHERE item.servicoId = :servico AND ordem.status IN :status
+            """)
+    boolean existeComServico(@Param("servico") UUID servicoId,
+                             @Param("status") Collection<StatusOrdemServico> status);
+
+    @Query("""
+            SELECT COUNT(item) > 0 FROM OrdemServicoJpaEntity ordem
+            JOIN ordem.itensPeca item
+            WHERE item.pecaId = :peca AND ordem.status IN :status
+            """)
+    boolean existeComPeca(@Param("peca") UUID pecaId,
+                          @Param("status") Collection<StatusOrdemServico> status);
 
     List<OrdemServicoJpaEntity> findAllByOrderByCriadaEmAsc();
 

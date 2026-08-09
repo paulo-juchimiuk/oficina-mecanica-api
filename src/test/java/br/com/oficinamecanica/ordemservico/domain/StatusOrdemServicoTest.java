@@ -51,6 +51,26 @@ class StatusOrdemServicoTest {
     }
 
     @Test
+    @DisplayName("deve declarar como em andamento exatamente os quatro Status de atendimento vivo")
+    void deveDeclararOsQuatroStatusEmAndamento() {
+        assertThat(StatusOrdemServico.emAndamento())
+                .containsExactlyInAnyOrder(RECEBIDA, EM_DIAGNOSTICO, AGUARDANDO_APROVACAO, EM_EXECUCAO);
+    }
+
+    @Test
+    @DisplayName("nao deve tratar Finalizada, Entregue nem Cancelada como atendimento em andamento")
+    void naoDeveTratarOsDesfechosComoEmAndamento() {
+        assertThat(StatusOrdemServico.emAndamento()).doesNotContain(FINALIZADA, ENTREGUE, CANCELADA);
+    }
+
+    @Test
+    @DisplayName("deve aceitar devolucao de pecas em Em execucao, Finalizada e Entregue, e so nesses tres")
+    void deveDeclararOsStatusQueAceitamDevolucao() {
+        assertThat(StatusOrdemServico.queAceitamDevolucaoDePecas())
+                .containsExactlyInAnyOrder(EM_EXECUCAO, FINALIZADA, ENTREGUE);
+    }
+
+    @Test
     @DisplayName("nao deve permitir voltar de Finalizada para Em execucao")
     void naoDevePermitirVoltarDeFinalizadaParaEmExecucao() {
         assertThat(FINALIZADA.aceitaTransicaoPara(EM_EXECUCAO)).isFalse();

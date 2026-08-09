@@ -4,8 +4,6 @@ API de gestão para oficina mecânica de médio porte: ordem de serviço, orçam
 
 Tech Challenge da Fase 1 da pós-graduação em Arquitetura de Software (FIAP).
 
-> **Estado atual: em construção.** Estrutura, build, infraestrutura, contrato da API e **schema com dados de demonstração** estão prontos. Dos cinco contextos delimitados, **Autenticação, Cadastro (clientes e veículos), Catálogo de Serviços e Estoque estão implementados e respondendo**; Ordem de Serviço ainda não. As rotas da Ordem de Serviço constam do `openapi.yaml` e, com token válido, respondem `404`; sem token respondem `401`. **As quatro rotas de peças que moram sob `/ordens-servico/{id}/` pertencem ao Estoque e já respondem.** As rotas de acompanhamento do cliente, que o contrato declara públicas, também respondem `401` hoje: elas só passam a ser liberadas quando o contexto Ordem de Serviço existir. Esta nota sai quando o MVP estiver completo.
-
 ## O que o sistema faz
 
 - **Ordem de Serviço** com máquina de estados (Recebida, Em diagnóstico, Aguardando aprovação, Em execução, Finalizada, Entregue, mais Cancelada, o sétimo status decidido no ADR-008), com mudança automática de status conforme as ações no sistema.

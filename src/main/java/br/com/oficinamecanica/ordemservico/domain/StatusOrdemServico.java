@@ -23,6 +23,14 @@ public enum StatusOrdemServico {
             ENTREGUE, EnumSet.noneOf(StatusOrdemServico.class),
             CANCELADA, EnumSet.noneOf(StatusOrdemServico.class));
 
+    public static Set<StatusOrdemServico> emAndamento() {
+        return EnumSet.of(RECEBIDA, EM_DIAGNOSTICO, AGUARDANDO_APROVACAO, EM_EXECUCAO);
+    }
+
+    public static Set<StatusOrdemServico> queAceitamDevolucaoDePecas() {
+        return EnumSet.of(EM_EXECUCAO, FINALIZADA, ENTREGUE);
+    }
+
     public boolean aceitaTransicaoPara(StatusOrdemServico destino) {
         return DESTINOS.get(this).contains(destino);
     }

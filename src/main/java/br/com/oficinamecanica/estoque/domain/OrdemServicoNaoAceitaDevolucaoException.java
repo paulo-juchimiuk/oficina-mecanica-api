@@ -7,6 +7,6 @@ public class OrdemServicoNaoAceitaDevolucaoException extends ConflitoDeEstadoExc
 
     public OrdemServicoNaoAceitaDevolucaoException(UUID id) {
         super("ORDEM_SERVICO_NAO_ACEITA_DEVOLUCAO",
-                "Ordem de Servico " + id + " nao esta EM_EXECUCAO, FINALIZADA ou ENTREGUE");
+                "Ordem de Servico " + id + " nao esta num status que aceita devolucao de pecas");
     }
 }
