@@ -70,7 +70,7 @@ class PecaRepositoryAdapter implements PecaRepository {
             existente.get().mover(reserva.situacao());
             return reserva;
         }
-        reservas.save(ReservaPecaJpaEntity.de(reserva));
+        reservas.save(ReservaPecaJpaEntity.de(reserva, referenciaDaPeca(reserva.pecaId())));
         return reserva;
     }
 
@@ -96,7 +96,7 @@ class PecaRepositoryAdapter implements PecaRepository {
 
     @Override
     public PendenciaPeca salvarPendencia(PendenciaPeca pendencia) {
-        pendencias.save(PendenciaPecaJpaEntity.de(pendencia));
+        pendencias.save(PendenciaPecaJpaEntity.de(pendencia, referenciaDaPeca(pendencia.pecaId())));
         return pendencia;
     }
 
@@ -112,6 +112,10 @@ class PecaRepositoryAdapter implements PecaRepository {
         return pendencias.findAllByOrdemServicoIdOrderByDetectadaEmAsc(ordemServicoId).stream()
                 .map(PendenciaPecaJpaEntity::paraDominio)
                 .toList();
+    }
+
+    private PecaJpaEntity referenciaDaPeca(UUID pecaId) {
+        return entityManager.find(PecaJpaEntity.class, pecaId);
     }
 
     private PecaJpaEntity relerSobTrava(PecaJpaEntity entidade) {

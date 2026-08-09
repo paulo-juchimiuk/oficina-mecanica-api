@@ -45,7 +45,7 @@ class ReservaPecaJpaEntity {
     protected ReservaPecaJpaEntity() {
     }
 
-    static ReservaPecaJpaEntity de(ReservaPeca reserva) {
+    static ReservaPecaJpaEntity de(ReservaPeca reserva, PecaJpaEntity peca) {
         ReservaPecaJpaEntity entidade = new ReservaPecaJpaEntity();
         entidade.id = reserva.id();
         entidade.ordemServicoId = reserva.ordemServicoId();
@@ -53,6 +53,7 @@ class ReservaPecaJpaEntity {
         entidade.quantidade = reserva.quantidade();
         entidade.situacao = reserva.situacao();
         entidade.criadaEm = reserva.criadaEm();
+        entidade.peca = peca;
         return entidade;
     }
 

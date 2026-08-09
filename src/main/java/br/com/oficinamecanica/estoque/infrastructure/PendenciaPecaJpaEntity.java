@@ -41,7 +41,7 @@ class PendenciaPecaJpaEntity {
     protected PendenciaPecaJpaEntity() {
     }
 
-    static PendenciaPecaJpaEntity de(PendenciaPeca pendencia) {
+    static PendenciaPecaJpaEntity de(PendenciaPeca pendencia, PecaJpaEntity peca) {
         PendenciaPecaJpaEntity entidade = new PendenciaPecaJpaEntity();
         entidade.id = pendencia.id();
         entidade.ordemServicoId = pendencia.ordemServicoId();
@@ -49,6 +49,7 @@ class PendenciaPecaJpaEntity {
         entidade.quantidadeFaltante = pendencia.quantidadeFaltante();
         entidade.detectadaEm = pendencia.detectadaEm();
         entidade.resolvidaEm = pendencia.resolvidaEm();
+        entidade.peca = peca;
         return entidade;
     }
 
