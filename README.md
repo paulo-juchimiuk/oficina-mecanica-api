@@ -116,7 +116,7 @@ A varredura da **API em execução** com OWASP ZAP **ainda não está montada ne
 
 ## Estrutura do projeto
 
-Monolito em camadas. Cada **contexto delimitado** do Context Map é um pacote de primeiro nível, e dentro de cada contexto ficam as **quatro camadas do DDD**. Cada pacote nasce junto da fatia do seu contexto.
+Monolito em camadas, como o enunciado permite para um MVP, com os **contextos delimitados** do Context Map como pacotes de primeiro nível e as **quatro camadas do DDD** dentro de cada contexto. As duas exigências se encontram aqui: a camada vem do requisito técnico, o contexto vem do DDD. Cada pacote nasce junto da fatia do seu contexto.
 
 ```
 br.com.oficinamecanica
@@ -138,6 +138,8 @@ Dentro de cada contexto:
 | `infrastructure` | infraestrutura | persistência e adaptadores |
 
 **A regra de dependência aponta para o domínio.** O pacote `domain` não importa `infrastructure` nem `api`, e por isso é testável sem subir o Spring.
+
+**Dentro das camadas não há subpacotes, e isso é decisão (ADR-021).** A unidade de encapsulamento é a camada dentro do contexto: as classes de persistência de `infrastructure` são package-private, então é o compilador que impede qualquer outra camada de importar uma entidade JPA. Como em Java o acesso de pacote não atravessa subpacote, subdividir a camada tornaria essas classes públicas e trocaria uma garantia verificada pelo compilador por uma regra que nada verifica.
 
 ### Convenção de idioma do código
 
@@ -200,6 +202,7 @@ Todas documentadas com fundamento de negócio, fundamento técnico e o porquê. 
 | 018 | Identidade de Serviço e Peça sem chave natural | decidido |
 | 019 | Concorrência no agregado Peça: trava pessimista na raiz, com aquisição ordenada | decidido |
 | 020 | Concorrência no agregado Ordem de Serviço: trava pessimista na raiz | decidido |
+| 021 | Organização interna das camadas: a camada como unidade de encapsulamento | decidido |
 
 ## Documentação DDD
 
