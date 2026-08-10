@@ -631,7 +631,7 @@ components:
       properties:
         tipo: {type: string, enum: [SERVICO, PECA], description: 'o CDC art. 40 exige o orcamento discriminando mao de obra e materiais; e essa a separacao'}
         nome: {type: string, maxLength: 120, description: 'rotulo ATUAL do Servico ou da Peca no catalogo; a imutabilidade da versao cobre valores e composicao, nao o rotulo de exibicao'}
-        quantidade: {type: integer, minimum: 1, description: 'presente nos itens de peca'}
+        quantidade: {type: integer, minimum: 1, nullable: true, description: 'presente nos itens de peca, nulo nos de servico'}
         valor: {allOf: [{$ref: '#/components/schemas/Dinheiro'}], description: 'valor unitario copiado como snapshot na inclusao'}
 
     FaltaPeca:
@@ -740,7 +740,7 @@ components:
       properties:
         status: {$ref: '#/components/schemas/StatusOrdemServico'}
         veiculo: {type: string, example: Volkswagen Gol ABC1D23}
-        orcamentoMaisRecente: {allOf: [{$ref: '#/components/schemas/Orcamento'}], description: 'a versao mais recente JA ENVIADA ao Cliente; o rascunho que existe antes do envio (ADR-006) nao aparece aqui, porque o Cliente so responde ao que recebeu'}
+        orcamentoMaisRecente: {type: object, nullable: true, allOf: [{$ref: '#/components/schemas/Orcamento'}], description: 'a versao mais recente JA ENVIADA ao Cliente; o rascunho que existe antes do envio (ADR-006) volta como null aqui, porque o Cliente so responde ao que recebeu'}
         transicoesStatus: {type: array, items: {$ref: '#/components/schemas/TransicaoStatus'}}
 
     TempoMedioExecucao:

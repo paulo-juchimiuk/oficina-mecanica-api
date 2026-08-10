@@ -268,7 +268,7 @@ class OrdemServicoTest {
         ordem.reprovarOrcamento();
 
         assertThat(ordem.status()).isEqualTo(StatusOrdemServico.CANCELADA);
-        assertThat(ordem.status().encerrado()).isTrue();
+        assertThat(ordem.status().aceitaTransicaoPara(StatusOrdemServico.EM_EXECUCAO)).isFalse();
         assertThat(ordem.versaoMaisRecente().orElseThrow().situacao())
                 .isEqualTo(SituacaoOrcamento.REPROVADO);
     }
@@ -398,7 +398,7 @@ class OrdemServicoTest {
 
         ordem.registrarEntrega();
         assertThat(ordem.status()).isEqualTo(StatusOrdemServico.ENTREGUE);
-        assertThat(ordem.status().encerrado()).isTrue();
+        assertThat(ordem.status().aceitaTransicaoPara(StatusOrdemServico.FINALIZADA)).isFalse();
     }
 
     @Test

@@ -164,7 +164,7 @@ A regra aplicada artefato por artefato:
 | DTOs e campos JSON | conceito em português, função técnica em inglês | `CriarOrdemServicoRequest`, `codigoAcompanhamento` |
 | Tabelas e colunas de domínio | português, `snake_case` | `ordem_servico`, `codigo_acompanhamento` |
 | Metadados de infraestrutura no banco | inglês | `created_at` |
-| Nomes de teste de comportamento | português | `deveImpedirExecucaoSemOrcamentoAprovado()` |
+| Nomes de teste de comportamento | português | `deveRecusarReparoAdicionalForaDeEmExecucao()` |
 
 **Identificadores não usam acento** (`Orcamento`, e não `Orçamento`). O acento é preservado em texto, comentários, `@DisplayName` e dados. Java aceita Unicode em identificadores, mas ASCII reduz atrito de busca, teclado e ferramental.
 
@@ -197,6 +197,7 @@ Todas documentadas com fundamento de negócio, fundamento técnico e o porquê. 
 | 017 | Dinheiro replicado por contexto, sem kernel compartilhado | decidido |
 | 018 | Identidade de Serviço e Peça sem chave natural | decidido |
 | 019 | Concorrência no agregado Peça: trava pessimista na raiz, com aquisição ordenada | decidido |
+| 020 | Concorrência no agregado Ordem de Serviço: trava pessimista na raiz | decidido |
 
 ## Documentação DDD
 

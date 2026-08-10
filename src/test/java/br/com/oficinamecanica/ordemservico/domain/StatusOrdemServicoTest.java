@@ -46,8 +46,6 @@ class StatusOrdemServicoTest {
     void deveTratarEntregueECanceladaComoTerminais() {
         assertThat(destinosDe(ENTREGUE)).isEmpty();
         assertThat(destinosDe(CANCELADA)).isEmpty();
-        assertThat(ENTREGUE.encerrado()).isTrue();
-        assertThat(CANCELADA.encerrado()).isTrue();
     }
 
     @Test

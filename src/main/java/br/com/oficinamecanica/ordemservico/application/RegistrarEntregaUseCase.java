@@ -18,7 +18,7 @@ public class RegistrarEntregaUseCase {
 
     @Transactional
     public OrdemServico executar(UUID id) {
-        OrdemServico ordemServico = ordensServico.buscarPorId(id)
+        OrdemServico ordemServico = ordensServico.buscarParaMovimentacao(id)
                 .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
         ordemServico.registrarEntrega();
         return ordensServico.salvar(ordemServico);

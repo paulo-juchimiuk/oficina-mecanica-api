@@ -18,7 +18,7 @@ public class IniciarDiagnosticoUseCase {
 
     @Transactional
     public OrdemServico executar(UUID id) {
-        OrdemServico ordemServico = ordensServico.buscarPorId(id)
+        OrdemServico ordemServico = ordensServico.buscarParaMovimentacao(id)
                 .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
         ordemServico.iniciarDiagnostico();
         return ordensServico.salvar(ordemServico);

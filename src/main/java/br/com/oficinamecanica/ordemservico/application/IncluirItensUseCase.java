@@ -30,7 +30,7 @@ public class IncluirItensUseCase {
     @Transactional
     public OrdemServico executar(UUID id, List<ItemDeServicoRequisitado> itensServico,
                                  List<ItemDePecaRequisitado> itensPeca) {
-        OrdemServico ordemServico = ordensServico.buscarPorId(id)
+        OrdemServico ordemServico = ordensServico.buscarParaMovimentacao(id)
                 .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
         ordemServico.incluirItens(resolverServicos(itensServico), resolverPecas(itensPeca));
         return ordensServico.salvar(ordemServico);

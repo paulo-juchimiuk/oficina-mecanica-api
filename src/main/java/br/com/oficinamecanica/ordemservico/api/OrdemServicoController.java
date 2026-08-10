@@ -132,4 +132,5 @@ public class OrdemServicoController {
         return Optional.ofNullable(itens).orElseGet(List::of).stream()
                 .map(item -> new ItemDePecaRequisitado(item.pecaId(), item.quantidade()))
                 .toList();
-    }}
+    }
+}

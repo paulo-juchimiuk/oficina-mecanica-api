@@ -74,7 +74,7 @@ public class OrdemServico {
 
     public Orcamento concluirDiagnostico() {
         exigirStatus(StatusOrdemServico.EM_DIAGNOSTICO);
-        Orcamento versao = versaoMaisRecente().orElseThrow(() -> new OrdemServicoSemOrcamentoException(id));
+        Orcamento versao = versaoMaisRecente().orElseThrow(() -> new OrdemServicoSemOrcamentoException());
         versao.enviar();
         transicionarPara(StatusOrdemServico.AGUARDANDO_APROVACAO);
         return versao;
@@ -121,7 +121,7 @@ public class OrdemServico {
     }
 
     private Orcamento versaoAguardandoResposta() {
-        return versaoMaisRecenteEnviada().orElseThrow(() -> new OrdemServicoSemOrcamentoException(id));
+        return versaoMaisRecenteEnviada().orElseThrow(() -> new OrdemServicoSemOrcamentoException());
     }
 
     public List<ItemPeca> itensDePecaIntroduzidosPor(int versao) {
@@ -232,13 +232,13 @@ public class OrdemServico {
 
     private void exigirStatus(StatusOrdemServico esperado) {
         if (status != esperado) {
-            throw new EstadoExigidoException(id, status, esperado);
+            throw new EstadoExigidoException(status, esperado);
         }
     }
 
     private void transicionarPara(StatusOrdemServico destino) {
         if (!status.aceitaTransicaoPara(destino)) {
-            throw new TransicaoInvalidaException(id, status, destino);
+            throw new TransicaoInvalidaException(status, destino);
         }
         transicoes.add(TransicaoStatus.entre(status, destino));
         this.status = destino;

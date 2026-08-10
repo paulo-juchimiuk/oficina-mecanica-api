@@ -34,8 +34,4 @@ public enum StatusOrdemServico {
     public boolean aceitaTransicaoPara(StatusOrdemServico destino) {
         return DESTINOS.get(this).contains(destino);
     }
-
-    public boolean encerrado() {
-        return DESTINOS.get(this).isEmpty();
-    }
 }

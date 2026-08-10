@@ -10,6 +10,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.ResultActions;
 import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -85,7 +86,7 @@ class AcompanhamentoIT extends IntegracaoBase {
         mockMvc.perform(get(PREFIXO + "/acompanhamento/" + codigo))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("EM_DIAGNOSTICO"))
-                .andExpect(jsonPath("$.orcamentoMaisRecente").doesNotExist());
+                .andExpect(jsonPath("$.orcamentoMaisRecente").value(nullValue()));
     }
 
     @Test
