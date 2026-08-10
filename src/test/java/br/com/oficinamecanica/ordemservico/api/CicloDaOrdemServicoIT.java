@@ -102,6 +102,27 @@ class CicloDaOrdemServicoIT extends IntegracaoBase {
     }
 
     @Test
+    @DisplayName("deve voltar a Em execucao quando o Cliente reprova o reparo adicional, sem levar o escopo recusado")
+    void deveVoltarAEmExecucaoQuandoOClienteReprovaOReparoAdicional() throws Exception {
+        UUID id = ordemEmExecucao();
+        int reservasAposAprovacaoInicial =
+                contar("SELECT COUNT(*) FROM reserva_peca WHERE ordem_servico_id = '" + id + "'");
+        reparoAdicional(id, corpoDoReparoAdicional()).andExpect(status().isOk());
+
+        reprovar(id)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("EM_EXECUCAO"))
+                .andExpect(jsonPath("$.orcamentoMaisRecente.versao").value(2))
+                .andExpect(jsonPath("$.orcamentoMaisRecente.situacao").value("REPROVADO"));
+
+        assertThat(situacaoDaVersao(id, 1)).isEqualTo("APROVADO");
+        assertThat(contar("SELECT COUNT(*) FROM reserva_peca WHERE ordem_servico_id = '" + id + "'"))
+                .isEqualTo(reservasAposAprovacaoInicial);
+        assertThat(jdbc.queryForObject(
+                "SELECT status FROM ordem_servico WHERE id = ?", String.class, id)).isEqualTo("EM_EXECUCAO");
+    }
+
+    @Test
     @DisplayName("deve responder 409 ao registrar reparo adicional fora de Em execucao")
     void deveResponder409ComReparoAdicionalForaDeEmExecucao() throws Exception {
         UUID id = ordemAguardandoAprovacao();
@@ -196,6 +217,17 @@ class CicloDaOrdemServicoIT extends IntegracaoBase {
     private ResultActions entregar(UUID id) throws Exception {
         return mockMvc.perform(post(PREFIXO + "/ordens-servico/" + id + "/entrega")
                 .header("Authorization", "Bearer " + token));
+    }
+
+    private ResultActions reprovar(UUID id) throws Exception {
+        String codigo = jdbc.queryForObject(
+                "SELECT codigo_acompanhamento FROM ordem_servico WHERE id = ?", String.class, id);
+        return mockMvc.perform(post(PREFIXO + "/acompanhamento/" + codigo + "/orcamento/reprovacao"));
+    }
+
+    private String situacaoDaVersao(UUID id, int versao) {
+        return jdbc.queryForObject(
+                "SELECT situacao FROM orcamento WHERE ordem_servico_id = ? AND versao = ?", String.class, id, versao);
     }
 
     private ResultActions aprovar(UUID id) throws Exception {

@@ -68,6 +68,10 @@ class LeituraNaMesmaTransacaoIT extends IntegracaoBase {
                 });
     }
 
+    private String codigoDeAcompanhamento() {
+        return "ACMP-" + UUID.randomUUID().toString().replace("-", "");
+    }
+
     private UUID criarPecaComSaldo() {
         UUID pecaId = UUID.randomUUID();
         jdbc.update("""
@@ -89,7 +93,7 @@ class LeituraNaMesmaTransacaoIT extends IntegracaoBase {
         jdbc.update("""
                 INSERT INTO ordem_servico (id, cliente_id, veiculo_id, status, codigo_acompanhamento, criada_em)
                 VALUES (?, ?, ?, 'EM_EXECUCAO', ?, NOW())
-                """, ordemId, clienteId, veiculoId, "ACMP-" + ordemId);
+                """, ordemId, clienteId, veiculoId, codigoDeAcompanhamento());
         return ordemId;
     }
 }

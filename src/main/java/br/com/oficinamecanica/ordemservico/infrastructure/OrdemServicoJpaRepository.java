@@ -2,6 +2,8 @@ package br.com.oficinamecanica.ordemservico.infrastructure;
 
 import br.com.oficinamecanica.ordemservico.domain.StatusOrdemServico;
 import org.springframework.data.jpa.repository.JpaRepository;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.util.Collection;
@@ -12,6 +14,14 @@ import java.util.UUID;
 interface OrdemServicoJpaRepository extends JpaRepository<OrdemServicoJpaEntity, UUID> {
 
     Optional<OrdemServicoJpaEntity> findByCodigoAcompanhamento(String codigoAcompanhamento);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT ordem FROM OrdemServicoJpaEntity ordem WHERE ordem.id = :id")
+    Optional<OrdemServicoJpaEntity> findComTravaById(@Param("id") UUID id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT ordem FROM OrdemServicoJpaEntity ordem WHERE ordem.codigoAcompanhamento = :codigo")
+    Optional<OrdemServicoJpaEntity> findComTravaByCodigoAcompanhamento(@Param("codigo") String codigo);
 
     boolean existsByClienteIdAndStatusIn(UUID clienteId, Collection<StatusOrdemServico> status);
 

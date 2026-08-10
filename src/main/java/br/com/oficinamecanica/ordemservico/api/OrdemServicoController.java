@@ -100,8 +100,6 @@ public class OrdemServicoController {
         return OrdemServicoResponse.de(concluirDiagnostico.executar(id));
     }
 
-
-
     @PostMapping("/{id}/reparos-adicionais")
     public OrdemServicoResponse registrarReparoAdicional(@PathVariable UUID id,
                                                          @Valid @RequestBody ReparoAdicionalRequest requisicao) {
@@ -119,6 +117,11 @@ public class OrdemServicoController {
         return OrdemServicoResponse.de(registrarEntrega.executar(id));
     }
 
+    @GetMapping("/metricas/tempo-medio-execucao")
+    public TempoMedioExecucaoResponse tempoMedioDeExecucao(@RequestParam(required = false) UUID servicoId) {
+        return TempoMedioExecucaoResponse.de(consultarTempoMedio.executar(Optional.ofNullable(servicoId)));
+    }
+
     private List<ItemDeServicoRequisitado> servicosDe(List<IncluirItensRequest.ItemDeServico> itens) {
         return Optional.ofNullable(itens).orElseGet(List::of).stream()
                 .map(item -> new ItemDeServicoRequisitado(item.servicoId()))
@@ -129,9 +132,4 @@ public class OrdemServicoController {
         return Optional.ofNullable(itens).orElseGet(List::of).stream()
                 .map(item -> new ItemDePecaRequisitado(item.pecaId(), item.quantidade()))
                 .toList();
-    }
-    @GetMapping("/metricas/tempo-medio-execucao")
-    public TempoMedioExecucaoResponse tempoMedioDeExecucao(@RequestParam(required = false) UUID servicoId) {
-        return TempoMedioExecucaoResponse.de(consultarTempoMedio.executar(Optional.ofNullable(servicoId)));
-    }
-}
+    }}

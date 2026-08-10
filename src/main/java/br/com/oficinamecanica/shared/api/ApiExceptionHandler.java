@@ -5,6 +5,7 @@ import br.com.oficinamecanica.shared.domain.DadosInvalidosException;
 import br.com.oficinamecanica.shared.domain.RecursoNaoEncontradoException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -68,8 +69,17 @@ public class ApiExceptionHandler {
                 excecao.getName() + " tem formato invalido");
     }
 
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ErroResponse> violacaoDeIntegridadeNoFlush(ConstraintViolationException excecao) {
+        return conflitoProtegidoPeloBanco();
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErroResponse> violacaoDeIntegridade(DataIntegrityViolationException excecao) {
+        return conflitoProtegidoPeloBanco();
+    }
+
+    private ResponseEntity<ErroResponse> conflitoProtegidoPeloBanco() {
         return resposta(HttpStatus.CONFLICT, "CONFLITO_DE_ESTADO",
                 "A operacao viola uma invariante de dominio protegida pelo banco");
     }

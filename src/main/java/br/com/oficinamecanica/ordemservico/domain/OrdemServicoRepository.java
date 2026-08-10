@@ -12,6 +12,10 @@ public interface OrdemServicoRepository {
 
     Optional<OrdemServico> buscarPorCodigoAcompanhamento(CodigoAcompanhamento codigoAcompanhamento);
 
+    Optional<OrdemServico> buscarParaMovimentacao(UUID id);
+
+    Optional<OrdemServico> buscarParaMovimentacaoPorCodigo(CodigoAcompanhamento codigoAcompanhamento);
+
     List<OrdemServico> listar(Optional<StatusOrdemServico> status);
 
     List<OrdemServico> listarComExecucaoConcluida(Optional<UUID> servicoId);

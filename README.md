@@ -39,7 +39,7 @@ O que já vem carregado: **uma Ordem de Serviço em cada um dos sete status**, c
 
 - API: `http://localhost:8080/api/v1`
 - Banco: PostgreSQL 18 em `localhost:5432` (base, usuário e senha `oficina`, `oficina` e `oficina_local`, apenas para o ambiente local)
-- Caixa de e-mail do ambiente: `http://localhost:8025`. É onde o orçamento chega quando o envio for implementado, sem provedor externo e sem credencial (ADR-007).
+- Caixa de e-mail do ambiente: `http://localhost:8025`. É onde o orçamento chega, sem provedor externo e sem credencial (ADR-007).
 
 ## Swagger
 
@@ -49,9 +49,9 @@ Com o ambiente de pé:
 - Especificação: http://localhost:8080/v3/api-docs
 - Contrato fonte versionado: [`openapi.yaml`](openapi.yaml)
 
-As duas primeiras servem a especificação **gerada a partir do código já implementado**, então enquanto a implementação avança elas mostram menos que o contrato. A diferença não é só de quantidade de rotas: a especificação gerada **não publica as respostas de erro nem o schema `Erro`**, não carrega as restrições de valor monetário (mínimo, teto e moeda única), **não traz o `info.description`**, que é onde moram as convenções de autorização e de erro de protocolo, e sai em OpenAPI 3.1.0 contra 3.0.3 do arquivo versionado. **O `openapi.yaml` é a fonte de verdade do contrato completo**, e é ele que deve ser lido para conhecer o contrato; o Swagger UI serve para experimentar as chamadas.
+As duas primeiras servem a especificação **gerada a partir do código**, e ela difere do contrato versionado em conteúdo, não em quantidade de rotas: a especificação gerada **não publica as respostas de erro nem o schema `Erro`**, não carrega as restrições de valor monetário (mínimo, teto e moeda única), **não traz o `info.description`**, que é onde moram as convenções de autorização e de erro de protocolo, e sai em OpenAPI 3.1.0 contra 3.0.3 do arquivo versionado. **O `openapi.yaml` é a fonte de verdade do contrato completo**, e é ele que deve ser lido para conhecer o contrato; o Swagger UI serve para experimentar as chamadas.
 
-A documentação é pública. Todo o resto exige JWT.
+A documentação e as três rotas de acompanhamento do cliente são públicas (ADR-007). Todo o resto exige JWT.
 
 ## Autenticação
 
@@ -110,7 +110,7 @@ mvn -Pseguranca verify
 
 O relatório sai em `target/dependency-check-report.html`. **A primeira execução leva algo entre 30 e 60 minutos**, porque baixa a base de vulnerabilidades do NVD inteira (mais de 370 mil registros) para um cache local; as execuções seguintes são incrementais e rápidas. O download é limitado a 5 requisições por 30 segundos sem chave de API do NVD. **Salve o HTML fora de `target/` antes de qualquer `mvn clean`**, porque o diretório é descartável e não vai para o repositório.
 
-A varredura da **API em execução** com OWASP ZAP **ainda não está montada neste repositório**: ela entra quando os endpoints existirem, porque é varredura dinâmica e precisa da API respondendo. O relatório de vulnerabilidades da entrega compõe o resultado das duas ferramentas. Elas cobrem superfícies diferentes, a cadeia de dependências e o comportamento em runtime, e nenhuma das duas faz análise estática do código escrito aqui (ADR-004).
+A varredura da **API em execução** com OWASP ZAP **ainda não está montada neste repositório**: é varredura dinâmica, feita sobre a API respondendo, e o relatório dela compõe a entrega de segurança. O relatório de vulnerabilidades da entrega compõe o resultado das duas ferramentas. Elas cobrem superfícies diferentes, a cadeia de dependências e o comportamento em runtime, e nenhuma das duas faz análise estática do código escrito aqui (ADR-004).
 
 ## Estrutura do projeto
 
@@ -118,7 +118,7 @@ Monolito em camadas. Cada **contexto delimitado** do Context Map é um pacote de
 
 ```
 br.com.oficinamecanica
-├── ordemservico      Core.     Agregado: Ordem de Serviço      (a implementar)
+├── ordemservico      Core.     Agregado: Ordem de Serviço      (implementado)
 ├── cadastro          Suporte.  Agregados: Cliente, Veículo     (implementado)
 ├── catalogo          Suporte.  Agregado: Serviço               (implementado)
 ├── estoque           Suporte.  Agregado: Peça                  (implementado)
@@ -132,7 +132,7 @@ Dentro de cada contexto:
 |---|---|---|
 | `api` | interface do usuário | controllers REST e DTOs |
 | `application` | aplicação | orquestra casos de uso, sem regra de negócio |
-| `domain` | domínio | agregados, value objects, serviços de domínio, eventos |
+| `domain` | domínio | agregados, value objects, entidades internas, portas de leitura |
 | `infrastructure` | infraestrutura | persistência e adaptadores |
 
 **A regra de dependência aponta para o domínio.** O pacote `domain` não importa `infrastructure` nem `api`, e por isso é testável sem subir o Spring.
@@ -155,9 +155,9 @@ A regra aplicada artefato por artefato:
 | Pacotes de camada | inglês | `domain`, `application`, `infrastructure`, `api` |
 | Pacotes de contexto delimitado | português | `ordemservico`, `estoque`, `catalogo` |
 | Agregados, entidades e value objects | português | `OrdemServico`, `Orcamento`, `ReservaPeca`, `CodigoAcompanhamento` |
-| Comportamentos do domínio | português | `aprovarOrcamento()`, `reservarPecas()`, `concluirDiagnostico()` |
-| Casos de uso | português | `CriarOrdemServico`, `CalcularTempoMedioExecucao` |
-| Eventos de domínio | português, verbo no passado | `OrcamentoAprovado`, `PecasReservadas` |
+| Comportamentos do domínio | português | `aprovarOrcamento()`, `registrarReparoAdicional()`, `concluirDiagnostico()` |
+| Casos de uso | português | `CriarOrdemServicoUseCase`, `ConsultarTempoMedioExecucaoUseCase` |
+| Transições de status | português, nome do estado | `AGUARDANDO_APROVACAO`, `EM_EXECUCAO` |
 | Exceções de domínio | conceito em português, sufixo técnico em inglês | `PecaComReservaAtivaException` |
 | Padrões e mecanismos técnicos | inglês | `Controller`, `Repository`, `Mapper`, `Configuration` |
 | Métodos herdados de framework | inglês | `save()`, `findById()` |

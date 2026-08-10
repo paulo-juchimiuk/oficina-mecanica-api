@@ -19,7 +19,7 @@ public class ReprovarOrcamentoUseCase {
 
     @Transactional
     public Acompanhamento executar(String codigo) {
-        OrdemServico ordemServico = ConsultarAcompanhamentoUseCase.ordemDoCodigo(ordensServico, codigo);
+        OrdemServico ordemServico = ConsultarAcompanhamentoUseCase.ordemDoCodigoParaMovimentacao(ordensServico, codigo);
         ordemServico.reprovarOrcamento();
         ordensServico.salvar(ordemServico);
         return acompanhamento.executar(codigo);

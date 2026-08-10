@@ -172,7 +172,7 @@ class OrdemServicoTest {
 
         assertThatThrownBy(() -> ordem.incluirItens(
                 List.of(new ServicoAIncluir(UUID.randomUUID(), reais("120.00"))), List.of()))
-                .isInstanceOf(TransicaoInvalidaException.class);
+                .isInstanceOf(EstadoExigidoException.class);
     }
 
     @Test
@@ -204,7 +204,7 @@ class OrdemServicoTest {
     void deveRecusarConcluirDiagnosticoForaDeEmDiagnostico() {
         OrdemServico ordem = ordemAberta();
 
-        assertThatThrownBy(ordem::concluirDiagnostico).isInstanceOf(TransicaoInvalidaException.class);
+        assertThatThrownBy(ordem::concluirDiagnostico).isInstanceOf(EstadoExigidoException.class);
     }
 
     @Test
@@ -216,7 +216,7 @@ class OrdemServicoTest {
 
         assertThatThrownBy(() -> ordem.incluirItens(
                 List.of(new ServicoAIncluir(UUID.randomUUID(), reais("10.00"))), List.of()))
-                .isInstanceOf(TransicaoInvalidaException.class);
+                .isInstanceOf(EstadoExigidoException.class);
     }
 
     @Test
@@ -289,8 +289,8 @@ class OrdemServicoTest {
     void deveRecusarRespostaForaDeAguardandoAprovacao() {
         OrdemServico emDiagnostico = ordemEmDiagnostico();
 
-        assertThatThrownBy(emDiagnostico::aprovarOrcamento).isInstanceOf(TransicaoInvalidaException.class);
-        assertThatThrownBy(emDiagnostico::reprovarOrcamento).isInstanceOf(TransicaoInvalidaException.class);
+        assertThatThrownBy(emDiagnostico::aprovarOrcamento).isInstanceOf(EstadoExigidoException.class);
+        assertThatThrownBy(emDiagnostico::reprovarOrcamento).isInstanceOf(EstadoExigidoException.class);
     }
 
     @Test
@@ -299,8 +299,8 @@ class OrdemServicoTest {
         OrdemServico ordem = ordemAguardandoAprovacao();
         ordem.aprovarOrcamento();
 
-        assertThatThrownBy(ordem::aprovarOrcamento).isInstanceOf(TransicaoInvalidaException.class);
-        assertThatThrownBy(ordem::reprovarOrcamento).isInstanceOf(TransicaoInvalidaException.class);
+        assertThatThrownBy(ordem::aprovarOrcamento).isInstanceOf(EstadoExigidoException.class);
+        assertThatThrownBy(ordem::reprovarOrcamento).isInstanceOf(EstadoExigidoException.class);
     }
 
     @Test
@@ -370,7 +370,7 @@ class OrdemServicoTest {
 
         assertThatThrownBy(() -> aguardando.registrarReparoAdicional("Qualquer coisa",
                 List.of(new ServicoAIncluir(UUID.randomUUID(), reais("80.00"))), List.of()))
-                .isInstanceOf(TransicaoInvalidaException.class);
+                .isInstanceOf(EstadoExigidoException.class);
     }
 
     @Test
@@ -456,6 +456,56 @@ class OrdemServicoTest {
         assertThat(ordem.tempoEmExecucao().orElseThrow())
                 .isEqualTo(Duration.ofMinutes(270))
                 .isNotEqualTo(Duration.ofMinutes(330));
+    }
+
+    @Test
+    @DisplayName("deve tirar do escopo da versao 3 o item introduzido pela versao 2 reprovada, como o ADR-006 manda")
+    void deveExcluirDoEscopoOItemDeVersaoAnteriorReprovada() {
+        OrdemServico ordem = ordemEmExecucao();
+        ordem.registrarReparoAdicional("Bomba d agua, recusada",
+                List.of(new ServicoAIncluir(UUID.randomUUID(), reais("80.00"))), List.of());
+        ordem.reprovarOrcamento();
+        ordem.registrarReparoAdicional("Correia, aceita",
+                List.of(new ServicoAIncluir(UUID.randomUUID(), reais("60.00"))), List.of());
+
+        assertThat(ordem.itensDeServicoDaVersao(3)).hasSize(2);
+        assertThat(ordem.itensDeServicoDaVersao(3))
+                .noneSatisfy(item -> assertThat(item.versaoOrigem()).isEqualTo(2));
+        assertThat(ordem.versaoMaisRecente().orElseThrow().total()).isEqualTo(reais("280.00"));
+    }
+
+    @Test
+    @DisplayName("nao deve a versao reprovada se autoexcluir: ela continua exibindo os itens que introduziu")
+    void aVersaoReprovadaNaoSeAutoexclui() {
+        OrdemServico ordem = ordemEmExecucao();
+        ordem.registrarReparoAdicional("Bomba d agua, recusada",
+                List.of(new ServicoAIncluir(UUID.randomUUID(), reais("80.00"))), List.of());
+        ordem.reprovarOrcamento();
+
+        assertThat(ordem.itensDeServicoDaVersao(2)).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("deve ignorar entrada repetida em Em execucao sem inflar o tempo medido")
+    void deveIgnorarEntradaRepetidaEmExecucao() {
+        OrdemServico ordem = ordemComTransicoes(
+                transicao(null, StatusOrdemServico.RECEBIDA, "09:00:00"),
+                transicao(StatusOrdemServico.AGUARDANDO_APROVACAO, StatusOrdemServico.EM_EXECUCAO, "10:00:00"),
+                transicao(StatusOrdemServico.AGUARDANDO_APROVACAO, StatusOrdemServico.EM_EXECUCAO, "11:00:00"),
+                transicao(StatusOrdemServico.EM_EXECUCAO, StatusOrdemServico.FINALIZADA, "12:00:00"));
+
+        assertThat(ordem.tempoEmExecucao().orElseThrow()).isEqualTo(Duration.ofHours(2));
+    }
+
+    @Test
+    @DisplayName("nao deve devolver tempo negativo quando a transicao chega fora de ordem cronologica")
+    void naoDeveDevolverTempoNegativo() {
+        OrdemServico ordem = ordemComTransicoes(
+                transicao(null, StatusOrdemServico.RECEBIDA, "09:00:00"),
+                transicao(StatusOrdemServico.AGUARDANDO_APROVACAO, StatusOrdemServico.EM_EXECUCAO, "18:00:00"),
+                transicao(StatusOrdemServico.EM_EXECUCAO, StatusOrdemServico.FINALIZADA, "09:00:00"));
+
+        assertThat(ordem.tempoEmExecucao().orElseThrow()).isGreaterThanOrEqualTo(Duration.ZERO);
     }
 
     private OrdemServico ordemComVersaoAprovadaEOutraPendente() {

@@ -54,6 +54,12 @@ public class ConsultarAcompanhamentoUseCase {
                 .orElseThrow(AcompanhamentoNaoEncontradoException::new);
     }
 
+    static OrdemServico ordemDoCodigoParaMovimentacao(OrdemServicoRepository ordensServico, String codigo) {
+        return CodigoAcompanhamento.de(codigo)
+                .flatMap(ordensServico::buscarParaMovimentacaoPorCodigo)
+                .orElseThrow(AcompanhamentoNaoEncontradoException::new);
+    }
+
     private DescricaoDoVeiculo descricaoDoVeiculo(UUID veiculoId) {
         return veiculos.descricaoDe(veiculoId).orElseThrow(AcompanhamentoNaoEncontradoException::new);
     }

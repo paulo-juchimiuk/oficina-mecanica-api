@@ -15,11 +15,14 @@ class EnvioDeOrcamentoPorEmail implements EnvioDeOrcamento {
 
     private final MailSender mailSender;
     private final String remetente;
+    private final String urlDeAcompanhamento;
 
     EnvioDeOrcamentoPorEmail(MailSender mailSender,
-                             @Value("${oficina.email.remetente}") String remetente) {
+                             @Value("${oficina.email.remetente}") String remetente,
+                             @Value("${oficina.acompanhamento.url-base}") String urlDeAcompanhamento) {
         this.mailSender = mailSender;
         this.remetente = remetente;
+        this.urlDeAcompanhamento = urlDeAcompanhamento;
     }
 
     @Override
@@ -39,8 +42,8 @@ class EnvioDeOrcamentoPorEmail implements EnvioDeOrcamento {
                 Total: %s %s
                 Validade: %d dias
 
-                Codigo de acompanhamento: %s
+                Acompanhe e responda em: %s/%s
                 """.formatted(versao.versao(), versao.total().moeda(), versao.total().valor(),
-                versao.validadeDias(), codigoAcompanhamento.valor());
+                versao.validadeDias(), urlDeAcompanhamento, codigoAcompanhamento.valor());
     }
 }

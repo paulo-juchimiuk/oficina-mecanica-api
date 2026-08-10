@@ -148,6 +148,17 @@ class AutenticacaoIT extends IntegracaoBase {
     }
 
     @Test
+    @DisplayName("deve declarar as tres rotas de acompanhamento como publicas tambem na especificacao gerada")
+    void deveDeclararAcompanhamentoComoPublicoNaEspecificacaoGerada() throws Exception {
+        String comCodigo = PREFIXO + "/acompanhamento/{codigoAcompanhamento}";
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paths['" + comCodigo + "'].get.security").isEmpty())
+                .andExpect(jsonPath("$.paths['" + comCodigo + "/orcamento/aprovacao'].post.security").isEmpty())
+                .andExpect(jsonPath("$.paths['" + comCodigo + "/orcamento/reprovacao'].post.security").isEmpty());
+    }
+
+    @Test
     @DisplayName("deve identificar a especificacao gerada com o mesmo titulo e versao do contrato versionado")
     void deveIdentificarEspecificacaoComOsDadosDoContrato() throws Exception {
         mockMvc.perform(get("/v3/api-docs"))

@@ -8,7 +8,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Predicate;
 
 public class OrdemServico {
 
@@ -141,19 +140,27 @@ public class OrdemServico {
     }
 
     private Duration somaDosSegmentosEmExecucao() {
-        List<LocalDateTime> entradas = marcos(transicao ->
-                transicao.paraStatus() == StatusOrdemServico.EM_EXECUCAO);
-        List<LocalDateTime> saidas = marcos(transicao ->
-                transicao.deStatus() == StatusOrdemServico.EM_EXECUCAO);
         Duration total = Duration.ZERO;
-        for (int segmento = 0; segmento < Math.min(entradas.size(), saidas.size()); segmento++) {
-            total = total.plus(Duration.between(entradas.get(segmento), saidas.get(segmento)));
+        LocalDateTime inicioDoSegmento = null;
+        for (TransicaoStatus transicao : transicoes) {
+            if (inicioDoSegmento == null && transicao.paraStatus() == StatusOrdemServico.EM_EXECUCAO) {
+                inicioDoSegmento = transicao.dataHora();
+                continue;
+            }
+            if (inicioDoSegmento != null && transicao.deStatus() == StatusOrdemServico.EM_EXECUCAO) {
+                total = total.plus(duracaoNaoNegativa(inicioDoSegmento, transicao.dataHora()));
+                inicioDoSegmento = null;
+            }
         }
         return total;
     }
 
-    private List<LocalDateTime> marcos(Predicate<TransicaoStatus> criterio) {
-        return transicoes.stream().filter(criterio).map(TransicaoStatus::dataHora).toList();
+    private Duration duracaoNaoNegativa(LocalDateTime inicio, LocalDateTime fim) {
+        Duration duracao = Duration.between(inicio, fim);
+        if (duracao.isNegative()) {
+            return Duration.ZERO;
+        }
+        return duracao;
     }
 
     public Optional<Orcamento> versaoMaisRecente() {
@@ -225,7 +232,7 @@ public class OrdemServico {
 
     private void exigirStatus(StatusOrdemServico esperado) {
         if (status != esperado) {
-            throw new TransicaoInvalidaException(id, status, esperado);
+            throw new EstadoExigidoException(id, status, esperado);
         }
     }
 

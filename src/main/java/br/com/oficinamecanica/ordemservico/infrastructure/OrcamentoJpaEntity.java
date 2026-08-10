@@ -86,10 +86,6 @@ class OrcamentoJpaEntity {
                 dataEnvio, dataResposta, validadeDias, descricao);
     }
 
-    UUID id() {
-        return id;
-    }
-
     int versao() {
         return versao;
     }

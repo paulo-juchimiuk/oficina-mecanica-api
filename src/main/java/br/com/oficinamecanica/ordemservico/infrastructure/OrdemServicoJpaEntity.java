@@ -1,8 +1,6 @@
 package br.com.oficinamecanica.ordemservico.infrastructure;
 
 import br.com.oficinamecanica.ordemservico.domain.CodigoAcompanhamento;
-import br.com.oficinamecanica.ordemservico.domain.ItemPeca;
-import br.com.oficinamecanica.ordemservico.domain.ItemServico;
 import br.com.oficinamecanica.ordemservico.domain.Orcamento;
 import br.com.oficinamecanica.ordemservico.domain.OrdemServico;
 import br.com.oficinamecanica.ordemservico.domain.StatusOrdemServico;
@@ -140,7 +138,7 @@ class OrdemServicoJpaEntity {
                 relatoDoProblema, criadaEm,
                 transicoes.stream().map(TransicaoStatusJpaEntity::paraDominio).toList(),
                 orcamentos.stream().map(OrcamentoJpaEntity::paraDominio).toList(),
-                itensServico.stream().map(ItemServicoJpaEntity::paraDominio).map(ItemServico.class::cast).toList(),
-                itensPeca.stream().map(ItemPecaJpaEntity::paraDominio).map(ItemPeca.class::cast).toList());
+                itensServico.stream().map(ItemServicoJpaEntity::paraDominio).toList(),
+                itensPeca.stream().map(ItemPecaJpaEntity::paraDominio).toList());
     }
 }

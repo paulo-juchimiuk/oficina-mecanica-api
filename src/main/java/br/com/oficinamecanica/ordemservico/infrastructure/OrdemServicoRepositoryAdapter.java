@@ -4,6 +4,8 @@ import br.com.oficinamecanica.ordemservico.domain.CodigoAcompanhamento;
 import br.com.oficinamecanica.ordemservico.domain.OrdemServico;
 import br.com.oficinamecanica.ordemservico.domain.OrdemServicoRepository;
 import br.com.oficinamecanica.ordemservico.domain.StatusOrdemServico;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Optional;
@@ -13,9 +15,11 @@ import java.util.UUID;
 class OrdemServicoRepositoryAdapter implements OrdemServicoRepository {
 
     private final OrdemServicoJpaRepository repository;
+    private final EntityManager entityManager;
 
-    OrdemServicoRepositoryAdapter(OrdemServicoJpaRepository repository) {
+    OrdemServicoRepositoryAdapter(OrdemServicoJpaRepository repository, EntityManager entityManager) {
         this.repository = repository;
+        this.entityManager = entityManager;
     }
 
     @Override
@@ -38,6 +42,18 @@ class OrdemServicoRepositoryAdapter implements OrdemServicoRepository {
     }
 
     @Override
+    public Optional<OrdemServico> buscarParaMovimentacao(UUID id) {
+        return repository.findComTravaById(id).map(this::relerSobTrava).map(OrdemServicoJpaEntity::paraDominio);
+    }
+
+    @Override
+    public Optional<OrdemServico> buscarParaMovimentacaoPorCodigo(CodigoAcompanhamento codigoAcompanhamento) {
+        return repository.findComTravaByCodigoAcompanhamento(codigoAcompanhamento.valor())
+                .map(this::relerSobTrava)
+                .map(OrdemServicoJpaEntity::paraDominio);
+    }
+
+    @Override
     public List<OrdemServico> listar(Optional<StatusOrdemServico> status) {
         return status.map(repository::findAllByStatusOrderByCriadaEmAsc)
                 .orElseGet(repository::findAllByOrderByCriadaEmAsc)
@@ -51,6 +67,11 @@ class OrdemServicoRepositoryAdapter implements OrdemServicoRepository {
         return repository.listarComExecucaoConcluida(servicoId.map(UUID::toString).orElse(null)).stream()
                 .map(OrdemServicoJpaEntity::paraDominio)
                 .toList();
+    }
+
+    private OrdemServicoJpaEntity relerSobTrava(OrdemServicoJpaEntity entidade) {
+        entityManager.refresh(entidade, LockModeType.PESSIMISTIC_WRITE);
+        return entidade;
     }
 
     private OrdemServicoJpaEntity atualizar(OrdemServicoJpaEntity entidade, OrdemServico ordemServico) {
