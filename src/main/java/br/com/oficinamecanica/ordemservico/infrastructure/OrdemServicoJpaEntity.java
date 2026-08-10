@@ -133,6 +133,10 @@ class OrdemServicoJpaEntity {
         return orcamentos.stream().collect(Collectors.toMap(OrcamentoJpaEntity::versao, Function.identity()));
     }
 
+    StatusOrdemServico status() {
+        return status;
+    }
+
     OrdemServico paraDominio() {
         return new OrdemServico(id, clienteId, veiculoId, status, new CodigoAcompanhamento(codigoAcompanhamento),
                 relatoDoProblema, criadaEm,

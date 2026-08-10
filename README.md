@@ -53,6 +53,8 @@ As duas primeiras servem a especificação **gerada a partir do código**, e ela
 
 A documentação e as três rotas de acompanhamento do cliente são públicas (ADR-007). Todo o resto exige JWT.
 
+Para experimentar a superfície do cliente sem autenticar, use o código de acompanhamento da Ordem de Serviço que a carga deixa aguardando aprovação: `ACMP-e5a312adaec084e9ea783e0ff3f142a6`. Ele também chega por e-mail, com o link pronto, na caixa em `http://localhost:8025`.
+
 ## Autenticação
 
 `POST /api/v1/auth/login` é público e devolve o token; as demais rotas administrativas exigem o cabeçalho `Authorization: Bearer <token>` e respondem `401` com corpo JSON `{"codigo": "NAO_AUTORIZADO", "mensagem": "..."}` quando o token está ausente, é inválido ou expirou.
@@ -131,7 +133,7 @@ Dentro de cada contexto:
 | Pacote | Camada do DDD | Responsabilidade |
 |---|---|---|
 | `api` | interface do usuário | controllers REST e DTOs |
-| `application` | aplicação | orquestra casos de uso, sem regra de negócio |
+| `application` | aplicação | orquestra casos de uso e resolve as pré-condições que atravessam agregados, como o vínculo entre Veículo e Cliente na criação da OS; a regra de dentro de um agregado mora no `domain` |
 | `domain` | domínio | agregados, value objects, entidades internas, portas de leitura |
 | `infrastructure` | infraestrutura | persistência e adaptadores |
 
@@ -168,7 +170,7 @@ A regra aplicada artefato por artefato:
 
 **Identificadores não usam acento** (`Orcamento`, e não `Orçamento`). O acento é preservado em texto, comentários, `@DisplayName` e dados. Java aceita Unicode em identificadores, mas ASCII reduz atrito de busca, teclado e ferramental.
 
-A correspondência entre cada termo do negócio e seu identificador está no glossário de Linguagem Ubíqua, que é a fonte de verdade: **nenhum conceito do glossário aparece no projeto sob um segundo nome.**
+A correspondência entre cada termo do negócio e seu identificador está no glossário de Linguagem Ubíqua, que é a fonte de verdade: **cada conceito do glossário tem um nome por camada, na convenção de cada uma, e nunca dois nomes concorrentes na mesma camada: um conceito aparece no projeto sob um segundo nome.**
 
 ## Decisões de arquitetura
 

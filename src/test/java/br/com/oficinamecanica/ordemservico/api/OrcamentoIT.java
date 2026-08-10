@@ -4,6 +4,7 @@ import br.com.oficinamecanica.suporte.IntegracaoBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.http.MediaType;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
@@ -156,6 +157,27 @@ class OrcamentoIT extends IntegracaoBase {
                 .andExpect(jsonPath("$.transicoesStatus.length()").value(3));
 
         verify(mailSender).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    @DisplayName("deve enviar ao Cliente um e-mail com destinatario, assunto e o link que carrega o Codigo")
+    void deveEnviarEmailComOLinkDoCodigo() throws Exception {
+        UUID id = ordemEmDiagnostico();
+        incluirItens(id, corpoComServicoEPeca(2)).andExpect(status().isOk());
+        String codigo = jdbc.queryForObject(
+                "SELECT codigo_acompanhamento FROM ordem_servico WHERE id = ?", String.class, id);
+
+        concluirDiagnostico(id).andExpect(status().isOk());
+
+        ArgumentCaptor<SimpleMailMessage> enviada = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender).send(enviada.capture());
+        SimpleMailMessage mensagem = enviada.getValue();
+        assertThat(mensagem.getTo()).containsExactly(EMAIL_DO_CLIENTE);
+        assertThat(mensagem.getSubject()).isNotBlank();
+        assertThat(mensagem.getText())
+                .contains(codigo)
+                .contains("/acompanhamento/" + codigo)
+                .contains("220.00");
     }
 
     @Test

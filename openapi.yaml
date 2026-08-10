@@ -698,10 +698,10 @@ components:
         validadeDias: {type: integer, minimum: 1, default: 10, description: 'validade padrao de 10 dias (CDC art. 40)'}
         situacao: {type: string, enum: [PENDENTE, APROVADO, REPROVADO]}
         total: {$ref: '#/components/schemas/Dinheiro'}
-        itens: {type: array, nullable: true, items: {$ref: '#/components/schemas/ItemOrcamento'}, description: 'valor discriminado do escopo coberto por esta versao; e o que o Cliente le antes de aprovar. Item introduzido por versao ANTERIOR ja reprovada nao entra, porque o reparo adicional recusado nao volta ao escopo (ADR-008); a propria versao nunca se autoexclui, entao uma versao reprovada exibe os itens que ela introduziu. **Presente apenas na consulta de acompanhamento**, que e a projecao que o Cliente le; as rotas administrativas devolvem a versao sem esta lista, porque nelas os itens da OS vem em itensServico e itensPeca'}
-        dataEnvio: {type: string, format: date-time, nullable: true, description: 'ausente enquanto a versao e rascunho, antes do envio (ADR-006)'}
-        dataResposta: {type: string, format: date-time, nullable: true, description: ausente enquanto o Cliente nao respondeu}
-        descricao: {type: string, maxLength: 500, nullable: true, description: 'preenchida quando a versao nasce de um Reparo adicional; e o que o Cliente le antes de autorizar, e por isso ausente na versao 1'}
+        itens: {type: array, nullable: true, items: {$ref: '#/components/schemas/ItemOrcamento'}, description: 'valor discriminado do escopo coberto por esta versao; e o que o Cliente le antes de aprovar. Item introduzido por versao ANTERIOR ja reprovada nao entra, porque o reparo adicional recusado nao volta ao escopo (ADR-008); a propria versao nunca se autoexclui, entao uma versao reprovada exibe os itens que ela introduziu. **Presente apenas na consulta de acompanhamento**, que e a projecao que o Cliente le; nas rotas administrativas ela volta como null, porque ali os itens da OS vem em itensServico e itensPeca'}
+        dataEnvio: {type: string, format: date-time, nullable: true, description: 'volta como null enquanto a versao e rascunho, antes do envio (ADR-006)'}
+        dataResposta: {type: string, format: date-time, nullable: true, description: volta como null enquanto o Cliente nao respondeu}
+        descricao: {type: string, maxLength: 500, nullable: true, description: 'preenchida quando a versao nasce de um Reparo adicional; e o que o Cliente le antes de autorizar, e por isso volta como null na versao 1'}
 
     TransicaoStatus:
       type: object
@@ -750,4 +750,4 @@ components:
         tempoMedioHoras: {type: number, format: double, nullable: true, description: 'nulo quando quantidadeOSsConsideradas e zero, ou seja nenhuma OS concluida no recorte'}
         quantidadeOSsConsideradas: {type: integer}
         recorte: {type: string, description: 'intervalo medido, de EM_EXECUCAO a FINALIZADA (ADR-008)', example: EM_EXECUCAO_A_FINALIZADA}
-        servicoId: {type: string, format: uuid, nullable: true, description: 'presente quando recortada por Servico; ausente quando a metrica cobre todas as OSs'}
+        servicoId: {type: string, format: uuid, nullable: true, description: 'presente quando recortada por Servico; volta como null quando a metrica cobre todas as OSs'}

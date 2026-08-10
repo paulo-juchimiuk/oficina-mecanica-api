@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.IntStream;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -16,15 +17,31 @@ class CodigoAcompanhamentoTest {
 
     private static final int CODIGOS_GERADOS = 2000;
     private static final int DIGITOS_HEXADECIMAIS = 32;
+    private static final String PREFIXO = "ACMP-";
 
     @Test
     @DisplayName("deve gerar o codigo com 32 digitos hexadecimais, que sao os 128 bits que o ADR-007 exige")
     void deveGerarCodigoComCentoEVinteEOitoBits() {
         String valor = CodigoAcompanhamento.gerar().valor();
-        assertThat(valor).startsWith("ACMP-");
-        assertThat(valor.substring("ACMP-".length()))
+        assertThat(valor).startsWith(PREFIXO);
+        assertThat(valor.substring(PREFIXO.length()))
                 .hasSize(DIGITOS_HEXADECIMAIS)
                 .matches("[0-9a-f]+");
+    }
+
+    @Test
+    @DisplayName("deve variar TODAS as 32 posicoes, o que um identificador com bits fixos de versao nao faz")
+    void deveVariarTodasAsPosicoes() {
+        List<String> gerados = IntStream.range(0, CODIGOS_GERADOS)
+                .mapToObj(vez -> CodigoAcompanhamento.gerar().valor().substring(PREFIXO.length()))
+                .toList();
+
+        for (int posicao = 0; posicao < DIGITOS_HEXADECIMAIS; posicao++) {
+            int atual = posicao;
+            assertThat(gerados.stream().map(codigo -> codigo.charAt(atual)).distinct().count())
+                    .as("digitos distintos observados na posicao %d", atual)
+                    .isGreaterThan(1);
+        }
     }
 
     @Test

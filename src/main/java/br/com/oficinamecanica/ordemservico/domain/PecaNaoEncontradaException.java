@@ -6,6 +6,6 @@ import java.util.UUID;
 public class PecaNaoEncontradaException extends RecursoNaoEncontradoException {
 
     public PecaNaoEncontradaException(UUID id) {
-        super("PECA_NAO_ENCONTRADA", "Peca " + id + " nao encontrada no catalogo");
+        super("PECA_NAO_ENCONTRADA", "Peca nao encontrada no catalogo");
     }
 }

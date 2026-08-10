@@ -28,12 +28,18 @@ class OrdensServicoDoEstoque implements OrdensServico, OrdensServicoEmAndamento 
 
     @Override
     public boolean estaEmExecucao(UUID ordemServicoId) {
-        return repository.existsByIdAndStatusIn(ordemServicoId, Set.of(StatusOrdemServico.EM_EXECUCAO));
+        return temStatusSobTrava(ordemServicoId, Set.of(StatusOrdemServico.EM_EXECUCAO));
     }
 
     @Override
     public boolean aceitaDevolucaoDePecas(UUID ordemServicoId) {
-        return repository.existsByIdAndStatusIn(
-                ordemServicoId, StatusOrdemServico.queAceitamDevolucaoDePecas());
+        return temStatusSobTrava(ordemServicoId, StatusOrdemServico.queAceitamDevolucaoDePecas());
+    }
+
+    private boolean temStatusSobTrava(UUID ordemServicoId, Set<StatusOrdemServico> aceitos) {
+        return repository.findComTravaById(ordemServicoId)
+                .map(OrdemServicoJpaEntity::status)
+                .filter(aceitos::contains)
+                .isPresent();
     }
 }
