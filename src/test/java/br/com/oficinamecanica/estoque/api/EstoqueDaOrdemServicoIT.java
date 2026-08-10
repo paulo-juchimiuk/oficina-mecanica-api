@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -124,7 +125,7 @@ class EstoqueDaOrdemServicoIT extends IntegracaoBase {
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].quantidadeFaltante").value(1))
                 .andExpect(jsonPath("$[0].nomePeca").value("Pastilha de freio dianteira"))
-                .andExpect(jsonPath("$[0].resolvidaEm").doesNotExist());
+                .andExpect(jsonPath("$[0].resolvidaEm").value(nullValue()));
     }
 
     @Test

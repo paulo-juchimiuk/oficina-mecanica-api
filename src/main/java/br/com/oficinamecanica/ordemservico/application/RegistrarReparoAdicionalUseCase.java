@@ -49,7 +49,7 @@ public class RegistrarReparoAdicionalUseCase {
 
     private void enviarAoCliente(OrdemServico ordemServico, Orcamento versao) {
         String email = clientes.emailDe(ordemServico.clienteId())
-                .orElseThrow(() -> new ClienteNaoEncontradoException(ordemServico.clienteId().toString()));
+                .orElseThrow(ClienteNaoEncontradoException::new);
         envioDeOrcamento.enviar(email, ordemServico.codigoAcompanhamento(), versao);
     }
 

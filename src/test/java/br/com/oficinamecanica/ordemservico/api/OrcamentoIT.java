@@ -15,6 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -68,7 +69,7 @@ class OrcamentoIT extends IntegracaoBase {
                 .andExpect(jsonPath("$.orcamentos[0].versao").value(1))
                 .andExpect(jsonPath("$.orcamentos[0].situacao").value("PENDENTE"))
                 .andExpect(jsonPath("$.orcamentos[0].validadeDias").value(10))
-                .andExpect(jsonPath("$.orcamentos[0].dataEnvio").doesNotExist())
+                .andExpect(jsonPath("$.orcamentos[0].dataEnvio").value(nullValue()))
                 .andExpect(jsonPath("$.orcamentos[0].total.valor").value(220.00))
                 .andExpect(jsonPath("$.orcamentos[0].total.moeda").value("BRL"))
                 .andExpect(jsonPath("$.itensServico.length()").value(1))

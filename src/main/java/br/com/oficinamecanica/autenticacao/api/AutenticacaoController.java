@@ -6,6 +6,8 @@ import br.com.oficinamecanica.autenticacao.domain.CredenciaisInvalidasException;
 import br.com.oficinamecanica.shared.api.ErroResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "Autenticacao")
 @RestController
 @RequestMapping("/auth")
 public class AutenticacaoController {
@@ -26,6 +29,7 @@ public class AutenticacaoController {
     }
 
     @PostMapping("/login")
+    @Operation(summary = "Autentica um usuario administrativo e emite o JWT")
     @SecurityRequirements
     public TokenJwt login(@Valid @RequestBody Credenciais credenciais) {
         return autenticarUsuario.executar(credenciais.login(), credenciais.senha());

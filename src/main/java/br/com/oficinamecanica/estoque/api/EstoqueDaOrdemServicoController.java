@@ -5,6 +5,8 @@ import br.com.oficinamecanica.estoque.application.DevolverPecasNaoUtilizadasUseC
 import br.com.oficinamecanica.estoque.application.RegistrarFaltaDePecaUseCase;
 import br.com.oficinamecanica.estoque.application.RetirarPecasReservadasUseCase;
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.UUID;
 
+@Tag(name = "Pecas")
 @RestController
 @RequestMapping("/ordens-servico/{id}")
 public class EstoqueDaOrdemServicoController {
@@ -36,11 +39,13 @@ public class EstoqueDaOrdemServicoController {
     }
 
     @GetMapping("/pecas-reservadas")
+    @Operation(summary = "Consultar pecas reservadas da OS")
     public List<ReservaPecaResponse> consultarReservadas(@PathVariable("id") UUID ordemServicoId) {
         return consultarPecasReservadas.executar(ordemServicoId).stream().map(ReservaPecaResponse::de).toList();
     }
 
     @PostMapping("/pecas/retirada")
+    @Operation(summary = "Retirar pecas reservadas")
     public List<ReservaPecaResponse> retirar(@PathVariable("id") UUID ordemServicoId,
                                              @Valid @RequestBody ReservasRequest requisicao) {
         return retirarPecasReservadas.executar(ordemServicoId, requisicao.identificadores()).stream()
@@ -49,6 +54,7 @@ public class EstoqueDaOrdemServicoController {
     }
 
     @PostMapping("/pecas/devolucao")
+    @Operation(summary = "Devolver peca nao utilizada")
     public List<ReservaPecaResponse> devolver(@PathVariable("id") UUID ordemServicoId,
                                               @Valid @RequestBody ReservasRequest requisicao) {
         return devolverPecasNaoUtilizadas.executar(ordemServicoId, requisicao.identificadores()).stream()
@@ -57,6 +63,7 @@ public class EstoqueDaOrdemServicoController {
     }
 
     @PostMapping("/pecas/faltas")
+    @Operation(summary = "Registrar falta de peca")
     @ResponseStatus(HttpStatus.CREATED)
     public PendenciaPecaResponse registrarFalta(@PathVariable("id") UUID ordemServicoId,
                                                 @Valid @RequestBody FaltaPecaRequest requisicao) {

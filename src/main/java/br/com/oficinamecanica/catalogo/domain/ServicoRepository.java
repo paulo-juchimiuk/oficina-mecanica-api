@@ -10,5 +10,7 @@ public interface ServicoRepository {
 
     Optional<Servico> buscarAtivoPorId(UUID id);
 
+    Optional<Servico> buscarAtivoParaInativacao(UUID id);
+
     List<Servico> listarAtivos();
 }

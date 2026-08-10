@@ -10,8 +10,8 @@ import java.util.List;
 import java.util.UUID;
 
 public record IncluirItensRequest(
-        @Valid @Size(min = 1) List<ItemDeServico> itensServico,
-        @Valid @Size(min = 1) List<ItemDePeca> itensPeca) {
+        @Size(min = 1) List<@Valid @NotNull ItemDeServico> itensServico,
+        @Size(min = 1) List<@Valid @NotNull ItemDePeca> itensPeca) {
 
     @AssertTrue(message = "informe ao menos um item de servico ou de peca")
     public boolean isPeloMenosUmItem() {

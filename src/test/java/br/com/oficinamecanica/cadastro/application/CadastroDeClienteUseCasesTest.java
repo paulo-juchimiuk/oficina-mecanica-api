@@ -88,7 +88,7 @@ class CadastroDeClienteUseCasesTest {
     @DisplayName("deve recusar inativacao quando o cliente tem Ordem de Servico em andamento")
     void deveRecusarInativacaoComOrdemServicoEmAndamento() {
         Cliente existente = Cliente.cadastrar("Ana", DOCUMENTO, CONTATO);
-        when(clientes.buscarAtivoPorId(existente.id())).thenReturn(Optional.of(existente));
+        when(clientes.buscarAtivoParaInativacao(existente.id())).thenReturn(Optional.of(existente));
         when(ordensServico.existemParaCliente(existente.id())).thenReturn(true);
 
         assertThatThrownBy(() -> new InativarClienteUseCase(clientes, ordensServico).executar(existente.id()))
@@ -100,7 +100,7 @@ class CadastroDeClienteUseCasesTest {
     @DisplayName("deve inativar o cliente sem apagar o registro")
     void deveInativarCliente() {
         Cliente existente = Cliente.cadastrar("Ana", DOCUMENTO, CONTATO);
-        when(clientes.buscarAtivoPorId(existente.id())).thenReturn(Optional.of(existente));
+        when(clientes.buscarAtivoParaInativacao(existente.id())).thenReturn(Optional.of(existente));
         when(ordensServico.existemParaCliente(existente.id())).thenReturn(false);
 
         new InativarClienteUseCase(clientes, ordensServico).executar(existente.id());

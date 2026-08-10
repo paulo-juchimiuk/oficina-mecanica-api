@@ -27,7 +27,7 @@ public class CriarOrdemServicoUseCase {
     @Transactional
     public OrdemServico executar(String documentoCliente, UUID veiculoId, String relatoDoProblema) {
         UUID clienteId = clientes.identidadePorDocumento(documentoCliente)
-                .orElseThrow(() -> new ClienteNaoEncontradoException(documentoCliente));
+                .orElseThrow(ClienteNaoEncontradoException::new);
         UUID proprietario = veiculos.proprietarioDe(veiculoId)
                 .orElseThrow(() -> new VeiculoNaoEncontradoException(veiculoId));
         if (!proprietario.equals(clienteId)) {

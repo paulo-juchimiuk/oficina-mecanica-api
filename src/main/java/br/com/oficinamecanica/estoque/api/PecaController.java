@@ -7,6 +7,8 @@ import br.com.oficinamecanica.estoque.application.InativarPecaUseCase;
 import br.com.oficinamecanica.estoque.application.ListarPecasUseCase;
 import br.com.oficinamecanica.estoque.application.RegistrarEntradaEstoqueUseCase;
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.UUID;
 
+@Tag(name = "Pecas")
 @RestController
 @RequestMapping("/pecas")
 public class PecaController {
@@ -47,6 +50,7 @@ public class PecaController {
     }
 
     @PostMapping
+    @Operation(summary = "Cadastrar peca")
     @ResponseStatus(HttpStatus.CREATED)
     public PecaResponse cadastrar(@Valid @RequestBody PecaRequest requisicao) {
         return PecaResponse.de(cadastrarPeca.executar(
@@ -55,16 +59,19 @@ public class PecaController {
     }
 
     @GetMapping
+    @Operation(summary = "Listar pecas")
     public List<PecaResponse> listar(@RequestParam(defaultValue = "false") boolean abaixoDoMinimo) {
         return listarPecas.executar(abaixoDoMinimo).stream().map(PecaResponse::de).toList();
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Detalhar peca")
     public PecaResponse detalhar(@PathVariable UUID id) {
         return PecaResponse.de(detalharPeca.executar(id));
     }
 
     @PutMapping("/{id}")
+    @Operation(summary = "Alterar peca")
     public PecaResponse alterar(@PathVariable UUID id, @Valid @RequestBody PecaRequest requisicao) {
         return PecaResponse.de(alterarPeca.executar(
                 id, requisicao.nome(), requisicao.unidadeMedida(),
@@ -72,12 +79,14 @@ public class PecaController {
     }
 
     @DeleteMapping("/{id}")
+    @Operation(summary = "Remover peca")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void inativar(@PathVariable UUID id) {
         inativarPeca.executar(id);
     }
 
     @PostMapping("/{id}/entradas-estoque")
+    @Operation(summary = "Registrar entrada de estoque")
     public PecaResponse registrarEntrada(@PathVariable UUID id, @Valid @RequestBody EntradaEstoqueRequest requisicao) {
         return PecaResponse.de(registrarEntradaEstoque.executar(id, requisicao.quantidade()));
     }

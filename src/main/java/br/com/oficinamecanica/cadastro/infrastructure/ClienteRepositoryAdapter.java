@@ -28,6 +28,11 @@ class ClienteRepositoryAdapter implements ClienteRepository {
     }
 
     @Override
+    public Optional<Cliente> buscarAtivoParaInativacao(UUID id) {
+        return repository.findComTravaByIdAndAtivoTrue(id).map(ClienteJpaEntity::paraDominio);
+    }
+
+    @Override
     public Optional<Cliente> buscarAtivoPorDocumento(Documento documento) {
         return repository.findByDocumentoAndAtivoTrue(documento.numero()).map(ClienteJpaEntity::paraDominio);
     }

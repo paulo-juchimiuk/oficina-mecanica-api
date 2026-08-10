@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 class PecasJpa implements Pecas {
 
     private static final String PRECO =
-            "SELECT preco, moeda FROM peca WHERE id = :peca AND ativo = TRUE";
+            "SELECT preco, moeda FROM peca WHERE id = :peca AND ativo = TRUE FOR UPDATE";
     private static final String NOMES =
             "SELECT id, nome FROM peca WHERE id IN (:identificadores)";
 

@@ -49,11 +49,11 @@ Com o ambiente de pé:
 - Especificação: http://localhost:8080/v3/api-docs
 - Contrato fonte versionado: [`openapi.yaml`](openapi.yaml)
 
-As duas primeiras servem a especificação **gerada a partir do código**, e ela difere do contrato versionado em conteúdo, não em quantidade de rotas: a especificação gerada **não publica as respostas de erro nem o schema `Erro`**, não carrega as restrições de valor monetário (mínimo, teto e moeda única), **não traz o `info.description`**, que é onde moram as convenções de autorização e de erro de protocolo, e sai em OpenAPI 3.1.0 contra 3.0.3 do arquivo versionado. **O `openapi.yaml` é a fonte de verdade do contrato completo**, e é ele que deve ser lido para conhecer o contrato; o Swagger UI serve para experimentar as chamadas.
+As duas primeiras servem a especificação **gerada a partir do código**, e ela difere do contrato versionado em conteúdo, não em quantidade de rotas: a especificação gerada **não traz a descrição de nenhuma das 40 operações e as agrupa pelo nome da classe Java**, em vez das sete áreas de negócio; **não publica as respostas de erro nem o schema `Erro`**; não carrega as restrições de valor monetário (mínimo, teto e moeda única); **não traz o `info.description`**, que é onde moram as convenções de autorização e de erro de protocolo; expõe uma propriedade de validação de campo cruzado que o contrato não tem; e sai em OpenAPI 3.1.0 contra 3.0.3 do arquivo versionado. **O `openapi.yaml` é a fonte de verdade do contrato completo**, e é ele que deve ser lido para conhecer o contrato; o Swagger UI serve para experimentar as chamadas.
 
-A documentação e as três rotas de acompanhamento do cliente são públicas (ADR-007). Todo o resto exige JWT.
+A documentação, o login e as três rotas de acompanhamento do cliente são públicos (ADR-007). Todas as demais rotas exigem JWT.
 
-Para experimentar a superfície do cliente sem autenticar, use o código de acompanhamento da Ordem de Serviço que a carga deixa aguardando aprovação: `ACMP-e5a312adaec084e9ea783e0ff3f142a6`. Ele também chega por e-mail, com o link pronto, na caixa em `http://localhost:8025`.
+Para experimentar a superfície do cliente sem autenticar, use o código de acompanhamento da Ordem de Serviço que a carga deixa aguardando aprovação: `ACMP-e5a312adaec084e9ea783e0ff3f142a6`.
 
 ## Autenticação
 

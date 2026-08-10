@@ -10,6 +10,8 @@ public interface VeiculoRepository {
 
     Optional<Veiculo> buscarAtivoPorId(UUID id);
 
+    Optional<Veiculo> buscarAtivoParaInativacao(UUID id);
+
     Optional<Veiculo> buscarAtivoPorPlaca(Placa placa);
 
     List<Veiculo> listarAtivos();

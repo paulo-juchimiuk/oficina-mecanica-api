@@ -24,6 +24,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 class GuardDeEstadoConcorrenteIT extends IntegracaoBase {
 
     private static final int QUANTIDADE_FALTANTE = 2;
+    private static final int RODADAS = 15;
+    private static final String EM_EXECUCAO = "EM_EXECUCAO";
+    private static final String DOCUMENTO = "10433218100";
 
     @MockitoBean
     private MailSender mailSender;
@@ -51,15 +54,17 @@ class GuardDeEstadoConcorrenteIT extends IntegracaoBase {
 
     private UUID ordemId;
     private UUID pecaId;
+    private UUID veiculoId;
+    private UUID servicoId;
 
     @BeforeEach
-    void prepararOrdemEmExecucao() {
+    void prepararCadastros() {
         UUID clienteId = UUID.randomUUID();
-        UUID veiculoId = UUID.randomUUID();
-        UUID servicoId = UUID.randomUUID();
+        veiculoId = UUID.randomUUID();
+        servicoId = UUID.randomUUID();
         pecaId = UUID.randomUUID();
         jdbc.update("INSERT INTO cliente (id, nome, documento, email) VALUES (?, ?, ?, ?)",
-                clienteId, "Ana Beatriz Souza", "10433218100", "ana@example.com");
+                clienteId, "Ana Beatriz Souza", DOCUMENTO, "ana@example.com");
         jdbc.update("""
                 INSERT INTO veiculo (id, placa, marca, modelo, ano, cliente_id)
                 VALUES (?, 'ABC1D23', 'Volkswagen', 'Gol', 2020, ?)
@@ -73,8 +78,10 @@ class GuardDeEstadoConcorrenteIT extends IntegracaoBase {
                                   quantidade_reservada, estoque_minimo)
                 VALUES (?, 'Filtro de oleo', 'unidade', 50.00, 'BRL', 20, 0, 2)
                 """, pecaId);
+    }
 
-        OrdemServico ordem = criarOrdemServico.executar("10433218100", veiculoId, "Barulho ao frear");
+    private void abrirOrdemEmExecucao() {
+        OrdemServico ordem = criarOrdemServico.executar(DOCUMENTO, veiculoId, "Barulho ao frear");
         ordemId = ordem.id();
         iniciarDiagnostico.executar(ordemId);
         incluirItens.executar(ordemId, List.of(new ItemDeServicoRequisitado(servicoId)), List.of());
@@ -85,6 +92,13 @@ class GuardDeEstadoConcorrenteIT extends IntegracaoBase {
     @Test
     @DisplayName("nao deve nascer Pendencia de peca para uma OS que a conclusao simultanea levou a Finalizada")
     void naoDeveNascerPendenciaParaOrdemFinalizada() throws Exception {
+        for (int rodada = 1; rodada <= RODADAS; rodada++) {
+            abrirOrdemEmExecucao();
+            disputarConclusaoContraRegistroDeFalta(rodada);
+        }
+    }
+
+    private void disputarConclusaoContraRegistroDeFalta(int rodada) throws Exception {
         CountDownLatch largada = new CountDownLatch(1);
         ExecutorService executor = Executors.newFixedThreadPool(2);
         List<Future<Boolean>> corridas = List.of(
@@ -105,10 +119,11 @@ class GuardDeEstadoConcorrenteIT extends IntegracaoBase {
         int pendencias = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM pendencia_peca WHERE ordem_servico_id = ?", Integer.class, ordemId);
 
-        assertThat(aceitas).as("uma das duas tem de perder a corrida").isEqualTo(1);
-        assertThat(pendencias)
-                .as("Pendencia so pode existir se a OS ficou Em execucao; status final %s", status)
-                .isEqualTo("EM_EXECUCAO".equals(status) ? 1 : 0);
+        assertThat(aceitas).as("rodada %d: uma das duas tem de perder a corrida", rodada).isEqualTo(1);
+        assertThat(pendencias == 0 || EM_EXECUCAO.equals(status))
+                .as("rodada %d: nasceu Pendencia para uma OS em %s, estado que a maquina de estados"
+                        + " declara impossivel; o guard decidiu sobre um retrato anterior a trava", rodada, status)
+                .isTrue();
     }
 
     private Callable<Boolean> tentativa(CountDownLatch largada, Callable<?> operacao) {

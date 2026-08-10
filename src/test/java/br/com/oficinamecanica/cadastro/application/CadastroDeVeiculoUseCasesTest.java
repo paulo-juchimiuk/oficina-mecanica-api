@@ -117,7 +117,7 @@ class CadastroDeVeiculoUseCasesTest {
     @DisplayName("deve recusar inativacao quando o veiculo tem Ordem de Servico em andamento")
     void deveRecusarInativacaoComOrdemServicoEmAndamento() {
         Veiculo existente = Veiculo.cadastrar(PLACA, "Fiat", "Uno", 2015, UUID.randomUUID());
-        when(veiculos.buscarAtivoPorId(existente.id())).thenReturn(Optional.of(existente));
+        when(veiculos.buscarAtivoParaInativacao(existente.id())).thenReturn(Optional.of(existente));
         when(ordensServico.existemParaVeiculo(existente.id())).thenReturn(true);
 
         assertThatThrownBy(() -> new InativarVeiculoUseCase(veiculos, ordensServico).executar(existente.id()))
@@ -129,7 +129,7 @@ class CadastroDeVeiculoUseCasesTest {
     @DisplayName("deve inativar o veiculo sem apagar o registro")
     void deveInativarVeiculo() {
         Veiculo existente = Veiculo.cadastrar(PLACA, "Fiat", "Uno", 2015, UUID.randomUUID());
-        when(veiculos.buscarAtivoPorId(existente.id())).thenReturn(Optional.of(existente));
+        when(veiculos.buscarAtivoParaInativacao(existente.id())).thenReturn(Optional.of(existente));
         when(ordensServico.existemParaVeiculo(existente.id())).thenReturn(false);
 
         new InativarVeiculoUseCase(veiculos, ordensServico).executar(existente.id());

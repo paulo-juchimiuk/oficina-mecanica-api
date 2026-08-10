@@ -22,7 +22,7 @@ public class InativarVeiculoUseCase {
 
     @Transactional
     public void executar(UUID id) {
-        Veiculo veiculo = veiculos.buscarAtivoPorId(id).orElseThrow(() -> new VeiculoNaoEncontradoException(id));
+        Veiculo veiculo = veiculos.buscarAtivoParaInativacao(id).orElseThrow(() -> new VeiculoNaoEncontradoException(id));
         if (ordensServico.existemParaVeiculo(id)) {
             throw new VeiculoComOrdemServicoEmAndamentoException();
         }

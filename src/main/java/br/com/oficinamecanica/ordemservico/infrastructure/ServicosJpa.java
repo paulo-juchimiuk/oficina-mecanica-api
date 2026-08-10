@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 class ServicosJpa implements Servicos {
 
     private static final String VALOR_MAO_DE_OBRA =
-            "SELECT valor_mao_de_obra, moeda FROM servico WHERE id = :servico AND ativo = TRUE";
+            "SELECT valor_mao_de_obra, moeda FROM servico WHERE id = :servico AND ativo = TRUE FOR UPDATE";
     private static final String NOMES =
             "SELECT id, nome FROM servico WHERE id IN (:identificadores)";
 

@@ -28,6 +28,11 @@ class VeiculoRepositoryAdapter implements VeiculoRepository {
     }
 
     @Override
+    public Optional<Veiculo> buscarAtivoParaInativacao(UUID id) {
+        return repository.findComTravaByIdAndAtivoTrue(id).map(VeiculoJpaEntity::paraDominio);
+    }
+
+    @Override
     public Optional<Veiculo> buscarAtivoPorPlaca(Placa placa) {
         return repository.findByPlacaAndAtivoTrue(placa.valor()).map(VeiculoJpaEntity::paraDominio);
     }

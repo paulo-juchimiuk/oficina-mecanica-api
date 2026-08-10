@@ -8,6 +8,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -36,7 +37,7 @@ class TempoMedioExecucaoIT extends IntegracaoBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.quantidadeOSsConsideradas").value(2))
                 .andExpect(jsonPath("$.recorte").value("EM_EXECUCAO_A_FINALIZADA"))
-                .andExpect(jsonPath("$.servicoId").doesNotExist());
+                .andExpect(jsonPath("$.servicoId").value(nullValue()));
     }
 
     @Test
@@ -82,7 +83,7 @@ class TempoMedioExecucaoIT extends IntegracaoBase {
         consultar("?servicoId=" + REVISAO_DE_FREIOS)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.quantidadeOSsConsideradas").value(0))
-                .andExpect(jsonPath("$.tempoMedioHoras").doesNotExist());
+                .andExpect(jsonPath("$.tempoMedioHoras").value(nullValue()));
     }
 
     @Test

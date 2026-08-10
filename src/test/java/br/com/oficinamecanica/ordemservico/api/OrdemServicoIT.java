@@ -9,6 +9,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.matchesPattern;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -43,7 +44,7 @@ class OrdemServicoIT extends IntegracaoBase {
                 .andExpect(jsonPath("$.relatoDoProblema").value(RELATO))
                 .andExpect(jsonPath("$.codigoAcompanhamento").value(matchesPattern("^ACMP-[0-9a-f]{32}$")))
                 .andExpect(jsonPath("$.transicoesStatus.length()").value(1))
-                .andExpect(jsonPath("$.transicoesStatus[0].deStatus").doesNotExist())
+                .andExpect(jsonPath("$.transicoesStatus[0].deStatus").value(nullValue()))
                 .andExpect(jsonPath("$.transicoesStatus[0].paraStatus").value("RECEBIDA"));
     }
 
@@ -99,6 +100,25 @@ class OrdemServicoIT extends IntegracaoBase {
         criar("123", veiculoId, RELATO)
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.codigo").value("REQUISICAO_INVALIDA"));
+    }
+
+    @Test
+    @DisplayName("deve responder 400 quando um elemento da lista de itens vem nulo, e nao 500")
+    void deveResponder400ComElementoNuloNaListaDeItens() throws Exception {
+        UUID ordemId = abrirEIniciarDiagnostico();
+
+        mockMvc.perform(post(PREFIXO + "/ordens-servico/" + ordemId + "/itens")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"itensServico\": [null]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.codigo").value("REQUISICAO_INVALIDA"));
+    }
+
+    private UUID abrirEIniciarDiagnostico() throws Exception {
+        UUID ordemId = UUID.fromString(campoDaOrdemCriada("id"));
+        iniciarDiagnostico(ordemId).andExpect(status().isOk());
+        return ordemId;
     }
 
     @Test

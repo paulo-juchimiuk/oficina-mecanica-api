@@ -12,7 +12,7 @@ import java.util.UUID;
 class VeiculosJpa implements Veiculos {
 
     private static final String PROPRIETARIO =
-            "SELECT cliente_id FROM veiculo WHERE id = :veiculo AND ativo = TRUE";
+            "SELECT cliente_id FROM veiculo WHERE id = :veiculo AND ativo = TRUE FOR UPDATE";
     private static final String DESCRICAO =
             "SELECT marca, modelo, placa FROM veiculo WHERE id = :veiculo";
 

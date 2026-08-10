@@ -16,6 +16,8 @@ class OrdemServicoTest {
 
     private static final String RELATO = "Barulho ao frear em baixa velocidade";
     private static final int TAMANHO_MAXIMO_DO_RELATO = 1000;
+    private static final int SEGUNDA_VERSAO = 2;
+    private static final int VALIDADE_EM_DIAS = 10;
 
     private OrdemServico ordemAberta() {
         return OrdemServico.abrir(UUID.randomUUID(), UUID.randomUUID(), RELATO);
@@ -282,6 +284,29 @@ class OrdemServicoTest {
 
         assertThat(ordem.status()).isEqualTo(StatusOrdemServico.EM_EXECUCAO);
         assertThat(ordem.temVersaoAprovada()).isTrue();
+    }
+
+    @Test
+    @DisplayName("deve cancelar reprovando a versao 2 sem nenhuma aprovada, porque o criterio e situacional e nao ordinal")
+    void deveCancelarNaReprovacaoDaVersaoDoisSemAprovacaoAnterior() {
+        OrdemServico ordem = ordemReidratadaComUnicaVersao(SEGUNDA_VERSAO);
+
+        ordem.reprovarOrcamento();
+
+        assertThat(ordem.status())
+                .as("o destino sai de 'existe versao aprovada?', nunca de 'esta e a primeira versao?'")
+                .isEqualTo(StatusOrdemServico.CANCELADA);
+        assertThat(ordem.temVersaoAprovada()).isFalse();
+    }
+
+    private OrdemServico ordemReidratadaComUnicaVersao(int numeroDaVersao) {
+        LocalDateTime agora = LocalDateTime.now();
+        Orcamento pendente = new Orcamento(UUID.randomUUID(), numeroDaVersao, SituacaoOrcamento.PENDENTE,
+                Dinheiro.zero(), agora, null, VALIDADE_EM_DIAS, null);
+        return new OrdemServico(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                StatusOrdemServico.AGUARDANDO_APROVACAO, CodigoAcompanhamento.gerar(), RELATO, agora,
+                List.of(new TransicaoStatus(null, StatusOrdemServico.RECEBIDA, agora)),
+                List.of(pendente), List.of(), List.of());
     }
 
     @Test

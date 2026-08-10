@@ -27,6 +27,11 @@ class ServicoRepositoryAdapter implements ServicoRepository {
     }
 
     @Override
+    public Optional<Servico> buscarAtivoParaInativacao(UUID id) {
+        return repository.findComTravaByIdAndAtivoTrue(id).map(ServicoJpaEntity::paraDominio);
+    }
+
+    @Override
     public List<Servico> listarAtivos() {
         return repository.findAllByAtivoTrueOrderByNomeAsc().stream().map(ServicoJpaEntity::paraDominio).toList();
     }
