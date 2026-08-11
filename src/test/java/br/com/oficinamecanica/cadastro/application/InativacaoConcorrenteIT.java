@@ -101,33 +101,48 @@ class InativacaoConcorrenteIT extends IntegracaoBase {
     @DisplayName("nao deve inativar o Cliente e abrir OS para ele na mesma corrida, o que deixaria a OS presa")
     void naoDeveInativarClienteComOrdemServicoNascendo() throws Exception {
         for (int rodada = 1; rodada <= RODADAS; rodada++) {
-            int antes = ordensDoCliente();
+            String documentoDaRodada = "%011d".formatted(rodada);
+            UUID clienteDaRodada = inserirCliente(rodada, documentoDaRodada);
+            UUID veiculoDaRodada = inserirVeiculo(rodada, clienteDaRodada);
             String relato = "corrida " + rodada;
 
             int aceitas = disputar(
-                    () -> criarOrdemServico.executar(DOCUMENTO, veiculoId, relato),
+                    () -> criarOrdemServico.executar(documentoDaRodada, veiculoDaRodada, relato),
                     () -> {
-                        inativarCliente.executar(clienteId);
+                        inativarCliente.executar(clienteDaRodada);
                         return null;
                     });
 
             boolean ativo = Boolean.TRUE.equals(jdbc.queryForObject(
-                    "SELECT ativo FROM cliente WHERE id = ?", Boolean.class, clienteId));
+                    "SELECT ativo FROM cliente WHERE id = ?", Boolean.class, clienteDaRodada));
 
             assertThat(aceitas).as("rodada %d: uma das duas tem de perder a corrida", rodada).isEqualTo(1);
-            assertThat(ativo || ordensDoCliente() == antes)
+            assertThat(ativo || ordensDe(clienteDaRodada) == 0)
                     .as("rodada %d: Cliente inativado com Ordem de Servico nascendo; a OS nao avanca por"
                             + " nenhuma rota e nao existe reativacao (ADR-014)", rodada)
                     .isTrue();
-            if (!ativo) {
-                return;
-            }
         }
     }
 
-    private int ordensDoCliente() {
+    private UUID inserirCliente(int rodada, String documento) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO cliente (id, nome, documento, email) VALUES (?, ?, ?, ?)",
+                id, "Cliente da corrida " + rodada, documento, "cliente%d@example.com".formatted(rodada));
+        return id;
+    }
+
+    private UUID inserirVeiculo(int rodada, UUID donoId) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO veiculo (id, placa, marca, modelo, ano, cliente_id)
+                VALUES (?, ?, 'Volkswagen', 'Gol', 2020, ?)
+                """, id, "COR%04d".formatted(rodada), donoId);
+        return id;
+    }
+
+    private int ordensDe(UUID donoId) {
         return jdbc.queryForObject(
-                "SELECT COUNT(*) FROM ordem_servico WHERE cliente_id = ?", Integer.class, clienteId);
+                "SELECT COUNT(*) FROM ordem_servico WHERE cliente_id = ?", Integer.class, donoId);
     }
 
     private UUID inserirPeca(int rodada) {
