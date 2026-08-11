@@ -103,6 +103,8 @@ O build tem **gate de cobertura de 80% nos domínios críticos**, medido sobre o
 
 A cobertura é medida sobre **tudo o que o `mvn verify` executa**, unitários e integração juntos: o agente do JaCoCo é preparado uma vez e as duas suítes escrevem no mesmo `target/jacoco.exec`. Rodar só uma das duas dá um número diferente, então o número que vale é o do `mvn verify` completo.
 
+**Quais fluxos são testados, onde o gate morde e como se mede** está em [`docs/estrategia-testes.md`](docs/estrategia-testes.md).
+
 ## Análise de vulnerabilidades
 
 Varredura das dependências declaradas no projeto, casando cada uma com as CVEs conhecidas:
@@ -175,35 +177,21 @@ A regra aplicada artefato por artefato:
 
 A correspondência entre cada termo do negócio e seu identificador está no glossário de Linguagem Ubíqua, que é a fonte de verdade: **cada conceito do glossário tem um nome por camada, na convenção de cada uma, e nunca dois nomes concorrentes na mesma camada. Um conceito nunca aparece no projeto sob um segundo nome.**
 
+## Por que PostgreSQL
+
+O domínio é relacional e transacional por natureza: Ordem de Serviço, Orçamento, Item, Peça e Reserva se ligam por chave estrangeira, e as invariantes que mais importam são de consistência entre linhas, como o Saldo em estoque nunca negativo e a reserva nunca maior que o saldo. O PostgreSQL entrega isso com `CHECK` e chave estrangeira no próprio banco, e entrega o **bloqueio pessimista de linha** (`SELECT ... FOR UPDATE`) que a serialização dos agregados usa, sem depender de coordenação na aplicação.
+
+Somam-se a isso o `TIMESTAMP` com aritmética de intervalos, que sustenta a métrica de tempo médio de execução, e o fato de o driver JDBC e o Testcontainers serem maduros no ecossistema Spring, o que mantém os testes de integração rodando contra o banco real e não contra um substituto em memória que se comporta de outro jeito.
+
+Um banco de documentos foi descartado pelo mesmo motivo: ele resolveria bem a leitura de uma OS inteira, e pioraria exatamente o que aqui é o núcleo, que é consistência entre agregados sob concorrência.
+
+O raciocínio completo, com as alternativas descartadas e a política de versão, está no **ADR-002** e no **ADR-016**.
+
 ## Decisões de arquitetura
 
-Todas documentadas com fundamento de negócio, fundamento técnico e o porquê. A tabela abaixo é o índice.
+São **21**, todas documentadas com contexto, alternativas descartadas, fundamento de negócio, fundamento técnico, o porquê e as consequências, em [`docs/decisoes.md`](docs/decisoes.md).
 
-**Os códigos `ADR-0xx` citados no contrato da API referem-se a esta tabela.** O texto completo de cada decisão vive no documento de decisões arquiteturais, que é entregue junto da documentação do projeto e ainda não está publicado aqui; o link entra nesta página quando a documentação for publicada.
-
-| ADR | Decisão | Status |
-|---|---|---|
-| 001 | Java 25 LTS e Spring Boot 4, build com Maven | decidido |
-| 002 | PostgreSQL 18 | decidido |
-| 003 | Monolito em camadas, contextos delimitados como pacotes | decidido |
-| 004 | OWASP ZAP na API em execução, mais OWASP Dependency-Check nas dependências | decidido |
-| 005 | JUnit 5, Mockito, Testcontainers e JaCoCo com gate de 80% | decidido |
-| 006 | Fronteiras dos agregados de Cadastro e o Orçamento versionado | decidido |
-| 007 | Interação do cliente com o sistema, por Código de acompanhamento | decidido |
-| 008 | Máquina de estados da OS e a métrica de tempo | decidido |
-| 009 | Autenticação como subdomínio Genérico | decidido |
-| 010 | Chassi fora do MVP | decidido |
-| 011 | Identidade da entrega, nome do projeto | decidido |
-| 012 | Convenção de idioma: domínio em português, engenharia em inglês, por regra semântica | decidido |
-| 013 | Fluxo de estoque: falta vira pendência, baixa na retirada, devolução manual | decidido |
-| 014 | Remoção lógica nos cadastros, para o histórico de OS não virar registro órfão | decidido |
-| 015 | Dados de demonstração fora do fluxo de migrations, carregados por serviço próprio | decidido |
-| 016 | Política de versão: sempre numa versão que ainda recebe correção | decidido |
-| 017 | Dinheiro replicado por contexto, sem kernel compartilhado | decidido |
-| 018 | Identidade de Serviço e Peça sem chave natural | decidido |
-| 019 | Concorrência no agregado Peça: trava pessimista na raiz, com aquisição ordenada | decidido |
-| 020 | Concorrência no agregado Ordem de Serviço: trava pessimista na raiz | decidido |
-| 021 | Organização interna das camadas: a camada como unidade de encapsulamento | decidido |
+**Os códigos `ADR-0xx` citados neste README, no contrato da API e nos testes referem-se a esse documento.**
 
 ## Documentação DDD
 
