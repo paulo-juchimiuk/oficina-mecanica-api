@@ -77,9 +77,9 @@ public class OrdemServicoController {
 
     @GetMapping
     @Operation(summary = "Listar Ordens de Servico")
-    public List<OrdemServicoSummaryResponse> listar(@RequestParam(required = false) StatusOrdemServico status) {
+    public List<OrdemServicoResumoResponse> listar(@RequestParam(required = false) StatusOrdemServico status) {
         return listarOrdensServico.executar(Optional.ofNullable(status)).stream()
-                .map(OrdemServicoSummaryResponse::de)
+                .map(OrdemServicoResumoResponse::de)
                 .toList();
     }
 

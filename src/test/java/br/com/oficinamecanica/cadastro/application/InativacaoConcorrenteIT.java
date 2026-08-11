@@ -1,5 +1,6 @@
 package br.com.oficinamecanica.cadastro.application;
 
+import br.com.oficinamecanica.shared.domain.DominioException;
 import br.com.oficinamecanica.estoque.application.InativarPecaUseCase;
 import br.com.oficinamecanica.ordemservico.application.CriarOrdemServicoUseCase;
 import br.com.oficinamecanica.ordemservico.application.IncluirItensUseCase;
@@ -185,7 +186,7 @@ class InativacaoConcorrenteIT extends IntegracaoBase {
             try {
                 operacao.call();
                 return true;
-            } catch (RuntimeException recusada) {
+            } catch (DominioException recusada) {
                 return false;
             }
         };

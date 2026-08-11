@@ -10,8 +10,7 @@ public record PendenciaPecaResponse(
         UUID pecaId,
         String nomePeca,
         int quantidadeFaltante,
-        LocalDateTime detectadaEm,
-        LocalDateTime resolvidaEm) {
+        LocalDateTime detectadaEm) {
 
     static PendenciaPecaResponse de(PendenciaPeca pendencia) {
         return new PendenciaPecaResponse(
@@ -20,7 +19,6 @@ public record PendenciaPecaResponse(
                 pendencia.pecaId(),
                 pendencia.nomePeca(),
                 pendencia.quantidadeFaltante(),
-                pendencia.detectadaEm(),
-                pendencia.resolvidaEm());
+                pendencia.detectadaEm());
     }
 }

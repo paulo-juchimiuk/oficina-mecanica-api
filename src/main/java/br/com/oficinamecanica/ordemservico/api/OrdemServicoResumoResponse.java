@@ -5,15 +5,15 @@ import br.com.oficinamecanica.ordemservico.domain.StatusOrdemServico;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-public record OrdemServicoSummaryResponse(
+public record OrdemServicoResumoResponse(
         UUID id,
         StatusOrdemServico status,
         UUID clienteId,
         UUID veiculoId,
         LocalDateTime criadaEm) {
 
-    static OrdemServicoSummaryResponse de(OrdemServico ordemServico) {
-        return new OrdemServicoSummaryResponse(
+    static OrdemServicoResumoResponse de(OrdemServico ordemServico) {
+        return new OrdemServicoResumoResponse(
                 ordemServico.id(),
                 ordemServico.status(),
                 ordemServico.clienteId(),

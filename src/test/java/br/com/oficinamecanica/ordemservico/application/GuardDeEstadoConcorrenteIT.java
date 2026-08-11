@@ -1,5 +1,6 @@
 package br.com.oficinamecanica.ordemservico.application;
 
+import br.com.oficinamecanica.shared.domain.ConflitoDeEstadoException;
 import br.com.oficinamecanica.estoque.application.ItemAReservar;
 import br.com.oficinamecanica.estoque.application.RegistrarFaltaDePecaUseCase;
 import br.com.oficinamecanica.ordemservico.domain.OrdemServico;
@@ -90,7 +91,7 @@ class GuardDeEstadoConcorrenteIT extends IntegracaoBase {
     }
 
     @Test
-    @DisplayName("nao deve nascer Pendencia de peca para uma OS que a conclusao simultanea levou a Finalizada")
+    @DisplayName("nao deve aceitar registro de falta depois que a conclusao simultanea tirou a OS de execucao")
     void naoDeveNascerPendenciaParaOrdemFinalizada() throws Exception {
         for (int rodada = 1; rodada <= RODADAS; rodada++) {
             abrirOrdemEmExecucao();
@@ -107,10 +108,8 @@ class GuardDeEstadoConcorrenteIT extends IntegracaoBase {
                         registrarFaltaDePeca.executar(ordemId, pecaId, QUANTIDADE_FALTANTE))));
 
         largada.countDown();
-        int aceitas = 0;
-        for (Future<Boolean> corrida : corridas) {
-            aceitas += Boolean.TRUE.equals(corrida.get(60, TimeUnit.SECONDS)) ? 1 : 0;
-        }
+        boolean conclusaoAceita = Boolean.TRUE.equals(corridas.get(0).get(60, TimeUnit.SECONDS));
+        boolean faltaAceita = Boolean.TRUE.equals(corridas.get(1).get(60, TimeUnit.SECONDS));
         executor.shutdown();
         assertThat(executor.awaitTermination(60, TimeUnit.SECONDS)).isTrue();
 
@@ -119,10 +118,16 @@ class GuardDeEstadoConcorrenteIT extends IntegracaoBase {
         int pendencias = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM pendencia_peca WHERE ordem_servico_id = ?", Integer.class, ordemId);
 
-        assertThat(aceitas).as("rodada %d: uma das duas tem de perder a corrida", rodada).isEqualTo(1);
-        assertThat(pendencias == 0 || EM_EXECUCAO.equals(status))
-                .as("rodada %d: nasceu Pendencia para uma OS em %s, estado que a maquina de estados"
-                        + " declara impossivel; o guard decidiu sobre um retrato anterior a trava", rodada, status)
+        assertThat(conclusaoAceita || faltaAceita)
+                .as("rodada %d: as duas operacoes foram recusadas, e uma delas chegou primeiro", rodada)
+                .isTrue();
+        assertThat(pendencias > 0)
+                .as("rodada %d: a Pendencia existe se e somente se o registro de falta foi aceito;"
+                        + " aceito=%s, pendencias=%d", rodada, faltaAceita, pendencias)
+                .isEqualTo(faltaAceita);
+        assertThat(faltaAceita || !EM_EXECUCAO.equals(status))
+                .as("rodada %d: registro de falta recusado com a OS ainda em %s; o guard decidiu"
+                        + " sobre um retrato anterior a trava", rodada, status)
                 .isTrue();
     }
 
@@ -132,7 +137,7 @@ class GuardDeEstadoConcorrenteIT extends IntegracaoBase {
             try {
                 operacao.call();
                 return true;
-            } catch (RuntimeException recusada) {
+            } catch (ConflitoDeEstadoException recusada) {
                 return false;
             }
         };

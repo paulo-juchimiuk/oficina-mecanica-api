@@ -1,5 +1,6 @@
 package br.com.oficinamecanica.ordemservico.application;
 
+import br.com.oficinamecanica.shared.domain.ConflitoDeEstadoException;
 import br.com.oficinamecanica.ordemservico.domain.OrdemServico;
 import br.com.oficinamecanica.ordemservico.domain.OrdemServicoRepository;
 import br.com.oficinamecanica.ordemservico.domain.StatusOrdemServico;
@@ -134,7 +135,7 @@ class AprovacaoConcorrenteIT extends IntegracaoBase {
             try {
                 operacao.call();
                 return true;
-            } catch (RuntimeException recusada) {
+            } catch (ConflitoDeEstadoException recusada) {
                 return false;
             }
         };

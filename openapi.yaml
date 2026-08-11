@@ -51,7 +51,7 @@ paths:
       parameters:
         - {name: status, in: query, required: false, schema: {$ref: '#/components/schemas/StatusOrdemServico'}}
       responses:
-        '200': {description: Lista de OSs, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/OrdemServicoSummary'}}}}}
+        '200': {description: Lista de OSs, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/OrdemServicoResumo'}}}}}
         '400': {$ref: '#/components/responses/RequisicaoInvalida'}
         '401': {$ref: '#/components/responses/NaoAutorizado'}
 
@@ -651,7 +651,6 @@ components:
         nomePeca: {type: string}
         quantidadeFaltante: {type: integer, minimum: 1}
         detectadaEm: {type: string, format: date-time}
-        resolvidaEm: {type: string, format: date-time, nullable: true, description: 'reservada para quando a resolucao da pendencia for implementada; fora do MVP (ADR-013), entao hoje toda pendencia carregada esta aberta'}
 
     ItemServico:
       type: object
@@ -711,7 +710,7 @@ components:
         paraStatus: {$ref: '#/components/schemas/StatusOrdemServico'}
         dataHora: {type: string, format: date-time, description: timestamp que viabiliza o Tempo medio de execucao}
 
-    OrdemServicoSummary:
+    OrdemServicoResumo:
       type: object
       required: [id, status, clienteId, veiculoId]
       properties:
@@ -723,7 +722,7 @@ components:
 
     OrdemServico:
       allOf:
-        - {$ref: '#/components/schemas/OrdemServicoSummary'}
+        - {$ref: '#/components/schemas/OrdemServicoResumo'}
         - type: object
           properties:
             codigoAcompanhamento: {type: string}

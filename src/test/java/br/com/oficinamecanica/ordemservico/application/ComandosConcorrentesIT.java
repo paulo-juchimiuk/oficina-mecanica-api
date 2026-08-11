@@ -1,5 +1,6 @@
 package br.com.oficinamecanica.ordemservico.application;
 
+import br.com.oficinamecanica.shared.domain.ConflitoDeEstadoException;
 import br.com.oficinamecanica.ordemservico.domain.OrdemServico;
 import br.com.oficinamecanica.suporte.IntegracaoBase;
 import org.junit.jupiter.api.BeforeEach;
@@ -146,7 +147,7 @@ class ComandosConcorrentesIT extends IntegracaoBase {
             try {
                 operacao.call();
                 return true;
-            } catch (RuntimeException recusada) {
+            } catch (ConflitoDeEstadoException recusada) {
                 return false;
             }
         };
