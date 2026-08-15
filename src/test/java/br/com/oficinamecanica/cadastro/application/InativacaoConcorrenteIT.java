@@ -23,10 +23,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.MailSender;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -41,7 +43,11 @@ class InativacaoConcorrenteIT extends IntegracaoBase {
     private static final List<String> DOCUMENTOS_DAS_RODADAS = List.of(
             "00000000191", "00000000272", "00000000353", "00000000434", "00000000515",
             "00000000604", "00000000787", "00000000868", "00000000949", "00000001082");
+    private static final List<String> DOCUMENTOS_DO_NOVO_DONO = List.of(
+            "00000001163", "00000001244", "00000001325", "00000001406", "00000001597",
+            "00000001678", "00000001759", "00000001830", "00000001910", "00000002054");
     private static final int ESPERA_EM_SEGUNDOS = 60;
+    private static final int VIAS_EM_DISPUTA = 12;
     private static final String MOEDA = "BRL";
 
     @MockitoBean
@@ -226,6 +232,51 @@ class InativacaoConcorrenteIT extends IntegracaoBase {
                             + " nao ha reativacao no MVP (ADR-014)", rodada)
                     .isFalse();
         }
+    }
+
+    @Test
+    @DisplayName("nao deve entrar em impasse quando a troca de dono corre com a criacao da OS")
+    void naoDeveEntrarEmImpasseNaTrocaDeDono() throws Exception {
+        Documento documentoDoDono = documentoDaRodada(1);
+        UUID donoAtual = inserirCliente(1, documentoDoDono);
+        UUID novoDono = inserirCliente(1 + RODADAS, documentoDoNovoDono(1));
+        UUID veiculoDaRodada = inserirVeiculo(1, donoAtual);
+        Placa placa = new Placa(placaDaRodada(1));
+
+        List<Callable<Boolean>> tentativas = new ArrayList<>();
+        CountDownLatch largada = new CountDownLatch(1);
+        for (int via = 1; via <= VIAS_EM_DISPUTA; via++) {
+            UUID dono = via % 2 == 0 ? donoAtual : novoDono;
+            String relato = "corrida " + via;
+            tentativas.add(tentativa(largada,
+                    () -> alterarVeiculo.executar(veiculoDaRodada, placa, "Volkswagen", "Gol", 2021, dono)));
+            tentativas.add(tentativa(largada,
+                    () -> criarOrdemServico.executar(documentoDoDono.numero(), veiculoDaRodada, relato)));
+        }
+
+        ExecutorService executor = Executors.newFixedThreadPool(tentativas.size());
+        List<Future<Boolean>> corridas = tentativas.stream().map(executor::submit).toList();
+        largada.countDown();
+
+        List<String> impasses = new ArrayList<>();
+        for (Future<Boolean> corrida : corridas) {
+            try {
+                corrida.get(ESPERA_EM_SEGUNDOS, TimeUnit.SECONDS);
+            } catch (ExecutionException falha) {
+                impasses.add(String.valueOf(falha.getCause()));
+            }
+        }
+        executor.shutdown();
+        assertThat(executor.awaitTermination(ESPERA_EM_SEGUNDOS, TimeUnit.SECONDS)).isTrue();
+
+        assertThat(impasses)
+                .as("toda recusa tem de vir de regra de negocio; falha de banco aqui e impasse por ordem"
+                        + " de travas invertida, e a ordem declarada no ADR-020 e Cliente antes de Veiculo")
+                .isEmpty();
+    }
+
+    private Documento documentoDoNovoDono(int rodada) {
+        return new Documento(DOCUMENTOS_DO_NOVO_DONO.get(rodada - 1));
     }
 
     private Documento documentoDaRodada(int rodada) {

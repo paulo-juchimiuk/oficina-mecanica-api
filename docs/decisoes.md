@@ -46,7 +46,7 @@ São 21 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 ## ADR-004: Análise de vulnerabilidades em três superfícies
 
-**Decisão:** SpotBugs com o plugin find-sec-bugs sobre o código compilado, OWASP Dependency-Check sobre as dependências declaradas, e OWASP ZAP contra a API em execução, com leitura pelo OWASP Top 10. As três compõem o relatório, e todas rodam pelo perfil `seguranca` do Maven, fora do build padrão.
+**Decisão:** SpotBugs com o plugin find-sec-bugs sobre o código compilado, OWASP Dependency-Check sobre as dependências declaradas, e OWASP ZAP contra a API em execução, com leitura pelo OWASP Top 10. As três compõem o relatório. As duas primeiras rodam pelo perfil `seguranca` do Maven, fora do build padrão; a terceira roda por fora, contra a aplicação no ar.
 
 **Fundamento de negócio:** o sistema guarda dado de cliente e movimenta o valor do estoque, e as três superfícies por onde isso vaza são diferentes: o código escrito aqui, a cadeia de dependências herdada e a aplicação respondendo na rede. Cobrir só uma delas produz relatório que tranquiliza sem proteger.
 
@@ -280,7 +280,7 @@ São 21 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 **Fundamento de negócio:** o que se perde sem isso não aparece como erro. Aparece como um orçamento que o cliente aprovou por um valor e a oficina executou por outro, como um comprovante de cancelamento de um serviço que está sendo feito, e como um histórico de status que a própria máquina declara impossível.
 
-**Fundamento técnico:** valem as mesmas duas premissas do ADR-019. Medido sem trava: quatro aprovações simultâneas do mesmo código respondiam 200 nas quatro e reservavam peça em quádruplo; quatro inclusões de item deixavam o total do orçamento menor que a soma dos próprios itens. **A ordem de aquisição é sempre Ordem de Serviço antes de Peça**, o que preserva a ordenação total que elimina o impasse.
+**Fundamento técnico:** valem as mesmas duas premissas do ADR-019. Medido sem trava: quatro aprovações simultâneas do mesmo código respondiam 200 nas quatro e reservavam peça em quádruplo; quatro inclusões de item deixavam o total do orçamento menor que a soma dos próprios itens. **A ordem de aquisição é sempre Ordem de Serviço antes de Peça**, e **Cliente antes de Veículo** nos caminhos que tocam os dois, o que preserva a ordenação total que elimina o impasse. A segunda metade tem custo medido: sem ela, alterar o proprietário de um veículo enquanto nasce uma Ordem de Serviço para o mesmo par produz impasse no banco e resposta 500, porque gravar a chave estrangeira trava a linha do Cliente depois da do Veículo.
 
 **Porquê:** é a mesma escolha do ADR-019 pelo mesmo motivo. Aplicar uma decisão existente a um segundo agregado é mais barato de defender do que inventar um segundo padrão de concorrência no mesmo projeto.
 
@@ -292,7 +292,7 @@ São 21 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 **Decisão:** a camada dentro do contexto delimitado é a unidade de organização e de encapsulamento. **Nenhuma das quatro camadas tem subpacote**, e a distinção entre tipos de arquivo é feita pelo nome da classe. A camada de infraestrutura mantém suas classes package-private.
 
-**Fundamento de negócio:** o encapsulamento por camada é o que garante a regra de que **somente a lógica do agregado altera o próprio estado**. Como a classe de persistência não é visível fora da sua camada, nenhum ponto fora da infraestrutura enxerga a tabela, e a reconstituição do agregado é caminho exclusivo do adaptador.
+**Fundamento de negócio:** o encapsulamento por camada é o que garante a regra de que **somente a lógica do agregado altera o próprio estado**. Como a classe de persistência não é visível fora da sua camada, nenhuma outra camada consegue importar a entidade JPA, e por isso a tabela só é alcançada pelo adaptador.
 
 **Fundamento técnico:** em Java, uma declaração sem modificador de acesso é acessível apenas dentro do pacote que a contém, e **subpacote é outro pacote**. Os tipos package-private da infraestrutura sobrevivem exatamente porque cada camada é um pacote único. Subdividir os tornaria públicos.
 

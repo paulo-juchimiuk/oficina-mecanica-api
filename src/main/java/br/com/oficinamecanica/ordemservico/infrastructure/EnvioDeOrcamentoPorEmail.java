@@ -42,7 +42,7 @@ class EnvioDeOrcamentoPorEmail implements EnvioDeOrcamento {
                 Total: %s %s
                 Validade: %d dias
 
-                Acompanhe e responda em: %s/%s
+                Acompanhe em: %s/%s
                 """.formatted(versao.versao(), versao.total().moeda(), versao.total().valor(),
                 versao.validadeDias(), urlDeAcompanhamento, codigoAcompanhamento.valor());
     }

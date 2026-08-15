@@ -8,7 +8,7 @@ Tech Challenge da Fase 1 da pós-graduação em Arquitetura de Software (FIAP).
 
 A oficina atende, diagnostica, executa e entrega usando anotação manual e planilha, e é dessa forma de trabalho que nascem os cinco problemas que este sistema existe para resolver: erro na priorização dos atendimentos, falha no controle de peças e insumos, dificuldade de acompanhar o status dos serviços, perda do histórico de clientes e veículos, e ineficiência no fluxo de orçamentos e autorizações.
 
-O objetivo desta primeira versão é substituir a planilha pelo registro que o próprio fluxo de trabalho produz: cada mudança de status é gravada com data e hora pela ação que a causou, o orçamento nasce dos itens lançados e vai ao cliente para aprovação, a peça sai do saldo no momento em que é reservada, e o cliente acompanha a própria Ordem de Serviço sem depender de telefonema.
+O objetivo desta primeira versão é substituir a planilha pelo registro que o próprio fluxo de trabalho produz: cada mudança de status é gravada com data e hora pela ação que a causou, o orçamento nasce dos itens lançados e vai ao cliente para aprovação, a peça é separada para a OS na aprovação do orçamento e só sai do saldo quando o Mecânico a retira, e o cliente acompanha a própria Ordem de Serviço sem depender de telefonema.
 
 O recorte é de MVP: back-end, sem interface gráfica, com gestão de ordens de serviço, clientes e peças.
 
@@ -121,7 +121,7 @@ A cobertura é medida sobre **tudo o que o `mvn verify` executa**, unitários e 
 
 ## Análise de vulnerabilidades
 
-Três superfícies, três ferramentas, todas no perfil `seguranca` e nenhuma no build padrão (ADR-004).
+Três superfícies, três ferramentas. As duas que rodam pelo Maven ficam no perfil `seguranca`, fora do build padrão; a varredura dinâmica roda por fora, contra o ambiente de pé (ADR-004).
 
 **Análise estática do código**, com SpotBugs mais o plugin find-sec-bugs, que traz as regras de segurança de Java e Spring:
 
