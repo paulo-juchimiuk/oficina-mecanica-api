@@ -19,7 +19,7 @@ public class AlterarServicoUseCase {
 
     @Transactional
     public Servico executar(UUID id, String nome, String descricao, Dinheiro valorMaoDeObra) {
-        Servico servico = servicos.buscarAtivoPorId(id).orElseThrow(() -> new ServicoNaoEncontradoException(id));
+        Servico servico = servicos.buscarAtivoParaModificacao(id).orElseThrow(() -> new ServicoNaoEncontradoException(id));
         servico.alterar(nome, descricao, valorMaoDeObra);
         return servicos.salvar(servico);
     }

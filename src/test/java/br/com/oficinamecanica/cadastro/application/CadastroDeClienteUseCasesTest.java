@@ -63,7 +63,7 @@ class CadastroDeClienteUseCasesTest {
     @DisplayName("deve recusar alteracao de cliente inexistente ou removido logicamente")
     void deveRecusarAlteracaoDeClienteInexistente() {
         UUID id = UUID.randomUUID();
-        when(clientes.buscarAtivoPorId(id)).thenReturn(Optional.empty());
+        when(clientes.buscarAtivoParaModificacao(id)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> new AlterarClienteUseCase(clientes).executar(id, "Ana", DOCUMENTO, CONTATO))
                 .isInstanceOf(ClienteNaoEncontradoException.class);
@@ -73,7 +73,7 @@ class CadastroDeClienteUseCasesTest {
     @DisplayName("deve alterar cliente existente preservando a identidade")
     void deveAlterarClienteExistente() {
         Cliente existente = Cliente.cadastrar("Ana", DOCUMENTO, CONTATO);
-        when(clientes.buscarAtivoPorId(existente.id())).thenReturn(Optional.of(existente));
+        when(clientes.buscarAtivoParaModificacao(existente.id())).thenReturn(Optional.of(existente));
         when(clientes.documentoJaCadastradoPorOutro(existente.id(), DOCUMENTO)).thenReturn(false);
         when(clientes.salvar(any())).thenAnswer(chamada -> chamada.getArgument(0));
 
@@ -88,7 +88,7 @@ class CadastroDeClienteUseCasesTest {
     @DisplayName("deve recusar inativacao quando o cliente tem Ordem de Servico em andamento")
     void deveRecusarInativacaoComOrdemServicoEmAndamento() {
         Cliente existente = Cliente.cadastrar("Ana", DOCUMENTO, CONTATO);
-        when(clientes.buscarAtivoParaInativacao(existente.id())).thenReturn(Optional.of(existente));
+        when(clientes.buscarAtivoParaModificacao(existente.id())).thenReturn(Optional.of(existente));
         when(ordensServico.existemParaCliente(existente.id())).thenReturn(true);
 
         assertThatThrownBy(() -> new InativarClienteUseCase(clientes, ordensServico).executar(existente.id()))
@@ -100,7 +100,7 @@ class CadastroDeClienteUseCasesTest {
     @DisplayName("deve inativar o cliente sem apagar o registro")
     void deveInativarCliente() {
         Cliente existente = Cliente.cadastrar("Ana", DOCUMENTO, CONTATO);
-        when(clientes.buscarAtivoParaInativacao(existente.id())).thenReturn(Optional.of(existente));
+        when(clientes.buscarAtivoParaModificacao(existente.id())).thenReturn(Optional.of(existente));
         when(ordensServico.existemParaCliente(existente.id())).thenReturn(false);
 
         new InativarClienteUseCase(clientes, ordensServico).executar(existente.id());

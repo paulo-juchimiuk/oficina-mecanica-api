@@ -47,5 +47,4 @@ Este documento define O QUE testar, ONDE exigir os 80% e COMO medir, para que a 
 
 - **Ferramenta:** JaCoCo, plugin Maven, executado em `mvn verify`.
 - **Threshold configurado:** regra `check` com mínimo de 80% de linhas, medido a partir da primeira fatia que tenha código de domínio e seus testes, aplicada por pacote aos domínios críticos da seção 2 (grupo de `includes` apontando para os pacotes de domínio). Build FALHA abaixo do mínimo, tornando o requisito verificável pelo corretor.
-- **Relatório:** `mvn verify` gera `target/site/jacoco/index.html`; comandos e caminho documentados no `oficina-mecanica-api/README.md`.
-- **Demonstração no vídeo:** rodar `mvn verify` e abrir o relatório, mostrando o gate configurado e os pacotes críticos acima de 80%.
+- **Relatório:** `mvn verify` gera `target/site/jacoco/index.html`; comandos e caminho documentados no `README.md`.

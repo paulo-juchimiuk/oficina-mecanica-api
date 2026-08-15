@@ -386,7 +386,7 @@ paths:
       parameters: [{$ref: '#/components/parameters/IdRecurso'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/EntradaEstoque'}}}}
       responses:
-        '200': {description: 'entrada registrada; devolve a Peca com o saldo atualizado. Responde 200 e nao 201 porque nenhum recurso novo nasce: o ADR-013 recusou a tabela de movimentacao, e a Entrada e registrada pelo seu efeito no saldo', content: {application/json: {schema: {$ref: '#/components/schemas/Peca'}}}}
+        '200': {description: 'entrada registrada; devolve a Peca com o saldo atualizado. Responde 200 e nao 201 porque nenhum recurso novo nasce: a Entrada e registrada pelo seu efeito no Saldo em estoque da Peca, que e o recurso devolvido', content: {application/json: {schema: {$ref: '#/components/schemas/Peca'}}}}
         '400': {$ref: '#/components/responses/RequisicaoInvalida'}
         '404': {$ref: '#/components/responses/NaoEncontrado'}
 

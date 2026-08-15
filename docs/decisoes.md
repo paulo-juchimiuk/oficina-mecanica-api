@@ -176,7 +176,7 @@ São 21 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 ## ADR-013: Fluxo de estoque do MVP
 
-**Decisão:** três regras. Com **estoque insuficiente**, a reserva separa o que existe e abre pendência do que faltou, na mesma operação, e a OS **segue Em execução**, sem status "Aguardando peças". A **baixa acontece na retirada** pelo Mecânico, não na finalização da OS. A **devolução é manual**, identifica a **reserva** e não a peça, move a reserva inteira, e é aceita até a OS Entregue.
+**Decisão:** três regras. Com **estoque insuficiente**, a reserva separa o que existe e abre pendência do que faltou, na mesma operação, e a OS **segue Em execução**, sem status "Aguardando peças". A **baixa acontece na retirada** pelo Mecânico, não na finalização da OS. A **retirada e a devolução identificam a reserva** e não a peça, e movem a reserva inteira; a devolução é manual e aceita até a OS Entregue.
 
 **Fundamento de negócio:** o saldo de estoque é dinheiro, e é dele que sai a decisão de compra. A oficina perde venda quando promete peça que não tem. O que já está na prateleira fica separado para aquela OS, e a pendência pede exatamente o que falta. E sobra de material aparece na conferência física, que muitas vezes acontece depois de o carro sair.
 
@@ -200,7 +200,7 @@ São 21 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 **Porquê:** é a única alternativa que entrega o D do CRUD de forma demonstrável **e** preserva o histórico. Remoção física em cascata destruiria Ordens de Serviço encerradas; com `RESTRICT`, o cadastro ficaria indelével na prática e o requisito não seria demonstrável.
 
-**Declarado:** um Documento ou uma Placa de registro inativado ficam **reservados**, porque a chave única não distingue ativo de inativo e não existe reativação. Inativar um Cliente não inativa os Veículos dele. E a **inativação disputa a mesma linha** que a Ordem de Serviço usa, o que impede inativar um cadastro enquanto uma OS passa a usá-lo. Essa serialização está coberta por teste de concorrência, com prova por mutação feita para a Peça; para o Cliente o teste ainda não fecha a janela da corrida.
+**Declarado:** um Documento ou uma Placa de registro inativado ficam **reservados**, porque a chave única não distingue ativo de inativo e não existe reativação. Inativar um Cliente não inativa os Veículos dele. E a **remoção, a alteração e o uso pela Ordem de Serviço disputam a mesma linha**, o que impede tanto ressuscitar um cadastro removido quanto inativar um cadastro enquanto uma OS passa a usá-lo. A serialização entre remoção e alteração tem teste de concorrência com prova por mutação em Cliente, Veículo e Serviço; na Peça as duas operações já leem pela mesma consulta travada.
 
 ---
 

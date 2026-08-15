@@ -10,15 +10,15 @@ import java.util.List;
 import java.util.UUID;
 
 public record IncluirItensRequest(
-        @Size(min = 1) List<@Valid @NotNull ItemDeServico> itensServico,
-        @Size(min = 1) List<@Valid @NotNull ItemDePeca> itensPeca) {
+        @Size(min = 1) List<@Valid @NotNull ItemServicoRequest> itensServico,
+        @Size(min = 1) List<@Valid @NotNull ItemPecaRequest> itensPeca) {
 
     @AssertTrue(message = "informe ao menos um item de servico ou de peca")
     public boolean isPeloMenosUmItem() {
         return temItem(itensServico, itensPeca);
     }
 
-    static boolean temItem(List<ItemDeServico> servicos, List<ItemDePeca> pecas) {
+    static boolean temItem(List<ItemServicoRequest> servicos, List<ItemPecaRequest> pecas) {
         return naoVazia(servicos) || naoVazia(pecas);
     }
 
@@ -26,9 +26,9 @@ public record IncluirItensRequest(
         return itens != null && !itens.isEmpty();
     }
 
-    public record ItemDeServico(@NotNull UUID servicoId) {
+    public record ItemServicoRequest(@NotNull UUID servicoId) {
     }
 
-    public record ItemDePeca(@NotNull UUID pecaId, @NotNull @Min(1) @Max(1000000) Integer quantidade) {
+    public record ItemPecaRequest(@NotNull UUID pecaId, @NotNull @Min(1) @Max(1000000) Integer quantidade) {
     }
 }

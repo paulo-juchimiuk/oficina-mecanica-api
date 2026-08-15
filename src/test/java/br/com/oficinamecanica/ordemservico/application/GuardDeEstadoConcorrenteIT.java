@@ -126,8 +126,8 @@ class GuardDeEstadoConcorrenteIT extends IntegracaoBase {
                         + " aceito=%s, pendencias=%d", rodada, faltaAceita, pendencias)
                 .isEqualTo(faltaAceita);
         assertThat(faltaAceita || !EM_EXECUCAO.equals(status))
-                .as("rodada %d: registro de falta recusado com a OS ainda em %s; o guard decidiu"
-                        + " sobre um retrato anterior a trava", rodada, status)
+                .as("rodada %d: registro de falta recusado e a OS permanece em %s, ou seja, a recusa nao"
+                        + " tem explicacao no estado final observavel", rodada, status)
                 .isTrue();
     }
 

@@ -24,7 +24,7 @@ public class AlterarVeiculoUseCase {
 
     @Transactional
     public Veiculo executar(UUID id, Placa placa, String marca, String modelo, int ano, UUID clienteId) {
-        Veiculo veiculo = veiculos.buscarAtivoPorId(id).orElseThrow(() -> new VeiculoNaoEncontradoException(id));
+        Veiculo veiculo = veiculos.buscarAtivoParaModificacao(id).orElseThrow(() -> new VeiculoNaoEncontradoException(id));
         if (clientes.buscarAtivoPorId(clienteId).isEmpty()) {
             throw new ClienteNaoEncontradoException(clienteId);
         }

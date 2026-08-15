@@ -90,7 +90,7 @@ class CadastroDeVeiculoUseCasesTest {
     @DisplayName("deve recusar alteracao de veiculo inexistente ou removido logicamente")
     void deveRecusarAlteracaoDeVeiculoInexistente() {
         UUID id = UUID.randomUUID();
-        when(veiculos.buscarAtivoPorId(id)).thenReturn(Optional.empty());
+        when(veiculos.buscarAtivoParaModificacao(id)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> new AlterarVeiculoUseCase(veiculos, clientes)
                 .executar(id, PLACA, "Fiat", "Uno", 2015, UUID.randomUUID()))
@@ -102,7 +102,7 @@ class CadastroDeVeiculoUseCasesTest {
     void deveTransferirProprietario() {
         Cliente dono = proprietario();
         Veiculo existente = Veiculo.cadastrar(PLACA, "Fiat", "Uno", 2015, UUID.randomUUID());
-        when(veiculos.buscarAtivoPorId(existente.id())).thenReturn(Optional.of(existente));
+        when(veiculos.buscarAtivoParaModificacao(existente.id())).thenReturn(Optional.of(existente));
         when(clientes.buscarAtivoPorId(dono.id())).thenReturn(Optional.of(dono));
         when(veiculos.placaJaCadastradaPorOutro(existente.id(), PLACA)).thenReturn(false);
         when(veiculos.salvar(any())).thenAnswer(chamada -> chamada.getArgument(0));
@@ -117,7 +117,7 @@ class CadastroDeVeiculoUseCasesTest {
     @DisplayName("deve recusar inativacao quando o veiculo tem Ordem de Servico em andamento")
     void deveRecusarInativacaoComOrdemServicoEmAndamento() {
         Veiculo existente = Veiculo.cadastrar(PLACA, "Fiat", "Uno", 2015, UUID.randomUUID());
-        when(veiculos.buscarAtivoParaInativacao(existente.id())).thenReturn(Optional.of(existente));
+        when(veiculos.buscarAtivoParaModificacao(existente.id())).thenReturn(Optional.of(existente));
         when(ordensServico.existemParaVeiculo(existente.id())).thenReturn(true);
 
         assertThatThrownBy(() -> new InativarVeiculoUseCase(veiculos, ordensServico).executar(existente.id()))
@@ -129,7 +129,7 @@ class CadastroDeVeiculoUseCasesTest {
     @DisplayName("deve inativar o veiculo sem apagar o registro")
     void deveInativarVeiculo() {
         Veiculo existente = Veiculo.cadastrar(PLACA, "Fiat", "Uno", 2015, UUID.randomUUID());
-        when(veiculos.buscarAtivoParaInativacao(existente.id())).thenReturn(Optional.of(existente));
+        when(veiculos.buscarAtivoParaModificacao(existente.id())).thenReturn(Optional.of(existente));
         when(ordensServico.existemParaVeiculo(existente.id())).thenReturn(false);
 
         new InativarVeiculoUseCase(veiculos, ordensServico).executar(existente.id());

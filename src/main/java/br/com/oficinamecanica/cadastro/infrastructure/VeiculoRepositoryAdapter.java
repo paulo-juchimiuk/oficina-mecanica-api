@@ -28,7 +28,7 @@ class VeiculoRepositoryAdapter implements VeiculoRepository {
     }
 
     @Override
-    public Optional<Veiculo> buscarAtivoParaInativacao(UUID id) {
+    public Optional<Veiculo> buscarAtivoParaModificacao(UUID id) {
         return repository.findComTravaByIdAndAtivoTrue(id).map(VeiculoJpaEntity::paraDominio);
     }
 

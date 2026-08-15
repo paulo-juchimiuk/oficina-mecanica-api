@@ -135,13 +135,13 @@ public class OrdemServicoController {
         return TempoMedioExecucaoResponse.de(consultarTempoMedio.executar(Optional.ofNullable(servicoId)));
     }
 
-    private List<ItemDeServicoRequisitado> servicosDe(List<IncluirItensRequest.ItemDeServico> itens) {
+    private List<ItemDeServicoRequisitado> servicosDe(List<IncluirItensRequest.ItemServicoRequest> itens) {
         return Optional.ofNullable(itens).orElseGet(List::of).stream()
                 .map(item -> new ItemDeServicoRequisitado(item.servicoId()))
                 .toList();
     }
 
-    private List<ItemDePecaRequisitado> pecasDe(List<IncluirItensRequest.ItemDePeca> itens) {
+    private List<ItemDePecaRequisitado> pecasDe(List<IncluirItensRequest.ItemPecaRequest> itens) {
         return Optional.ofNullable(itens).orElseGet(List::of).stream()
                 .map(item -> new ItemDePecaRequisitado(item.pecaId(), item.quantidade()))
                 .toList();

@@ -22,7 +22,7 @@ public class InativarServicoUseCase {
 
     @Transactional
     public void executar(UUID id) {
-        Servico servico = servicos.buscarAtivoParaInativacao(id).orElseThrow(() -> new ServicoNaoEncontradoException(id));
+        Servico servico = servicos.buscarAtivoParaModificacao(id).orElseThrow(() -> new ServicoNaoEncontradoException(id));
         if (ordensServico.existemParaServico(id)) {
             throw new ServicoComOrdemServicoEmAndamentoException();
         }

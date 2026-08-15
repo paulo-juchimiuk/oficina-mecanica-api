@@ -1,7 +1,7 @@
 package br.com.oficinamecanica.ordemservico.api;
 
-import br.com.oficinamecanica.ordemservico.api.IncluirItensRequest.ItemDePeca;
-import br.com.oficinamecanica.ordemservico.api.IncluirItensRequest.ItemDeServico;
+import br.com.oficinamecanica.ordemservico.api.IncluirItensRequest.ItemPecaRequest;
+import br.com.oficinamecanica.ordemservico.api.IncluirItensRequest.ItemServicoRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
@@ -11,8 +11,8 @@ import java.util.List;
 
 public record ReparoAdicionalRequest(
         @NotBlank @Size(max = 500) String descricao,
-        @Size(min = 1) List<@Valid @NotNull ItemDeServico> itensServico,
-        @Size(min = 1) List<@Valid @NotNull ItemDePeca> itensPeca) {
+        @Size(min = 1) List<@Valid @NotNull ItemServicoRequest> itensServico,
+        @Size(min = 1) List<@Valid @NotNull ItemPecaRequest> itensPeca) {
 
     @AssertTrue(message = "informe ao menos um item de servico ou de peca")
     public boolean isPeloMenosUmItem() {

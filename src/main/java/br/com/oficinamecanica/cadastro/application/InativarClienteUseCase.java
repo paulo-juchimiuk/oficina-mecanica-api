@@ -22,7 +22,7 @@ public class InativarClienteUseCase {
 
     @Transactional
     public void executar(UUID id) {
-        Cliente cliente = clientes.buscarAtivoParaInativacao(id).orElseThrow(() -> new ClienteNaoEncontradoException(id));
+        Cliente cliente = clientes.buscarAtivoParaModificacao(id).orElseThrow(() -> new ClienteNaoEncontradoException(id));
         if (ordensServico.existemParaCliente(id)) {
             throw new ClienteComOrdemServicoEmAndamentoException();
         }

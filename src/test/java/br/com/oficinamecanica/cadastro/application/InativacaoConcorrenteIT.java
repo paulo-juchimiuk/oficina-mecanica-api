@@ -1,5 +1,11 @@
 package br.com.oficinamecanica.cadastro.application;
 
+import br.com.oficinamecanica.cadastro.domain.Contato;
+import br.com.oficinamecanica.cadastro.domain.Documento;
+import br.com.oficinamecanica.cadastro.domain.Placa;
+import br.com.oficinamecanica.catalogo.application.AlterarServicoUseCase;
+import br.com.oficinamecanica.catalogo.application.InativarServicoUseCase;
+import br.com.oficinamecanica.catalogo.domain.Dinheiro;
 import br.com.oficinamecanica.shared.domain.DominioException;
 import br.com.oficinamecanica.estoque.application.InativarPecaUseCase;
 import br.com.oficinamecanica.ordemservico.application.CriarOrdemServicoUseCase;
@@ -15,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.MailSender;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -25,12 +32,16 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DisplayName("Inativacao de cadastro disputando com o uso do registro pela Ordem de Servico")
+@DisplayName("Inativacao de cadastro disputando com o uso e com a alteracao do registro")
 class InativacaoConcorrenteIT extends IntegracaoBase {
 
     private static final int RODADAS = 10;
     private static final String DOCUMENTO = "10433218100";
+    private static final List<String> DOCUMENTOS_DAS_RODADAS = List.of(
+            "00000000191", "00000000272", "00000000353", "00000000434", "00000000515",
+            "00000000604", "00000000787", "00000000868", "00000000949", "00000001082");
     private static final int ESPERA_EM_SEGUNDOS = 60;
+    private static final String MOEDA = "BRL";
 
     @MockitoBean
     private MailSender mailSender;
@@ -49,6 +60,21 @@ class InativacaoConcorrenteIT extends IntegracaoBase {
 
     @Autowired
     private InativarClienteUseCase inativarCliente;
+
+    @Autowired
+    private AlterarClienteUseCase alterarCliente;
+
+    @Autowired
+    private InativarVeiculoUseCase inativarVeiculo;
+
+    @Autowired
+    private AlterarVeiculoUseCase alterarVeiculo;
+
+    @Autowired
+    private InativarServicoUseCase inativarServico;
+
+    @Autowired
+    private AlterarServicoUseCase alterarServico;
 
     private UUID clienteId;
     private UUID veiculoId;
@@ -102,13 +128,13 @@ class InativacaoConcorrenteIT extends IntegracaoBase {
     @DisplayName("nao deve inativar o Cliente e abrir OS para ele na mesma corrida, o que deixaria a OS presa")
     void naoDeveInativarClienteComOrdemServicoNascendo() throws Exception {
         for (int rodada = 1; rodada <= RODADAS; rodada++) {
-            String documentoDaRodada = "%011d".formatted(rodada);
+            Documento documentoDaRodada = documentoDaRodada(rodada);
             UUID clienteDaRodada = inserirCliente(rodada, documentoDaRodada);
             UUID veiculoDaRodada = inserirVeiculo(rodada, clienteDaRodada);
             String relato = "corrida " + rodada;
 
             int aceitas = disputar(
-                    () -> criarOrdemServico.executar(documentoDaRodada, veiculoDaRodada, relato),
+                    () -> criarOrdemServico.executar(documentoDaRodada.numero(), veiculoDaRodada, relato),
                     () -> {
                         inativarCliente.executar(clienteDaRodada);
                         return null;
@@ -125,10 +151,94 @@ class InativacaoConcorrenteIT extends IntegracaoBase {
         }
     }
 
-    private UUID inserirCliente(int rodada, String documento) {
+    @Test
+    @DisplayName("nao deve ressuscitar o Cliente removido quando a alteracao corre na mesma janela")
+    void naoDeveRessuscitarClienteAlteradoNaMesmaCorrida() throws Exception {
+        for (int rodada = 1; rodada <= RODADAS; rodada++) {
+            Documento documento = documentoDaRodada(rodada);
+            UUID id = inserirCliente(rodada, documento);
+            Contato contato = new Contato("corrida%d@example.com".formatted(rodada), null);
+            String nomeAlterado = "Cliente alterado na corrida " + rodada;
+
+            disputar(
+                    () -> {
+                        inativarCliente.executar(id);
+                        return null;
+                    },
+                    () -> alterarCliente.executar(id, nomeAlterado, documento, contato));
+
+            boolean ativo = Boolean.TRUE.equals(jdbc.queryForObject(
+                    "SELECT ativo FROM cliente WHERE id = ?", Boolean.class, id));
+
+            assertThat(ativo)
+                    .as("rodada %d: a alteracao gravou por cima da remocao e o Cliente voltou a existir;"
+                            + " nao ha reativacao no MVP (ADR-014)", rodada)
+                    .isFalse();
+        }
+    }
+
+    @Test
+    @DisplayName("nao deve ressuscitar o Veiculo removido quando a alteracao corre na mesma janela")
+    void naoDeveRessuscitarVeiculoAlteradoNaMesmaCorrida() throws Exception {
+        for (int rodada = 1; rodada <= RODADAS; rodada++) {
+            UUID donoId = inserirCliente(rodada, documentoDaRodada(rodada));
+            UUID id = inserirVeiculo(rodada, donoId);
+            Placa placa = new Placa(placaDaRodada(rodada));
+
+            disputar(
+                    () -> {
+                        inativarVeiculo.executar(id);
+                        return null;
+                    },
+                    () -> alterarVeiculo.executar(id, placa, "Volkswagen", "Gol 1.6", 2021, donoId));
+
+            boolean ativo = Boolean.TRUE.equals(jdbc.queryForObject(
+                    "SELECT ativo FROM veiculo WHERE id = ?", Boolean.class, id));
+
+            assertThat(ativo)
+                    .as("rodada %d: a alteracao gravou por cima da remocao e o Veiculo voltou a existir;"
+                            + " nao ha reativacao no MVP (ADR-014)", rodada)
+                    .isFalse();
+        }
+    }
+
+    @Test
+    @DisplayName("nao deve ressuscitar o Servico removido quando a alteracao corre na mesma janela")
+    void naoDeveRessuscitarServicoAlteradoNaMesmaCorrida() throws Exception {
+        for (int rodada = 1; rodada <= RODADAS; rodada++) {
+            UUID id = inserirServico(rodada);
+            Dinheiro valorMaoDeObra = new Dinheiro(new BigDecimal("130.00"), MOEDA);
+            String nomeAlterado = "Servico alterado na corrida " + rodada;
+
+            disputar(
+                    () -> {
+                        inativarServico.executar(id);
+                        return null;
+                    },
+                    () -> alterarServico.executar(id, nomeAlterado, "Descricao alterada", valorMaoDeObra));
+
+            boolean ativo = Boolean.TRUE.equals(jdbc.queryForObject(
+                    "SELECT ativo FROM servico WHERE id = ?", Boolean.class, id));
+
+            assertThat(ativo)
+                    .as("rodada %d: a alteracao gravou por cima da remocao e o Servico voltou a existir;"
+                            + " nao ha reativacao no MVP (ADR-014)", rodada)
+                    .isFalse();
+        }
+    }
+
+    private Documento documentoDaRodada(int rodada) {
+        return new Documento(DOCUMENTOS_DAS_RODADAS.get(rodada - 1));
+    }
+
+    private String placaDaRodada(int rodada) {
+        return "COR%04d".formatted(rodada);
+    }
+
+    private UUID inserirCliente(int rodada, Documento documento) {
         UUID id = UUID.randomUUID();
         jdbc.update("INSERT INTO cliente (id, nome, documento, email) VALUES (?, ?, ?, ?)",
-                id, "Cliente da corrida " + rodada, documento, "cliente%d@example.com".formatted(rodada));
+                id, "Cliente da corrida " + rodada, documento.numero(), "cliente%d@example.com".formatted(rodada));
         return id;
     }
 
@@ -137,7 +247,16 @@ class InativacaoConcorrenteIT extends IntegracaoBase {
         jdbc.update("""
                 INSERT INTO veiculo (id, placa, marca, modelo, ano, cliente_id)
                 VALUES (?, ?, 'Volkswagen', 'Gol', 2020, ?)
-                """, id, "COR%04d".formatted(rodada), donoId);
+                """, id, placaDaRodada(rodada), donoId);
+        return id;
+    }
+
+    private UUID inserirServico(int rodada) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO servico (id, nome, descricao, valor_mao_de_obra, moeda)
+                VALUES (?, ?, 'Servico da corrida', 120.00, ?)
+                """, id, "Alinhamento da corrida " + rodada, MOEDA);
         return id;
     }
 

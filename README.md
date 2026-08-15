@@ -185,11 +185,11 @@ Somam-se a isso o `TIMESTAMP` com aritmética de intervalos, que sustenta a mét
 
 Um banco de documentos foi descartado pelo mesmo motivo: ele resolveria bem a leitura de uma OS inteira, e pioraria exatamente o que aqui é o núcleo, que é consistência entre agregados sob concorrência.
 
-O raciocínio completo, com as alternativas descartadas e a política de versão, está no **ADR-002** e no **ADR-016**.
+O raciocínio completo, com a alternativa recusada e a política de versão, está no **ADR-002** e no **ADR-016**.
 
 ## Decisões de arquitetura
 
-São **21**, todas documentadas com contexto, alternativas descartadas, fundamento de negócio, fundamento técnico, o porquê e as consequências, em [`docs/decisoes.md`](docs/decisoes.md).
+São **21**, cada uma com fundamento de negócio, fundamento técnico e o porquê, em [`docs/decisoes.md`](docs/decisoes.md). Onde a alternativa recusada é o próprio argumento, ela aparece em uma linha.
 
 **Os códigos `ADR-0xx` citados neste README, no contrato da API e nos testes referem-se a esse documento.**
 
