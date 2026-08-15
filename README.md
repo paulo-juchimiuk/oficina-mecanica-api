@@ -115,7 +115,22 @@ A cobertura é medida sobre **tudo o que o `mvn verify` executa**, unitários e 
 
 ## Análise de vulnerabilidades
 
-Varredura das dependências declaradas no projeto, casando cada uma com as CVEs conhecidas:
+Três superfícies, três ferramentas, todas no perfil `seguranca` e nenhuma no build padrão (ADR-004).
+
+**Análise estática do código**, com SpotBugs mais o plugin find-sec-bugs, que traz as regras de segurança de Java e Spring:
+
+```bash
+mvn -Pseguranca -DskipTests -Ddependency-check.skip=true \
+  compile com.github.spotbugs:spotbugs-maven-plugin:spotbugs
+```
+
+O resultado sai em `target/spotbugsXml.xml`. Para ler no navegador:
+
+```bash
+mvn -Pseguranca com.github.spotbugs:spotbugs-maven-plugin:gui
+```
+
+**Varredura das dependências declaradas**, casando cada uma com as CVEs conhecidas:
 
 ```bash
 mvn -Pseguranca verify
@@ -123,7 +138,7 @@ mvn -Pseguranca verify
 
 O relatório sai em `target/dependency-check-report.html`. **A primeira execução leva algo entre 30 e 60 minutos**, porque baixa a base de vulnerabilidades do NVD inteira (mais de 370 mil registros) para um cache local; as execuções seguintes são incrementais e rápidas. O download é limitado a 5 requisições por 30 segundos sem chave de API do NVD. **Salve o HTML fora de `target/` antes de qualquer `mvn clean`**, porque o diretório é descartável e não vai para o repositório.
 
-A varredura da **API em execução** com OWASP ZAP roda **fora do build**, contra o ambiente de pé: é varredura dinâmica, feita sobre a API respondendo, e o relatório dela compõe a entrega de segurança. O relatório de vulnerabilidades da entrega compõe o resultado das duas ferramentas. Elas cobrem superfícies diferentes, a cadeia de dependências e o comportamento em runtime, e nenhuma das duas faz análise estática do código escrito aqui (ADR-004).
+A varredura da **API em execução** com OWASP ZAP roda **fora do build**, contra o ambiente de pé: é varredura dinâmica, feita sobre a API respondendo, e o relatório dela compõe a entrega de segurança. O relatório de vulnerabilidades da entrega compõe o resultado das três ferramentas, que cobrem superfícies diferentes: o código escrito aqui, a cadeia de dependências e o comportamento em runtime (ADR-004).
 
 ## Estrutura do projeto
 

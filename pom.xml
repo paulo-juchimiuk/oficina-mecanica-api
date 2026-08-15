@@ -23,6 +23,8 @@
         <testcontainers.version>2.0.5</testcontainers.version>
         <jacoco.version>0.8.15</jacoco.version>
         <dependency-check.version>10.0.4</dependency-check.version>
+        <spotbugs.version>4.9.6.0</spotbugs.version>
+        <findsecbugs.version>1.14.0</findsecbugs.version>
         <cobertura.minima.dominio>0.80</cobertura.minima.dominio>
     </properties>
 
@@ -204,6 +206,31 @@
                             <execution>
                                 <goals>
                                     <goal>check</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>com.github.spotbugs</groupId>
+                        <artifactId>spotbugs-maven-plugin</artifactId>
+                        <version>${spotbugs.version}</version>
+                        <configuration>
+                            <effort>Max</effort>
+                            <threshold>Low</threshold>
+                            <includeTests>false</includeTests>
+                            <htmlOutput>true</htmlOutput>
+                            <plugins>
+                                <plugin>
+                                    <groupId>com.h3xstream.findsecbugs</groupId>
+                                    <artifactId>findsecbugs-plugin</artifactId>
+                                    <version>${findsecbugs.version}</version>
+                                </plugin>
+                            </plugins>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>spotbugs</goal>
                                 </goals>
                             </execution>
                         </executions>

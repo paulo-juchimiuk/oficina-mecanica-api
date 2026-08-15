@@ -44,17 +44,17 @@ São 21 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 ---
 
-## ADR-004: Análise de vulnerabilidades com OWASP ZAP e Dependency-Check
+## ADR-004: Análise de vulnerabilidades em três superfícies
 
-**Decisão:** OWASP ZAP contra a API em execução, com leitura pelo OWASP Top 10, mais OWASP Dependency-Check sobre as dependências declaradas. As duas compõem o relatório.
+**Decisão:** SpotBugs com o plugin find-sec-bugs sobre o código compilado, OWASP Dependency-Check sobre as dependências declaradas, e OWASP ZAP contra a API em execução, com leitura pelo OWASP Top 10. As três compõem o relatório, e todas rodam pelo perfil `seguranca` do Maven, fora do build padrão.
 
-**Fundamento de negócio:** o relatório de vulnerabilidades é entregável, e cobrir as duas superfícies que o sistema tem, a aplicação no ar e a cadeia de dependências, é o que torna o relatório honesto.
+**Fundamento de negócio:** o sistema guarda dado de cliente e movimenta o valor do estoque, e as três superfícies por onde isso vaza são diferentes: o código escrito aqui, a cadeia de dependências herdada e a aplicação respondendo na rede. Cobrir só uma delas produz relatório que tranquiliza sem proteger.
 
-**Fundamento técnico:** as ferramentas medem coisas diferentes e complementares. O ZAP é dinâmico e exercita JWT, validação de entrada e cabeçalhos na API real; o Dependency-Check é de composição e casa as dependências com CVEs conhecidas. O Dependency-Check é plugin do Maven e custa uma linha de configuração.
+**Fundamento técnico:** as três ferramentas medem coisas diferentes e complementares. O SpotBugs com find-sec-bugs é estático e lê o bytecode do próprio projeto, com regras de segurança específicas de Java e Spring; o Dependency-Check é de composição e casa as dependências com CVEs conhecidas; o ZAP é dinâmico e exercita JWT, validação de entrada e cabeçalhos na API real. As duas primeiras são plugin do Maven e rodam com um comando.
 
 **Porquê:** juntas cobrem o que o enunciado pede sem acrescentar esteira de qualidade, que os professores classificaram como além do escopo do MVP.
 
-**Declarado em vez de maquiado:** nenhuma das duas faz análise estática do código escrito aqui. O que a leitura de código encontra entra no relatório à mão, e é assim que o segredo de assinatura versionado para o ambiente local está registrado.
+**Declarado:** o resultado do SpotBugs entra no relatório **com triagem escrita**, e não como contagem bruta. A ferramenta marca padrões, não defeitos: validação no construtor, coleção exposta em DTO e rota de Spring aparecem como achado por construção e são justamente as escolhas de projeto declaradas nos outros ADRs. O que a leitura de código encontra e a ferramenta não vê entra no relatório à mão, e é assim que o segredo de assinatura versionado para o ambiente local está registrado.
 
 ---
 
