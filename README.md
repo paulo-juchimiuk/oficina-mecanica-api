@@ -20,6 +20,12 @@ O recorte é de MVP: back-end, sem interface gráfica, com gestão de ordens de 
 - **Tempo médio de execução** dos serviços, calculado a partir dos timestamps das transições de status.
 - **Autenticação JWT** nas APIs administrativas e validação de dados sensíveis (documento e placa) como regra de domínio.
 
+## Documentação DDD
+
+Event Storming, Domain Storytelling (AS-IS e TO-BE), Context Map com os subdomínios, modelo de domínio e Linguagem Ubíqua.
+
+**Link da documentação:** a preencher quando as pranchas forem publicadas.
+
 ## Como subir o ambiente completo
 
 Pré-requisitos: Docker e Docker Compose, com as portas **5432**, **8080**, **1025** e **8025** livres. Se houver um PostgreSQL ou outra aplicação ocupando alguma delas na máquina, o `docker compose up` falha com `port is already allocated`: pare o serviço local, ou ajuste o mapeamento no `docker-compose.yml`.
@@ -215,9 +221,3 @@ O raciocínio completo, com a alternativa recusada e a política de versão, est
 São **21**, cada uma com fundamento de negócio, fundamento técnico e o porquê, em [`docs/decisoes.md`](docs/decisoes.md). Onde a alternativa recusada é o próprio argumento, ela aparece em uma linha.
 
 **Os códigos `ADR-0xx` citados neste README, no contrato da API e nos testes referem-se a esse documento.**
-
-## Documentação DDD
-
-Event Storming, Domain Storytelling (AS-IS e TO-BE), Context Map com os subdomínios, modelo de domínio e Linguagem Ubíqua.
-
-**Link da documentação:** a preencher quando as pranchas forem publicadas.
