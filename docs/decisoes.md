@@ -50,7 +50,7 @@ São 21 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 **Fundamento de negócio:** o sistema guarda dado de cliente e movimenta o valor do estoque, e as três superfícies por onde isso vaza são diferentes: o código escrito aqui, a cadeia de dependências herdada e a aplicação respondendo na rede. Cobrir só uma delas produz relatório que tranquiliza sem proteger.
 
-**Fundamento técnico:** as três ferramentas medem coisas diferentes e complementares. O SpotBugs com find-sec-bugs é estático e lê o bytecode do próprio projeto, com regras de segurança específicas de Java e Spring; o Dependency-Check é de composição e casa as dependências com CVEs conhecidas; o ZAP é dinâmico e exercita JWT, validação de entrada e cabeçalhos na API real. As duas primeiras são plugin do Maven e rodam com um comando.
+**Fundamento técnico:** as três ferramentas medem coisas diferentes e complementares. O SpotBugs com find-sec-bugs faz **análise estática**, lendo o bytecode do próprio projeto, com regras de segurança específicas de Java e Spring; o Dependency-Check é de composição e casa as dependências com CVEs conhecidas; o ZAP é dinâmico e exercita JWT, validação de entrada e cabeçalhos na API real. As duas primeiras são plugin do Maven e rodam com um comando.
 
 **Porquê:** juntas cobrem o que o enunciado pede sem acrescentar esteira de qualidade, que os professores classificaram como além do escopo do MVP.
 
@@ -292,7 +292,7 @@ São 21 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 **Decisão:** a camada dentro do contexto delimitado é a unidade de organização e de encapsulamento. **Nenhuma das quatro camadas tem subpacote**, e a distinção entre tipos de arquivo é feita pelo nome da classe. A camada de infraestrutura mantém suas classes package-private.
 
-**Fundamento de negócio:** o encapsulamento por camada é o que garante a regra de que **somente a lógica do agregado altera o próprio estado**. Como a classe de persistência não é visível fora da sua camada, nenhum outro ponto do sistema consegue escrever na tabela contornando a invariante. Saldo negativo e transição impossível deixam de depender da disciplina de quem escreve o código.
+**Fundamento de negócio:** o encapsulamento por camada é o que garante a regra de que **somente a lógica do agregado altera o próprio estado**. Como a classe de persistência não é visível fora da sua camada, nenhum ponto fora da infraestrutura enxerga a tabela, e a reconstituição do agregado é caminho exclusivo do adaptador.
 
 **Fundamento técnico:** em Java, uma declaração sem modificador de acesso é acessível apenas dentro do pacote que a contém, e **subpacote é outro pacote**. Os tipos package-private da infraestrutura sobrevivem exatamente porque cada camada é um pacote único. Subdividir os tornaria públicos.
 

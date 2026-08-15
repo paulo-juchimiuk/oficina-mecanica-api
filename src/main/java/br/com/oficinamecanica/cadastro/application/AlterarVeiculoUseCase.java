@@ -24,10 +24,10 @@ public class AlterarVeiculoUseCase {
 
     @Transactional
     public Veiculo executar(UUID id, Placa placa, String marca, String modelo, int ano, UUID clienteId) {
-        Veiculo veiculo = veiculos.buscarAtivoComTrava(id).orElseThrow(() -> new VeiculoNaoEncontradoException(id));
-        if (clientes.buscarAtivoPorId(clienteId).isEmpty()) {
+        if (clientes.buscarAtivoComTrava(clienteId).isEmpty()) {
             throw new ClienteNaoEncontradoException(clienteId);
         }
+        Veiculo veiculo = veiculos.buscarAtivoComTrava(id).orElseThrow(() -> new VeiculoNaoEncontradoException(id));
         if (veiculos.placaJaCadastradaPorOutro(id, placa)) {
             throw new PlacaJaCadastradaException();
         }

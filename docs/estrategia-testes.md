@@ -41,7 +41,7 @@ Este documento define O QUE testar, ONDE exigir os 80% e COMO medir, para que a 
 ## 3. O que é unitário e o que é integração NESTE projeto
 
 - **Unitário:** exercita agregados, VOs e serviços de domínio puros, sem Spring, sem banco, sem rede, e também os casos de uso da camada de aplicação com as portas dubladas. Ex.: transição inválida da máquina de estados lança erro; CPF com dígito errado é rejeitado na construção do VO; reserva acima do saldo falha.
-- **Integração:** sobe o contexto Spring e fala com PostgreSQL real via Testcontainers, atravessando controller, aplicação, domínio e repositório. Ex.: POST de criação da OS persiste e retorna o Código de acompanhamento; aprovação dispara a reserva, que sobe a quantidade reservada sem mover o Saldo em estoque; endpoint de tempo médio agrega os timestamps do seed.
+- **Integração:** sobe o contexto Spring e fala com PostgreSQL real via Testcontainers, atravessando controller, aplicação, domínio e repositório, ou entrando direto pelo caso de uso quando o alvo é concorrência. Ex.: POST de criação da OS persiste e retorna o Código de acompanhamento; aprovação dispara a reserva, que sobe a quantidade reservada sem mover o Saldo em estoque; endpoint de tempo médio agrega os timestamps do seed.
 
 ## 4. Como a cobertura é medida e verificada
 

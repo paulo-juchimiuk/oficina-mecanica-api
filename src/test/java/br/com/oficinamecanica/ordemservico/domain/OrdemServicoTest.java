@@ -529,7 +529,7 @@ class OrdemServicoTest {
                 transicao(StatusOrdemServico.AGUARDANDO_APROVACAO, StatusOrdemServico.EM_EXECUCAO, "18:00:00"),
                 transicao(StatusOrdemServico.EM_EXECUCAO, StatusOrdemServico.FINALIZADA, "09:00:00"));
 
-        assertThat(ordem.tempoEmExecucao().orElseThrow()).isGreaterThanOrEqualTo(Duration.ZERO);
+        assertThat(ordem.tempoEmExecucao().orElseThrow()).isEqualTo(Duration.ZERO);
     }
 
     private OrdemServico ordemComVersaoAprovadaEOutraPendente() {

@@ -90,10 +90,12 @@ class CadastroDeVeiculoUseCasesTest {
     @DisplayName("deve recusar alteracao de veiculo inexistente ou removido logicamente")
     void deveRecusarAlteracaoDeVeiculoInexistente() {
         UUID id = UUID.randomUUID();
+        Cliente dono = proprietario();
+        when(clientes.buscarAtivoComTrava(dono.id())).thenReturn(Optional.of(dono));
         when(veiculos.buscarAtivoComTrava(id)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> new AlterarVeiculoUseCase(veiculos, clientes)
-                .executar(id, PLACA, "Fiat", "Uno", 2015, UUID.randomUUID()))
+                .executar(id, PLACA, "Fiat", "Uno", 2015, dono.id()))
                 .isInstanceOf(VeiculoNaoEncontradoException.class);
     }
 
@@ -103,7 +105,7 @@ class CadastroDeVeiculoUseCasesTest {
         Cliente dono = proprietario();
         Veiculo existente = Veiculo.cadastrar(PLACA, "Fiat", "Uno", 2015, UUID.randomUUID());
         when(veiculos.buscarAtivoComTrava(existente.id())).thenReturn(Optional.of(existente));
-        when(clientes.buscarAtivoPorId(dono.id())).thenReturn(Optional.of(dono));
+        when(clientes.buscarAtivoComTrava(dono.id())).thenReturn(Optional.of(dono));
         when(veiculos.placaJaCadastradaPorOutro(existente.id(), PLACA)).thenReturn(false);
         when(veiculos.salvar(any())).thenAnswer(chamada -> chamada.getArgument(0));
 
