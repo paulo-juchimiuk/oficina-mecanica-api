@@ -26,7 +26,7 @@ public class ConcluirDiagnosticoUseCase {
 
     @Transactional
     public OrdemServico executar(UUID id) {
-        OrdemServico ordemServico = ordensServico.buscarParaMovimentacao(id)
+        OrdemServico ordemServico = ordensServico.buscarComTrava(id)
                 .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
         Orcamento versaoEnviada = ordemServico.concluirDiagnostico();
         OrdemServico gravada = ordensServico.salvar(ordemServico);

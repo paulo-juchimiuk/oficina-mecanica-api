@@ -10,9 +10,9 @@ public interface PecaRepository {
 
     Optional<Peca> buscarAtivaPorId(UUID id);
 
-    Optional<Peca> buscarAtivaParaMovimentacao(UUID id);
+    Optional<Peca> buscarAtivaComTrava(UUID id);
 
-    Optional<Peca> buscarParaMovimentacao(UUID id);
+    Optional<Peca> buscarComTrava(UUID id);
 
     List<Peca> listarAtivas();
 
@@ -24,7 +24,7 @@ public interface PecaRepository {
 
     Optional<ReservaPeca> buscarReservaDaOrdemServico(UUID ordemServicoId, UUID reservaId);
 
-    Optional<ReservaPeca> buscarReservaParaMovimentacao(UUID ordemServicoId, UUID reservaId);
+    Optional<ReservaPeca> buscarReservaComTrava(UUID ordemServicoId, UUID reservaId);
 
     List<ReservaPeca> listarReservasDaOrdemServico(UUID ordemServicoId);
 

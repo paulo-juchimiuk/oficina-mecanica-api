@@ -53,7 +53,7 @@ class CatalogoDeServicoUseCasesTest {
     void deveAlterarServico() {
         Servico existente = Servico.cadastrar("Troca de oleo", null, VALOR);
         Dinheiro novoValor = new Dinheiro(new BigDecimal("249.00"), "BRL");
-        when(servicos.buscarAtivoParaModificacao(existente.id())).thenReturn(Optional.of(existente));
+        when(servicos.buscarAtivoComTrava(existente.id())).thenReturn(Optional.of(existente));
         when(servicos.salvar(any())).thenAnswer(chamada -> chamada.getArgument(0));
 
         Servico alterado = new AlterarServicoUseCase(servicos)
@@ -68,7 +68,7 @@ class CatalogoDeServicoUseCasesTest {
     @DisplayName("deve recusar alteracao de servico inexistente ou removido logicamente")
     void deveRecusarAlteracaoDeServicoInexistente() {
         UUID id = UUID.randomUUID();
-        when(servicos.buscarAtivoParaModificacao(id)).thenReturn(Optional.empty());
+        when(servicos.buscarAtivoComTrava(id)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> new AlterarServicoUseCase(servicos).executar(id, "Troca de oleo", null, VALOR))
                 .isInstanceOf(ServicoNaoEncontradoException.class);
@@ -79,7 +79,7 @@ class CatalogoDeServicoUseCasesTest {
     @DisplayName("deve recusar inativacao quando o servico consta em Ordem de Servico em andamento")
     void deveRecusarInativacaoComOrdemServicoEmAndamento() {
         Servico existente = Servico.cadastrar("Troca de oleo", null, VALOR);
-        when(servicos.buscarAtivoParaModificacao(existente.id())).thenReturn(Optional.of(existente));
+        when(servicos.buscarAtivoComTrava(existente.id())).thenReturn(Optional.of(existente));
         when(ordensServico.existemParaServico(existente.id())).thenReturn(true);
 
         assertThatThrownBy(() -> new InativarServicoUseCase(servicos, ordensServico).executar(existente.id()))
@@ -91,7 +91,7 @@ class CatalogoDeServicoUseCasesTest {
     @DisplayName("deve inativar o servico sem apagar o registro")
     void deveInativarServico() {
         Servico existente = Servico.cadastrar("Troca de oleo", null, VALOR);
-        when(servicos.buscarAtivoParaModificacao(existente.id())).thenReturn(Optional.of(existente));
+        when(servicos.buscarAtivoComTrava(existente.id())).thenReturn(Optional.of(existente));
         when(ordensServico.existemParaServico(existente.id())).thenReturn(false);
 
         new InativarServicoUseCase(servicos, ordensServico).executar(existente.id());
@@ -105,7 +105,7 @@ class CatalogoDeServicoUseCasesTest {
     @DisplayName("deve recusar inativacao de servico inexistente ou removido logicamente")
     void deveRecusarInativacaoDeServicoInexistente() {
         UUID id = UUID.randomUUID();
-        when(servicos.buscarAtivoParaModificacao(id)).thenReturn(Optional.empty());
+        when(servicos.buscarAtivoComTrava(id)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> new InativarServicoUseCase(servicos, ordensServico).executar(id))
                 .isInstanceOf(ServicoNaoEncontradoException.class);

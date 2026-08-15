@@ -28,7 +28,7 @@ public class ReservarPecasUseCase {
     }
 
     private ResultadoDaReserva reservar(UUID ordemServicoId, ItemAReservar item) {
-        Peca peca = pecas.buscarAtivaParaMovimentacao(item.pecaId())
+        Peca peca = pecas.buscarAtivaComTrava(item.pecaId())
                 .orElseThrow(() -> new PecaNaoEncontradaException(item.pecaId()));
         ResultadoDaReserva resultado = peca.reservar(ordemServicoId, item.quantidade());
         pecas.salvar(peca);

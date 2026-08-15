@@ -18,7 +18,7 @@ public class ConcluirExecucaoUseCase {
 
     @Transactional
     public OrdemServico executar(UUID id) {
-        OrdemServico ordemServico = ordensServico.buscarParaMovimentacao(id)
+        OrdemServico ordemServico = ordensServico.buscarComTrava(id)
                 .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
         ordemServico.concluirExecucao();
         return ordensServico.salvar(ordemServico);

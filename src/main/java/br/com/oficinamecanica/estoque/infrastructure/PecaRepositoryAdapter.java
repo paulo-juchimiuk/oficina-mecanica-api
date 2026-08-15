@@ -39,12 +39,12 @@ class PecaRepositoryAdapter implements PecaRepository {
     }
 
     @Override
-    public Optional<Peca> buscarAtivaParaMovimentacao(UUID id) {
+    public Optional<Peca> buscarAtivaComTrava(UUID id) {
         return pecas.findComTravaByIdAndAtivoTrue(id).map(this::relerSobTrava).map(PecaJpaEntity::paraDominio);
     }
 
     @Override
-    public Optional<Peca> buscarParaMovimentacao(UUID id) {
+    public Optional<Peca> buscarComTrava(UUID id) {
         return pecas.findComTravaById(id).map(this::relerSobTrava).map(PecaJpaEntity::paraDominio);
     }
 
@@ -81,7 +81,7 @@ class PecaRepositoryAdapter implements PecaRepository {
     }
 
     @Override
-    public Optional<ReservaPeca> buscarReservaParaMovimentacao(UUID ordemServicoId, UUID reservaId) {
+    public Optional<ReservaPeca> buscarReservaComTrava(UUID ordemServicoId, UUID reservaId) {
         return reservas.findByIdAndOrdemServicoId(reservaId, ordemServicoId)
                 .map(this::relerDoBanco)
                 .map(ReservaPecaJpaEntity::paraDominio);

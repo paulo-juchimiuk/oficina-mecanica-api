@@ -54,9 +54,9 @@ public class ConsultarAcompanhamentoUseCase {
                 .orElseThrow(AcompanhamentoNaoEncontradoException::new);
     }
 
-    static OrdemServico ordemDoCodigoParaMovimentacao(OrdemServicoRepository ordensServico, String codigo) {
+    static OrdemServico ordemDoCodigoComTrava(OrdemServicoRepository ordensServico, String codigo) {
         return CodigoAcompanhamento.de(codigo)
-                .flatMap(ordensServico::buscarParaMovimentacaoPorCodigo)
+                .flatMap(ordensServico::buscarComTravaPorCodigo)
                 .orElseThrow(AcompanhamentoNaoEncontradoException::new);
     }
 

@@ -42,7 +42,7 @@ public class RegistrarReparoAdicionalUseCase {
     @Transactional
     public OrdemServico executar(UUID id, String descricao, List<ItemDeServicoRequisitado> itensServico,
                                  List<ItemDePecaRequisitado> itensPeca) {
-        OrdemServico ordemServico = ordensServico.buscarParaMovimentacao(id)
+        OrdemServico ordemServico = ordensServico.buscarComTrava(id)
                 .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
         Orcamento novaVersao = ordemServico.registrarReparoAdicional(
                 descricao, resolverServicos(itensServico), resolverPecas(itensPeca));

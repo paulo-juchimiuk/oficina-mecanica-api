@@ -10,7 +10,7 @@ public interface VeiculoRepository {
 
     Optional<Veiculo> buscarAtivoPorId(UUID id);
 
-    Optional<Veiculo> buscarAtivoParaModificacao(UUID id);
+    Optional<Veiculo> buscarAtivoComTrava(UUID id);
 
     Optional<Veiculo> buscarAtivoPorPlaca(Placa placa);
 

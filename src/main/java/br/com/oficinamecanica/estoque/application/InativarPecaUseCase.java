@@ -23,7 +23,7 @@ public class InativarPecaUseCase {
 
     @Transactional
     public void executar(UUID id) {
-        Peca peca = pecas.buscarAtivaParaMovimentacao(id).orElseThrow(() -> new PecaNaoEncontradaException(id));
+        Peca peca = pecas.buscarAtivaComTrava(id).orElseThrow(() -> new PecaNaoEncontradaException(id));
         if (ordensServicoEmAndamento.existemParaPeca(id)) {
             throw new PecaComOrdemServicoEmAndamentoException();
         }

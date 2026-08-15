@@ -22,7 +22,7 @@ São 21 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 **Fundamento de negócio:** o dinheiro do orçamento e o saldo do estoque não podem divergir. Erro aqui é prejuízo direto e perda de confiança do cliente da oficina.
 
-**Fundamento técnico:** o domínio é relacional e transacional: a OS referencia Cliente, Veículo, Serviços e Peças por identidade, e as invariantes que mais importam são entre linhas, como o saldo nunca negativo e a reserva nunca maior que o saldo. O PostgreSQL entrega isso com `CHECK` e chave estrangeira, entrega a trava pessimista de linha que a serialização dos agregados usa, e resolve o Tempo médio de execução com `INTERVAL` em uma consulta.
+**Fundamento técnico:** o domínio é relacional e transacional: a OS referencia Cliente, Veículo, Serviços e Peças por identidade, e as invariantes que mais importam são entre linhas, como o saldo nunca negativo e a reserva nunca maior que o saldo. O PostgreSQL entrega isso com `CHECK` e chave estrangeira, entrega a trava pessimista de linha que a serialização dos agregados usa, e guarda o instante de cada Transição de status, que é o dado de onde sai o Tempo médio de execução.
 
 **Porquê:** atende todos os requisitos sem adaptação, e tem o melhor ferramental de migração e teste do ecossistema Java, o que mantém o teste de integração rodando contra o banco real.
 
@@ -38,7 +38,7 @@ São 21 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 **Fundamento técnico:** camadas com domínio isolado mantêm agregados e objetos de valor puros, testáveis sem subir o Spring.
 
-**Porquê:** é o que o enunciado pede, e é a base natural para a evolução das fases seguintes, que reorganiza dependências em vez de reescrever.
+**Porquê:** é uma das duas opções que o enunciado admite, e é a base natural para a evolução das fases seguintes, que reorganiza dependências em vez de reescrever.
 
 **Alternativa recusada:** Clean Architecture já nesta fase. Aumenta o custo agora sem atender nada que o enunciado peça.
 
@@ -68,7 +68,7 @@ São 21 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 **Porquê:** é o único arranjo em que o requisito numérico não depende de disciplina humana.
 
-**Alternativa recusada:** banco em memória na integração. Mente no dialeto e nas agregações de data que o Tempo médio de execução usa, e teste verde ali com vermelho no banco real é o pior resultado possível.
+**Alternativa recusada:** banco em memória na integração. Mente no dialeto, e teste verde ali com vermelho no banco real é o pior resultado possível.
 
 ---
 

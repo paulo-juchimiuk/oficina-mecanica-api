@@ -110,7 +110,7 @@ class OrdemServicoUseCasesTest {
     @DisplayName("deve recusar iniciar o diagnostico de uma Ordem de Servico inexistente")
     void deveRecusarDiagnosticoDeOrdemInexistente() {
         UUID inexistente = UUID.randomUUID();
-        when(ordensServico.buscarParaMovimentacao(inexistente)).thenReturn(Optional.empty());
+        when(ordensServico.buscarComTrava(inexistente)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> iniciarDiagnostico.executar(inexistente))
                 .isInstanceOf(OrdemServicoNaoEncontradaException.class);
@@ -120,7 +120,7 @@ class OrdemServicoUseCasesTest {
     @DisplayName("deve levar a OS a Em diagnostico e gravar o agregado")
     void deveIniciarDiagnosticoEGravar() {
         OrdemServico ordem = OrdemServico.abrir(clienteId, veiculoId, RELATO);
-        when(ordensServico.buscarParaMovimentacao(ordem.id())).thenReturn(Optional.of(ordem));
+        when(ordensServico.buscarComTrava(ordem.id())).thenReturn(Optional.of(ordem));
 
         OrdemServico atualizada = iniciarDiagnostico.executar(ordem.id());
 
@@ -135,7 +135,7 @@ class OrdemServicoUseCasesTest {
     private OrdemServico ordemEmDiagnostico() {
         OrdemServico ordem = OrdemServico.abrir(clienteId, veiculoId, RELATO);
         ordem.iniciarDiagnostico();
-        when(ordensServico.buscarParaMovimentacao(ordem.id())).thenReturn(Optional.of(ordem));
+        when(ordensServico.buscarComTrava(ordem.id())).thenReturn(Optional.of(ordem));
         return ordem;
     }
 
@@ -213,7 +213,7 @@ class OrdemServicoUseCasesTest {
         ConcluirDiagnosticoUseCase concluirDiagnostico =
                 new ConcluirDiagnosticoUseCase(ordensServico, clientes, mock(EnvioDeOrcamento.class));
         UUID inexistente = UUID.randomUUID();
-        when(ordensServico.buscarParaMovimentacao(inexistente)).thenReturn(Optional.empty());
+        when(ordensServico.buscarComTrava(inexistente)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> concluirDiagnostico.executar(inexistente))
                 .isInstanceOf(OrdemServicoNaoEncontradaException.class);

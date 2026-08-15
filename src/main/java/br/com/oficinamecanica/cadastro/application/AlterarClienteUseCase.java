@@ -21,7 +21,7 @@ public class AlterarClienteUseCase {
 
     @Transactional
     public Cliente executar(UUID id, String nome, Documento documento, Contato contato) {
-        Cliente cliente = clientes.buscarAtivoParaModificacao(id).orElseThrow(() -> new ClienteNaoEncontradoException(id));
+        Cliente cliente = clientes.buscarAtivoComTrava(id).orElseThrow(() -> new ClienteNaoEncontradoException(id));
         if (clientes.documentoJaCadastradoPorOutro(id, documento)) {
             throw new DocumentoJaCadastradoException();
         }

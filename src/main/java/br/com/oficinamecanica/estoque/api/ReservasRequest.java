@@ -6,12 +6,12 @@ import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import java.util.UUID;
 
-public record ReservasRequest(@NotEmpty List<@Valid @NotNull ReservaAlvo> reservas) {
+public record ReservasRequest(@NotEmpty List<@Valid @NotNull ReservaPecaRequest> reservas) {
 
-    public record ReservaAlvo(@NotNull UUID reservaId) {
+    public record ReservaPecaRequest(@NotNull UUID reservaId) {
     }
 
     List<UUID> identificadores() {
-        return reservas.stream().map(ReservaAlvo::reservaId).toList();
+        return reservas.stream().map(ReservaPecaRequest::reservaId).toList();
     }
 }

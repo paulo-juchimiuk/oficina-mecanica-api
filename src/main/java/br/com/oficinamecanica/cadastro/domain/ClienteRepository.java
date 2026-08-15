@@ -10,7 +10,7 @@ public interface ClienteRepository {
 
     Optional<Cliente> buscarAtivoPorId(UUID id);
 
-    Optional<Cliente> buscarAtivoParaModificacao(UUID id);
+    Optional<Cliente> buscarAtivoComTrava(UUID id);
 
     Optional<Cliente> buscarAtivoPorDocumento(Documento documento);
 

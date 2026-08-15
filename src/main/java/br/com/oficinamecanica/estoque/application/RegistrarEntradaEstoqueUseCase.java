@@ -18,7 +18,7 @@ public class RegistrarEntradaEstoqueUseCase {
 
     @Transactional
     public Peca executar(UUID id, int quantidade) {
-        Peca peca = pecas.buscarAtivaParaMovimentacao(id).orElseThrow(() -> new PecaNaoEncontradaException(id));
+        Peca peca = pecas.buscarAtivaComTrava(id).orElseThrow(() -> new PecaNaoEncontradaException(id));
         peca.registrarEntrada(quantidade);
         return pecas.salvar(peca);
     }

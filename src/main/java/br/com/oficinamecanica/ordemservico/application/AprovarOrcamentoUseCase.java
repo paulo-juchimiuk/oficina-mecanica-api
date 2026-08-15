@@ -21,7 +21,7 @@ public class AprovarOrcamentoUseCase {
 
     @Transactional
     public Acompanhamento executar(String codigo) {
-        OrdemServico ordemServico = ConsultarAcompanhamentoUseCase.ordemDoCodigoParaMovimentacao(ordensServico, codigo);
+        OrdemServico ordemServico = ConsultarAcompanhamentoUseCase.ordemDoCodigoComTrava(ordensServico, codigo);
         int versaoAprovada = ordemServico.aprovarOrcamento().versao();
         ordensServico.salvar(ordemServico);
         reservaDePecas.reservar(ordemServico.id(), ordemServico.itensDePecaIntroduzidosPor(versaoAprovada));

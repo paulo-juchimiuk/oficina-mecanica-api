@@ -42,12 +42,12 @@ class OrdemServicoRepositoryAdapter implements OrdemServicoRepository {
     }
 
     @Override
-    public Optional<OrdemServico> buscarParaMovimentacao(UUID id) {
+    public Optional<OrdemServico> buscarComTrava(UUID id) {
         return repository.findComTravaById(id).map(this::relerSobTrava).map(OrdemServicoJpaEntity::paraDominio);
     }
 
     @Override
-    public Optional<OrdemServico> buscarParaMovimentacaoPorCodigo(CodigoAcompanhamento codigoAcompanhamento) {
+    public Optional<OrdemServico> buscarComTravaPorCodigo(CodigoAcompanhamento codigoAcompanhamento) {
         return repository.findComTravaByCodigoAcompanhamento(codigoAcompanhamento.valor())
                 .map(this::relerSobTrava)
                 .map(OrdemServicoJpaEntity::paraDominio);

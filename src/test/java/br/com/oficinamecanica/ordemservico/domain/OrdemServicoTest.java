@@ -479,8 +479,7 @@ class OrdemServicoTest {
                 transicao(StatusOrdemServico.EM_EXECUCAO, StatusOrdemServico.FINALIZADA, "18:30:00"));
 
         assertThat(ordem.tempoEmExecucao().orElseThrow())
-                .isEqualTo(Duration.ofMinutes(270))
-                .isNotEqualTo(Duration.ofMinutes(330));
+                .isEqualTo(Duration.ofMinutes(270));
     }
 
     @Test

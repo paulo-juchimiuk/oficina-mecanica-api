@@ -19,7 +19,7 @@ public class AlterarPecaUseCase {
 
     @Transactional
     public Peca executar(UUID id, String nome, String unidadeMedida, Dinheiro preco, int estoqueMinimo) {
-        Peca peca = pecas.buscarAtivaParaMovimentacao(id).orElseThrow(() -> new PecaNaoEncontradaException(id));
+        Peca peca = pecas.buscarAtivaComTrava(id).orElseThrow(() -> new PecaNaoEncontradaException(id));
         peca.alterar(nome, unidadeMedida, preco, estoqueMinimo);
         return pecas.salvar(peca);
     }

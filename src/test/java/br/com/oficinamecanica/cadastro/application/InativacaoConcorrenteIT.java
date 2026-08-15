@@ -6,7 +6,8 @@ import br.com.oficinamecanica.cadastro.domain.Placa;
 import br.com.oficinamecanica.catalogo.application.AlterarServicoUseCase;
 import br.com.oficinamecanica.catalogo.application.InativarServicoUseCase;
 import br.com.oficinamecanica.catalogo.domain.Dinheiro;
-import br.com.oficinamecanica.shared.domain.DominioException;
+import br.com.oficinamecanica.shared.domain.ConflitoDeEstadoException;
+import br.com.oficinamecanica.shared.domain.RecursoNaoEncontradoException;
 import br.com.oficinamecanica.estoque.application.InativarPecaUseCase;
 import br.com.oficinamecanica.ordemservico.application.CriarOrdemServicoUseCase;
 import br.com.oficinamecanica.ordemservico.application.IncluirItensUseCase;
@@ -305,7 +306,7 @@ class InativacaoConcorrenteIT extends IntegracaoBase {
             try {
                 operacao.call();
                 return true;
-            } catch (DominioException recusada) {
+            } catch (ConflitoDeEstadoException | RecursoNaoEncontradoException recusada) {
                 return false;
             }
         };

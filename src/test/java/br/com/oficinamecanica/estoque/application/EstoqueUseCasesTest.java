@@ -68,7 +68,7 @@ class EstoqueUseCasesTest {
     @DisplayName("deve alterar a peca preservando a identidade")
     void deveAlterarPeca() {
         Peca existente = pecaComSaldo(24, 0);
-        when(pecas.buscarAtivaParaMovimentacao(existente.id())).thenReturn(Optional.of(existente));
+        when(pecas.buscarAtivaComTrava(existente.id())).thenReturn(Optional.of(existente));
         when(pecas.salvar(any())).thenAnswer(chamada -> chamada.getArgument(0));
 
         Peca alterada = new AlterarPecaUseCase(pecas)
@@ -83,7 +83,7 @@ class EstoqueUseCasesTest {
     @DisplayName("deve recusar alteracao de peca inexistente ou removida logicamente")
     void deveRecusarAlteracaoDePecaInexistente() {
         UUID id = UUID.randomUUID();
-        when(pecas.buscarAtivaParaMovimentacao(id)).thenReturn(Optional.empty());
+        when(pecas.buscarAtivaComTrava(id)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> new AlterarPecaUseCase(pecas).executar(id, "Filtro", "unidade", PRECO, 1))
                 .isInstanceOf(PecaNaoEncontradaException.class);
@@ -131,7 +131,7 @@ class EstoqueUseCasesTest {
     @DisplayName("deve inativar a peca sem apagar o registro")
     void deveInativarPeca() {
         Peca existente = pecaComSaldo(24, 0);
-        when(pecas.buscarAtivaParaMovimentacao(existente.id())).thenReturn(Optional.of(existente));
+        when(pecas.buscarAtivaComTrava(existente.id())).thenReturn(Optional.of(existente));
         when(ordensServicoEmAndamento.existemParaPeca(existente.id())).thenReturn(false);
         when(pecas.temReservaAtiva(existente.id())).thenReturn(false);
 
@@ -146,7 +146,7 @@ class EstoqueUseCasesTest {
     @DisplayName("deve recusar inativacao quando a peca consta em Ordem de Servico em andamento")
     void deveRecusarInativacaoComOrdemEmAndamento() {
         Peca existente = pecaComSaldo(24, 0);
-        when(pecas.buscarAtivaParaMovimentacao(existente.id())).thenReturn(Optional.of(existente));
+        when(pecas.buscarAtivaComTrava(existente.id())).thenReturn(Optional.of(existente));
         when(ordensServicoEmAndamento.existemParaPeca(existente.id())).thenReturn(true);
 
         assertThatThrownBy(() -> new InativarPecaUseCase(pecas, ordensServicoEmAndamento).executar(existente.id()))
@@ -158,7 +158,7 @@ class EstoqueUseCasesTest {
     @DisplayName("deve recusar inativacao quando a peca tem Reserva de peca ATIVA")
     void deveRecusarInativacaoComReservaAtiva() {
         Peca existente = pecaComSaldo(24, 4);
-        when(pecas.buscarAtivaParaMovimentacao(existente.id())).thenReturn(Optional.of(existente));
+        when(pecas.buscarAtivaComTrava(existente.id())).thenReturn(Optional.of(existente));
         when(ordensServicoEmAndamento.existemParaPeca(existente.id())).thenReturn(false);
         when(pecas.temReservaAtiva(existente.id())).thenReturn(true);
 
@@ -171,7 +171,7 @@ class EstoqueUseCasesTest {
     @DisplayName("deve recusar inativacao de peca inexistente ou removida logicamente")
     void deveRecusarInativacaoDePecaInexistente() {
         UUID id = UUID.randomUUID();
-        when(pecas.buscarAtivaParaMovimentacao(id)).thenReturn(Optional.empty());
+        when(pecas.buscarAtivaComTrava(id)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> new InativarPecaUseCase(pecas, ordensServicoEmAndamento).executar(id))
                 .isInstanceOf(PecaNaoEncontradaException.class);
@@ -181,7 +181,7 @@ class EstoqueUseCasesTest {
     @DisplayName("deve somar a Entrada de estoque ao saldo da peca")
     void deveRegistrarEntrada() {
         Peca existente = pecaComSaldo(2, 0);
-        when(pecas.buscarAtivaParaMovimentacao(existente.id())).thenReturn(Optional.of(existente));
+        when(pecas.buscarAtivaComTrava(existente.id())).thenReturn(Optional.of(existente));
         when(pecas.salvar(any())).thenAnswer(chamada -> chamada.getArgument(0));
 
         Peca comEntrada = new RegistrarEntradaEstoqueUseCase(pecas).executar(existente.id(), 10);
@@ -193,7 +193,7 @@ class EstoqueUseCasesTest {
     @DisplayName("deve recusar Entrada de estoque em peca inexistente ou removida logicamente")
     void deveRecusarEntradaEmPecaInexistente() {
         UUID id = UUID.randomUUID();
-        when(pecas.buscarAtivaParaMovimentacao(id)).thenReturn(Optional.empty());
+        when(pecas.buscarAtivaComTrava(id)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> new RegistrarEntradaEstoqueUseCase(pecas).executar(id, 10))
                 .isInstanceOf(PecaNaoEncontradaException.class);
@@ -204,7 +204,7 @@ class EstoqueUseCasesTest {
     void deveReservarEGerarPendencia() {
         Peca existente = pecaComSaldo(1, 0);
         UUID ordemServicoId = UUID.randomUUID();
-        when(pecas.buscarAtivaParaMovimentacao(existente.id())).thenReturn(Optional.of(existente));
+        when(pecas.buscarAtivaComTrava(existente.id())).thenReturn(Optional.of(existente));
 
         new ReservarPecasUseCase(pecas).executar(ordemServicoId, List.of(new ItemAReservar(existente.id(), 2)));
 
@@ -221,7 +221,7 @@ class EstoqueUseCasesTest {
     @DisplayName("deve recusar reserva de peca inexistente ou removida logicamente")
     void deveRecusarReservaDePecaInexistente() {
         UUID id = UUID.randomUUID();
-        when(pecas.buscarAtivaParaMovimentacao(id)).thenReturn(Optional.empty());
+        when(pecas.buscarAtivaComTrava(id)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> new ReservarPecasUseCase(pecas)
                 .executar(UUID.randomUUID(), List.of(new ItemAReservar(id, 1))))
@@ -260,8 +260,8 @@ class EstoqueUseCasesTest {
         when(ordensServico.existe(ordemServicoId)).thenReturn(true);
         when(ordensServico.estaEmExecucao(ordemServicoId)).thenReturn(true);
         when(pecas.buscarReservaDaOrdemServico(ordemServicoId, reserva.id())).thenReturn(Optional.of(reserva));
-        when(pecas.buscarReservaParaMovimentacao(ordemServicoId, reserva.id())).thenReturn(Optional.of(reserva));
-        when(pecas.buscarParaMovimentacao(peca.id())).thenReturn(Optional.of(peca));
+        when(pecas.buscarReservaComTrava(ordemServicoId, reserva.id())).thenReturn(Optional.of(reserva));
+        when(pecas.buscarComTrava(peca.id())).thenReturn(Optional.of(peca));
         when(pecas.salvarReserva(any())).thenAnswer(chamada -> chamada.getArgument(0));
 
         List<ReservaPeca> retiradas = new RetirarPecasReservadasUseCase(pecas, ordensServico)
@@ -319,8 +319,8 @@ class EstoqueUseCasesTest {
         when(ordensServico.existe(ordemServicoId)).thenReturn(true);
         when(ordensServico.aceitaDevolucaoDePecas(ordemServicoId)).thenReturn(true);
         when(pecas.buscarReservaDaOrdemServico(ordemServicoId, reserva.id())).thenReturn(Optional.of(reserva));
-        when(pecas.buscarReservaParaMovimentacao(ordemServicoId, reserva.id())).thenReturn(Optional.of(reserva));
-        when(pecas.buscarParaMovimentacao(peca.id())).thenReturn(Optional.of(peca));
+        when(pecas.buscarReservaComTrava(ordemServicoId, reserva.id())).thenReturn(Optional.of(reserva));
+        when(pecas.buscarComTrava(peca.id())).thenReturn(Optional.of(peca));
         when(pecas.salvarReserva(any())).thenAnswer(chamada -> chamada.getArgument(0));
 
         List<ReservaPeca> devolvidas = new DevolverPecasNaoUtilizadasUseCase(pecas, ordensServico)
