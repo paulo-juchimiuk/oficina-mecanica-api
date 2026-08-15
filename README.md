@@ -4,6 +4,14 @@ API de gestão para oficina mecânica de médio porte: ordem de serviço, orçam
 
 Tech Challenge da Fase 1 da pós-graduação em Arquitetura de Software (FIAP).
 
+## Objetivos
+
+A oficina atende, diagnostica, executa e entrega usando anotação manual e planilha, e é dessa forma de trabalho que nascem os cinco problemas que este sistema existe para resolver: erro na priorização dos atendimentos, falha no controle de peças e insumos, dificuldade de acompanhar o status dos serviços, perda do histórico de clientes e veículos, e ineficiência no fluxo de orçamentos e autorizações.
+
+O objetivo desta primeira versão é substituir a planilha pelo registro que o próprio fluxo de trabalho produz: cada mudança de status é gravada com data e hora pela ação que a causou, o orçamento nasce dos itens lançados e vai ao cliente para aprovação, a peça sai do saldo no momento em que é reservada, e o cliente acompanha a própria Ordem de Serviço sem depender de telefonema.
+
+O recorte é de MVP: back-end, sem interface gráfica, com gestão de ordens de serviço, clientes e peças.
+
 ## O que o sistema faz
 
 - **Ordem de Serviço** com máquina de estados (Recebida, Em diagnóstico, Aguardando aprovação, Em execução, Finalizada, Entregue, mais Cancelada, o sétimo status decidido no ADR-008), com mudança automática de status conforme as ações no sistema.
@@ -115,7 +123,7 @@ mvn -Pseguranca verify
 
 O relatório sai em `target/dependency-check-report.html`. **A primeira execução leva algo entre 30 e 60 minutos**, porque baixa a base de vulnerabilidades do NVD inteira (mais de 370 mil registros) para um cache local; as execuções seguintes são incrementais e rápidas. O download é limitado a 5 requisições por 30 segundos sem chave de API do NVD. **Salve o HTML fora de `target/` antes de qualquer `mvn clean`**, porque o diretório é descartável e não vai para o repositório.
 
-A varredura da **API em execução** com OWASP ZAP **ainda não está montada neste repositório**: é varredura dinâmica, feita sobre a API respondendo, e o relatório dela compõe a entrega de segurança. O relatório de vulnerabilidades da entrega compõe o resultado das duas ferramentas. Elas cobrem superfícies diferentes, a cadeia de dependências e o comportamento em runtime, e nenhuma das duas faz análise estática do código escrito aqui (ADR-004).
+A varredura da **API em execução** com OWASP ZAP roda **fora do build**, contra o ambiente de pé: é varredura dinâmica, feita sobre a API respondendo, e o relatório dela compõe a entrega de segurança. O relatório de vulnerabilidades da entrega compõe o resultado das duas ferramentas. Elas cobrem superfícies diferentes, a cadeia de dependências e o comportamento em runtime, e nenhuma das duas faz análise estática do código escrito aqui (ADR-004).
 
 ## Estrutura do projeto
 

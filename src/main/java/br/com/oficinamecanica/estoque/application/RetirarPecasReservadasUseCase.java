@@ -49,7 +49,7 @@ public class RetirarPecasReservadasUseCase {
     private ReservaPeca retirar(UUID ordemServicoId, ReservaPeca alvo) {
         Peca peca = pecas.buscarComTrava(alvo.pecaId())
                 .orElseThrow(() -> new PecaNaoEncontradaException(alvo.pecaId()));
-        ReservaPeca reserva = pecas.buscarReservaComTrava(ordemServicoId, alvo.id())
+        ReservaPeca reserva = pecas.relerReservaDaOrdemServico(ordemServicoId, alvo.id())
                 .orElseThrow(() -> new ReservaNaoEncontradaException(alvo.id(), ordemServicoId));
         peca.retirar(reserva);
         pecas.salvar(peca);

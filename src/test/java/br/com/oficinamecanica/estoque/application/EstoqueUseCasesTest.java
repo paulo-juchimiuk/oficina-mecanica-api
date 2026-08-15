@@ -260,7 +260,7 @@ class EstoqueUseCasesTest {
         when(ordensServico.existe(ordemServicoId)).thenReturn(true);
         when(ordensServico.estaEmExecucao(ordemServicoId)).thenReturn(true);
         when(pecas.buscarReservaDaOrdemServico(ordemServicoId, reserva.id())).thenReturn(Optional.of(reserva));
-        when(pecas.buscarReservaComTrava(ordemServicoId, reserva.id())).thenReturn(Optional.of(reserva));
+        when(pecas.relerReservaDaOrdemServico(ordemServicoId, reserva.id())).thenReturn(Optional.of(reserva));
         when(pecas.buscarComTrava(peca.id())).thenReturn(Optional.of(peca));
         when(pecas.salvarReserva(any())).thenAnswer(chamada -> chamada.getArgument(0));
 
@@ -319,7 +319,7 @@ class EstoqueUseCasesTest {
         when(ordensServico.existe(ordemServicoId)).thenReturn(true);
         when(ordensServico.aceitaDevolucaoDePecas(ordemServicoId)).thenReturn(true);
         when(pecas.buscarReservaDaOrdemServico(ordemServicoId, reserva.id())).thenReturn(Optional.of(reserva));
-        when(pecas.buscarReservaComTrava(ordemServicoId, reserva.id())).thenReturn(Optional.of(reserva));
+        when(pecas.relerReservaDaOrdemServico(ordemServicoId, reserva.id())).thenReturn(Optional.of(reserva));
         when(pecas.buscarComTrava(peca.id())).thenReturn(Optional.of(peca));
         when(pecas.salvarReserva(any())).thenAnswer(chamada -> chamada.getArgument(0));
 
@@ -360,7 +360,7 @@ class EstoqueUseCasesTest {
         Peca peca = pecaComSaldo(0, 0);
         when(ordensServico.existe(ordemServicoId)).thenReturn(true);
         when(ordensServico.estaEmExecucao(ordemServicoId)).thenReturn(true);
-        when(pecas.buscarAtivaPorId(peca.id())).thenReturn(Optional.of(peca));
+        when(pecas.buscarAtivaComTrava(peca.id())).thenReturn(Optional.of(peca));
         when(pecas.salvarPendencia(any())).thenAnswer(chamada -> chamada.getArgument(0));
 
         PendenciaPeca pendencia = new RegistrarFaltaDePecaUseCase(pecas, ordensServico)
@@ -400,7 +400,7 @@ class EstoqueUseCasesTest {
         UUID pecaId = UUID.randomUUID();
         when(ordensServico.existe(ordemServicoId)).thenReturn(true);
         when(ordensServico.estaEmExecucao(ordemServicoId)).thenReturn(true);
-        when(pecas.buscarAtivaPorId(pecaId)).thenReturn(Optional.empty());
+        when(pecas.buscarAtivaComTrava(pecaId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> new RegistrarFaltaDePecaUseCase(pecas, ordensServico)
                 .executar(ordemServicoId, pecaId, 1))

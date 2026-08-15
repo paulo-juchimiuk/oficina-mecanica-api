@@ -81,7 +81,7 @@ class PecaRepositoryAdapter implements PecaRepository {
     }
 
     @Override
-    public Optional<ReservaPeca> buscarReservaComTrava(UUID ordemServicoId, UUID reservaId) {
+    public Optional<ReservaPeca> relerReservaDaOrdemServico(UUID ordemServicoId, UUID reservaId) {
         return reservas.findByIdAndOrdemServicoId(reservaId, ordemServicoId)
                 .map(this::relerDoBanco)
                 .map(ReservaPecaJpaEntity::paraDominio);

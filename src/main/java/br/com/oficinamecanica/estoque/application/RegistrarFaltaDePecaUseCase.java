@@ -30,7 +30,7 @@ public class RegistrarFaltaDePecaUseCase {
         if (!ordensServico.estaEmExecucao(ordemServicoId)) {
             throw new OrdemServicoForaDeExecucaoException(ordemServicoId);
         }
-        Peca peca = pecas.buscarAtivaPorId(pecaId).orElseThrow(() -> new PecaNaoEncontradaException(pecaId));
+        Peca peca = pecas.buscarAtivaComTrava(pecaId).orElseThrow(() -> new PecaNaoEncontradaException(pecaId));
         return pecas.salvarPendencia(peca.registrarFalta(ordemServicoId, quantidadeFaltante));
     }
 }

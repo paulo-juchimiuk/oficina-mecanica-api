@@ -62,7 +62,7 @@ São 21 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 **Decisão:** JUnit 5 com Mockito no unitário; Spring Boot Test com Testcontainers e PostgreSQL real na integração; JaCoCo com gate que falha o build abaixo de 80%, restrito aos pacotes `domain` de cada contexto mais o `shared.domain`.
 
-**Fundamento de negócio:** cobertura é item avaliado, e um gate no build transforma "temos 80%" em fato verificável com um comando na frente de quem corrige.
+**Fundamento de negócio:** regressão de cobertura no domínio devolve saldo e status errados à operação da oficina, e um gate no build transforma "temos 80%" em fato que qualquer um verifica com um comando.
 
 **Fundamento técnico:** o Testcontainers sobe o mesmo PostgreSQL do ambiente, então o teste exercita o dialeto e as funções de data de verdade. O gate mira `domain` porque o requisito é 80% nos domínios críticos; medir o projeto inteiro diluiria o número com controladores e configuração.
 
@@ -156,7 +156,7 @@ São 21 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 **Fundamento técnico:** o nome amarra repositório, imagem Docker, artefato Maven e o link da entrega. Nomear o **sistema**, e não a fase, faz o repositório sobreviver às fases seguintes, que evoluem esta mesma aplicação sem renomear com histórico publicado.
 
-**Porquê:** equilibra os dois públicos, quem corrige entende de imediato e quem recruta não descarta.
+**Porquê:** equilibra os dois públicos, quem lê o domínio entende de imediato e quem lê o repositório como portfólio não descarta.
 
 ---
 
@@ -208,7 +208,7 @@ São 21 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 **Decisão:** o arquivo de dados de demonstração vive em `seed/`, fora do classpath da aplicação, e é aplicado por um serviço próprio do `docker-compose.yml`, que espera o schema aparecer, carrega uma vez e sai. A carga é **idempotente** e a espera é **limitada**.
 
-**Fundamento de negócio:** quem avalia precisa de um comando e um ambiente pronto. O que muda é que a estrutura do repositório passa a contar a verdade sobre o que é estrutura e o que é dado de exemplo, e essa leitura é feita em segundos, antes de qualquer documento ser aberto.
+**Fundamento de negócio:** quem opera a oficina precisa de um comando e um ambiente pronto para experimentar o sistema antes de confiar nele. E a estrutura do repositório passa a contar a verdade sobre o que é estrutura e o que é dado de exemplo, leitura que se faz em segundos, antes de qualquer documento ser aberto.
 
 **Fundamento técnico:** migration descreve a evolução da **estrutura**, é versionada e imutável depois de aplicada; seed é dado de **um** ambiente e muda sempre que o cenário muda. Tratar o seed como migration põe dado fictício no histórico de schema e sujeita o arquivo a uma imutabilidade que ele não pode honrar.
 
@@ -220,9 +220,9 @@ São 21 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 ## ADR-016: Política de versão, sempre em versão suportada
 
-**Decisão:** onde existe LTS, usar o LTS corrente, o que vale para o Java. Onde não existe, usar uma versão dentro da janela de suporte, o que vale para o Spring Boot, que não designa nenhuma versão como LTS. Onde o suporte é longo, ficar na corrente quando a troca for barata, o que vale para o PostgreSQL. **Reconferir antes da entrega de cada fase.**
+**Decisão:** onde existe LTS, usar o LTS corrente, o que vale para o Java. Onde não existe, usar uma versão dentro da janela de suporte, o que vale para o Spring Boot, que não designa nenhuma versão como LTS. Onde o suporte é longo, ficar na corrente quando a troca for barata, o que vale para o PostgreSQL. **A política é reavaliada a cada fase, porque as janelas de suporte mudam sozinhas.**
 
-**Fundamento de negócio:** o relatório de vulnerabilidades é avaliado por quem ensina Desenvolvimento Seguro. Entregar CVEs críticas conhecidas, sem correção disponível, num projeto novo e sem restrição de legado, não tem defesa, porque não existe custo de migração a alegar.
+**Fundamento de negócio:** o sistema guarda dado de cliente da oficina, e CVE conhecida sem correção é risco direto sobre esse dado. Entregar CVEs críticas conhecidas, sem correção disponível, num projeto novo e sem restrição de legado, não tem defesa, porque não existe custo de migração a alegar.
 
 **Fundamento técnico:** o eixo que decide não é "novo contra antigo", é **"com correção contra sem correção"**. Framework fora de suporte acumula CVE por construção, e nenhuma delas será corrigida. O caminho conservador chega na mesma conclusão, porque quem quer estabilidade escolhe a versão suportada mais madura.
 

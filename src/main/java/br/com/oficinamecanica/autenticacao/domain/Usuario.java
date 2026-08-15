@@ -23,10 +23,6 @@ public class Usuario {
         this.perfil = perfil;
     }
 
-    public UUID id() {
-        return id;
-    }
-
     public String login() {
         return login;
     }

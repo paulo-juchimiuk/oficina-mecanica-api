@@ -27,7 +27,6 @@ interface OrdemServicoJpaRepository extends JpaRepository<OrdemServicoJpaEntity,
 
     boolean existsByVeiculoIdAndStatusIn(UUID veiculoId, Collection<StatusOrdemServico> status);
 
-    boolean existsByIdAndStatusIn(UUID id, Collection<StatusOrdemServico> status);
 
     @Query("""
             SELECT COUNT(item) > 0 FROM OrdemServicoJpaEntity ordem

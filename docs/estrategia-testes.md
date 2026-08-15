@@ -40,11 +40,11 @@ Este documento define O QUE testar, ONDE exigir os 80% e COMO medir, para que a 
 
 ## 3. O que é unitário e o que é integração NESTE projeto
 
-- **Unitário:** exercita agregados, VOs e serviços de domínio puros, sem Spring, sem banco, sem rede. Ex.: transição inválida da máquina de estados lança erro; CPF com dígito errado é rejeitado na construção do VO; reserva acima do saldo falha.
+- **Unitário:** exercita agregados, VOs e serviços de domínio puros, sem Spring, sem banco, sem rede, e também os casos de uso da camada de aplicação com as portas dubladas. Ex.: transição inválida da máquina de estados lança erro; CPF com dígito errado é rejeitado na construção do VO; reserva acima do saldo falha.
 - **Integração:** sobe o contexto Spring e fala com PostgreSQL real via Testcontainers, atravessando controller, aplicação, domínio e repositório. Ex.: POST de criação da OS persiste e retorna o Código de acompanhamento; aprovação dispara a reserva, que sobe a quantidade reservada sem mover o Saldo em estoque; endpoint de tempo médio agrega os timestamps do seed.
 
 ## 4. Como a cobertura é medida e verificada
 
 - **Ferramenta:** JaCoCo, plugin Maven, executado em `mvn verify`.
-- **Threshold configurado:** regra `check` com mínimo de 80% de linhas, medido a partir da primeira fatia que tenha código de domínio e seus testes, aplicada por pacote aos domínios críticos da seção 2 (grupo de `includes` apontando para os pacotes de domínio). Build FALHA abaixo do mínimo, tornando o requisito verificável pelo corretor.
+- **Threshold configurado:** regra `check` com mínimo de 80% de linhas, medido a partir da primeira fatia que tenha código de domínio e seus testes, aplicada por pacote aos domínios críticos da seção 2 (grupo de `includes` apontando para os pacotes de domínio). Build FALHA abaixo do mínimo, que é o único arranjo em que o requisito numérico não depende de disciplina humana.
 - **Relatório:** `mvn verify` gera `target/site/jacoco/index.html`; comandos e caminho documentados no `README.md`.

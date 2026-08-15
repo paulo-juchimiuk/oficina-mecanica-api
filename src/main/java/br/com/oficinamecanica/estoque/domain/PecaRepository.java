@@ -24,7 +24,7 @@ public interface PecaRepository {
 
     Optional<ReservaPeca> buscarReservaDaOrdemServico(UUID ordemServicoId, UUID reservaId);
 
-    Optional<ReservaPeca> buscarReservaComTrava(UUID ordemServicoId, UUID reservaId);
+    Optional<ReservaPeca> relerReservaDaOrdemServico(UUID ordemServicoId, UUID reservaId);
 
     List<ReservaPeca> listarReservasDaOrdemServico(UUID ordemServicoId);
 
