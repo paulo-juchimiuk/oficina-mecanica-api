@@ -218,6 +218,6 @@ A correspondência entre cada termo do negócio e seu identificador está no glo
 
 ## Decisões de arquitetura
 
-São **21**, cada uma com fundamento de negócio, fundamento técnico e o porquê, em [`docs/decisoes.md`](docs/decisoes.md). Onde a alternativa recusada é o próprio argumento, ela aparece em uma linha.
+São **23**, cada uma com fundamento de negócio, fundamento técnico e o porquê, em [`docs/decisoes.md`](docs/decisoes.md). Onde a alternativa recusada é o próprio argumento, ela aparece em uma linha.
 
 **Os códigos `ADR-0xx` citados neste README, no contrato da API e nos testes referem-se a esse documento.**

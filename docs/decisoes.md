@@ -1,6 +1,6 @@
 # Decisões de arquitetura (ADRs)
 
-São 21 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento técnico** e **o porquê**. Onde a alternativa recusada é o próprio argumento, ela aparece em uma linha. Onde algo ficou fora do MVP, isso está declarado, e não omitido.
+São 23 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento técnico** e **o porquê**. Onde a alternativa recusada é o próprio argumento, ela aparece em uma linha. Onde algo ficou fora do MVP, isso está declarado, e não omitido.
 
 ---
 
@@ -204,7 +204,7 @@ São 21 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 **Porquê:** é a única alternativa que entrega o D do CRUD de forma demonstrável **e** preserva o histórico. Remoção física em cascata destruiria Ordens de Serviço encerradas; com `RESTRICT`, o cadastro ficaria indelével na prática e o requisito não seria demonstrável.
 
-**Declarado:** um Documento ou uma Placa de registro inativado ficam **reservados**, porque a chave única não distingue ativo de inativo e não existe reativação. Inativar um Cliente não inativa os Veículos dele. E a **remoção, a alteração e o uso pela Ordem de Serviço disputam a mesma linha**, o que impede tanto ressuscitar um cadastro removido quanto inativar um cadastro enquanto uma OS passa a usá-lo. A serialização entre remoção e alteração tem teste de concorrência com prova por mutação em Cliente, Veículo e Serviço; na Peça as duas operações já leem pela mesma consulta travada.
+**Declarado:** um Documento ou uma Placa de registro inativado ficam **reservados**, porque a chave única não distingue ativo de inativo e não existe reativação. Inativar um Cliente não inativa os Veículos dele. E a **remoção, a alteração e o uso pela Ordem de Serviço disputam a mesma linha**, o que impede tanto ressuscitar um cadastro removido quanto inativar um cadastro enquanto uma OS passa a usá-lo. A serialização entre remoção e alteração é a mesma nos quatro cadastros, e tem teste de concorrência com prova por mutação em Cliente, Veículo e Serviço.
 
 ---
 
@@ -303,3 +303,31 @@ São 21 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 **Porquê:** entre uma garantia que o compilador verifica e uma arrumação que só o olho verifica, a decisão fica com o compilador.
 
 **Consequência aceita:** o maior pacote do projeto fica com 32 arquivos, e navegar nele exige conhecer o sufixo dos nomes, não abrir pastas.
+
+---
+
+## ADR-022: Transições disparadas por endpoint de comando, não por escrita de status
+
+**Decisão:** cada transição da Ordem de Serviço tem um endpoint próprio que nomeia o **evento do negócio** (`POST /{id}/diagnostico/inicio`, `/diagnostico/conclusao`, `/execucao/conclusao`, `/entrega`, mais aprovação e reprovação na superfície pública). **Nenhuma rota recebe o status como dado de entrada.**
+
+**Fundamento de negócio:** o Atendente não escolhe um status, ele registra um fato que aconteceu na oficina. "Concluí o diagnóstico" é o que ele faz; "Aguardando aprovação" é a consequência.
+
+**Fundamento técnico:** o enunciado exige que o status mude **automaticamente** conforme o andamento. Um `PATCH /{id}/status` transferiria a máquina de estados para o cliente da API, e a validação da transição viraria conferência de um valor que veio de fora. Com endpoint de comando, `transicionarPara` é privado ao agregado e a máquina de estados é a única autoridade: o método de transição não tem chamador fora da raiz.
+
+**Porquê:** é a diferença entre uma API que expõe o modelo e uma API que expõe o negócio. A segunda é o que a linguagem ubíqua pede, e é ela que torna o requisito de automatismo verificável em vez de prometido.
+
+**Alternativa recusada:** um único `PATCH /ordens-servico/{id}/status` recebendo o status de destino. É menos código e é exatamente o que o enunciado não quer, porque deixa o cliente escrever o estado.
+
+---
+
+## ADR-023: O envio do Orçamento é atômico com a transição que o gera
+
+**Decisão:** o envio do Orçamento ao Cliente acontece **dentro da mesma transação** que grava a transição de status, na conclusão do diagnóstico e no registro de reparo adicional. Falha no envio derruba a transação inteira, e a Ordem de Serviço permanece no status anterior.
+
+**Fundamento de negócio:** o Código de acompanhamento só chega ao Cliente pelo e-mail. Uma Ordem de Serviço que entrasse em Aguardando aprovação sem o e-mail ter saído ficaria esperando a resposta de alguém que nunca foi avisado, e não existe rota para reenviar. O estado "aguardando quem não sabe" é pior que o erro visível.
+
+**Fundamento técnico:** medido com o serviço de e-mail derrubado: a operação responde 500 e o banco volta ao estado anterior, sem transição gravada e sem orçamento com data de envio. Repetida com o serviço no ar, a mesma chamada responde 200. O comportamento é conservador por construção, e não deixa estado parcial.
+
+**Porquê:** entre falhar visivelmente e avançar em silêncio para um estado sem saída, a escolha é falhar.
+
+**Alternativa recusada:** gravar a transição e notificar depois, fora da transação. É o padrão correto quando existe reenvio, fila ou retentativa; sem nenhum dos três, ele troca um erro que o operador vê por uma Ordem de Serviço travada que ninguém percebe. Mensageria e agendador estão fora do escopo do MVP.

@@ -88,7 +88,7 @@ public class ApiExceptionHandler {
 
     private ResponseEntity<ErroResponse> conflitoProtegidoPeloBanco() {
         return resposta(HttpStatus.CONFLICT, "CONFLITO_DE_ESTADO",
-                "A operacao viola uma invariante de dominio protegida pelo banco");
+                "A operacao viola uma regra de dominio protegida pelo banco");
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
