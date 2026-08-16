@@ -66,7 +66,7 @@ Com o ambiente de pé:
 
 As duas primeiras servem a especificação **gerada a partir do código**, e ela difere do contrato versionado em conteúdo, não em quantidade de rotas: a especificação gerada traz o título e a área de negócio de cada operação, mas **nenhuma delas tem descrição longa**; **não publica as respostas de erro nem o schema `Erro`**; não carrega as restrições de valor monetário (mínimo, teto e moeda única); **não traz o `info.description`**, que é onde moram as convenções de autorização e de erro de protocolo; expõe uma propriedade de validação de campo cruzado que o contrato não tem; e sai em OpenAPI 3.1.0 contra 3.0.3 do arquivo versionado. **O `openapi.yaml` é a fonte de verdade do contrato completo**, e é ele que deve ser lido para conhecer o contrato; o Swagger UI serve para experimentar as chamadas.
 
-A documentação, o login e as três rotas de acompanhamento do cliente são públicos (ADR-007). Todas as demais rotas **sob `/api/v1`** exigem JWT. Fora desse prefixo responde ainda o `/error`, que é o caminho de erro do próprio framework e não faz parte do contrato.
+A documentação, o login e as três rotas de acompanhamento do cliente são públicos (ADR-007). Todas as demais rotas **sob `/api/v1`** exigem JWT.
 
 Para experimentar a superfície do cliente sem autenticar, use o código de acompanhamento da Ordem de Serviço que a carga deixa aguardando aprovação: `ACMP-e5a312adaec084e9ea783e0ff3f142a6`.
 

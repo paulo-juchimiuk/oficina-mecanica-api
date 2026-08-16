@@ -204,7 +204,7 @@ São 23 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 **Porquê:** é a única alternativa que entrega o D do CRUD de forma demonstrável **e** preserva o histórico. Remoção física em cascata destruiria Ordens de Serviço encerradas; com `RESTRICT`, o cadastro ficaria indelével na prática e o requisito não seria demonstrável.
 
-**Declarado:** um Documento ou uma Placa de registro inativado ficam **reservados**, porque a chave única não distingue ativo de inativo e não existe reativação. Inativar um Cliente não inativa os Veículos dele. E a **remoção, a alteração e o uso pela Ordem de Serviço disputam a mesma linha**, o que impede tanto ressuscitar um cadastro removido quanto inativar um cadastro enquanto uma OS passa a usá-lo. A serialização entre remoção e alteração é a mesma nos quatro cadastros, e tem teste de concorrência com prova por mutação em Cliente, Veículo e Serviço.
+**Declarado:** um Documento ou uma Placa de registro inativado ficam **reservados**, porque a chave única não distingue ativo de inativo e não existe reativação. Inativar um Cliente não inativa os Veículos dele. E a **remoção, a alteração e o uso pela Ordem de Serviço disputam a mesma linha**, o que impede tanto ressuscitar um cadastro removido quanto inativar um cadastro enquanto uma OS passa a usá-lo. A serialização entre remoção e alteração é a mesma nos quatro cadastros, e tem teste de concorrência com prova por mutação em Cliente e Veículo. **No Serviço o mesmo teste não serve de prova por mutação**, pelo motivo do ADR-020: a alteração do Serviço não consulta unicidade depois da leitura travada, porque o nome não tem chave única (ADR-018), então a janela da corrida é curta demais para o estado final distinguir a trava presente da trava ausente.
 
 ---
 
@@ -308,7 +308,7 @@ São 23 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 ## ADR-022: Transições disparadas por endpoint de comando, não por escrita de status
 
-**Decisão:** cada transição da Ordem de Serviço tem um endpoint próprio que nomeia o **evento do negócio** (`POST /{id}/diagnostico/inicio`, `/diagnostico/conclusao`, `/execucao/conclusao`, `/entrega`, mais aprovação e reprovação na superfície pública). **Nenhuma rota recebe o status como dado de entrada.**
+**Decisão:** cada transição da Ordem de Serviço tem um endpoint próprio que nomeia o **evento do negócio** (`POST /{id}/diagnostico/inicio`, `/diagnostico/conclusao`, `/execucao/conclusao`, `/entrega`, `/reparos-adicionais`, mais aprovação e reprovação na superfície pública). **Nenhuma rota recebe o status como dado de entrada de escrita.** Onde o status aparece na entrada é só como filtro de leitura da fila, em `GET /ordens-servico?status=`.
 
 **Fundamento de negócio:** o Atendente não escolhe um status, ele registra um fato que aconteceu na oficina. "Concluí o diagnóstico" é o que ele faz; "Aguardando aprovação" é a consequência.
 
