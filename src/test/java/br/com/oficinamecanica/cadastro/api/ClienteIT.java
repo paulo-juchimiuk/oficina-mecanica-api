@@ -214,6 +214,20 @@ class ClienteIT extends IntegracaoBase {
     }
 
     @Test
+    @DisplayName("deve recusar alteracao que leva o Documento de outro cliente, com 409")
+    void deveRecusarAlteracaoComDocumentoDeOutroCliente() throws Exception {
+        String id = cadastrar("Ana", CPF, "ana@example.com");
+        cadastrar("Empresa", CNPJ, "empresa@example.com");
+
+        mockMvc.perform(put(PREFIXO + "/clientes/" + id)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoDeCliente("Ana", CNPJ, "ana@example.com")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.codigo").value("DOCUMENTO_JA_CADASTRADO"));
+    }
+
+    @Test
     @DisplayName("deve remover logicamente: some da listagem e do detalhe, e o registro fica no banco")
     void deveRemoverLogicamente() throws Exception {
         String id = cadastrar("Ana", CPF, "ana@example.com");

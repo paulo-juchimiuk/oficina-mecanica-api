@@ -151,6 +151,33 @@ class VeiculoIT extends IntegracaoBase {
     }
 
     @Test
+    @DisplayName("deve recusar alteracao para Cliente inexistente, com 404")
+    void deveRecusarAlteracaoParaClienteInexistente() throws Exception {
+        String veiculoId = cadastrar("ABC1234");
+
+        mockMvc.perform(put(PREFIXO + "/veiculos/" + veiculoId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoDeVeiculo("ABC1234", UUID.randomUUID().toString())))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.codigo").value("CLIENTE_NAO_ENCONTRADO"));
+    }
+
+    @Test
+    @DisplayName("deve recusar alteracao que leva a Placa de outro veiculo, com 409")
+    void deveRecusarAlteracaoComPlacaDeOutroVeiculo() throws Exception {
+        String veiculoId = cadastrar("ABC1234");
+        cadastrar("XYZ9876");
+
+        mockMvc.perform(put(PREFIXO + "/veiculos/" + veiculoId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoDeVeiculo("XYZ9876", clienteId)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.codigo").value("PLACA_JA_CADASTRADA"));
+    }
+
+    @Test
     @DisplayName("deve remover logicamente e manter a placa reservada")
     void deveRemoverLogicamenteEReservarPlaca() throws Exception {
         String veiculoId = cadastrar("ABC1234");

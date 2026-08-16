@@ -1,5 +1,6 @@
 package br.com.oficinamecanica.shared.api;
 
+import org.apache.tomcat.util.http.InvalidParameterException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -40,6 +41,16 @@ class ApiExceptionHandlerTest {
                 handler.tipoDeConteudoNaoSuportado(new HttpMediaTypeNotSupportedException("text/plain"));
 
         assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+        assertThat(resposta.getBody().codigo()).isEqualTo("REQUISICAO_INVALIDA");
+    }
+
+    @Test
+    @DisplayName("deve responder 400 no escape percentual invalido, e nunca 500, que culpa o servidor por erro do cliente")
+    void deveResponder400NoEscapePercentualInvalido() {
+        ResponseEntity<ErroResponse> resposta =
+                handler.parametroComEscapeInvalido(new InvalidParameterException("Character decoding failed"));
+
+        assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(resposta.getBody().codigo()).isEqualTo("REQUISICAO_INVALIDA");
     }
 

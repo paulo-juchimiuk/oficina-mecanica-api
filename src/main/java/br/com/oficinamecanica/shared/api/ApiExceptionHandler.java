@@ -5,6 +5,7 @@ import br.com.oficinamecanica.shared.domain.DadosInvalidosException;
 import br.com.oficinamecanica.shared.domain.RecursoNaoEncontradoException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.tomcat.util.http.InvalidParameterException;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -55,6 +56,12 @@ public class ApiExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErroResponse> corpoIlegivel(HttpMessageNotReadableException excecao) {
         return resposta(HttpStatus.BAD_REQUEST, CODIGO_REQUISICAO_INVALIDA, "Corpo da requisicao ausente ou malformado");
+    }
+
+    @ExceptionHandler(InvalidParameterException.class)
+    public ResponseEntity<ErroResponse> parametroComEscapeInvalido(InvalidParameterException excecao) {
+        return resposta(HttpStatus.BAD_REQUEST, CODIGO_REQUISICAO_INVALIDA,
+                "Escape percentual invalido na query string ou no corpo; use %XX com digitos hexadecimais");
     }
 
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)

@@ -479,7 +479,7 @@ components:
       description: 'Recurso inexistente. Nas rotas de acompanhamento o 404 e UNIFORME (ADR-007): codigo inexistente e codigo de outra OS respondem igual, nunca distinguindo "nao existe" de "nao e seu"'
       content: {application/json: {schema: {$ref: '#/components/schemas/Erro'}}}
     ConflitoDeEstado:
-      description: 'Operacao viola a maquina de estados da OS ou uma invariante de dominio (ex. Documento ou Placa ja cadastrados, cadastro com OS em andamento, reserva fora da situacao que a operacao exige)'
+      description: 'Operacao viola a maquina de estados da OS ou uma regra de dominio (ex. Documento ou Placa ja cadastrados, cadastro com OS em andamento, reserva fora da situacao que a operacao exige)'
       content: {application/json: {schema: {$ref: '#/components/schemas/Erro'}}}
 
   schemas:

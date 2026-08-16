@@ -40,6 +40,8 @@ São 21 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 **Porquê:** é uma das duas opções que o enunciado admite, e é a base natural para a evolução das fases seguintes, que reorganiza dependências em vez de reescrever.
 
+**Limite declarado:** a configuração de segurança é a única classe de `infrastructure` que importa de `api`. Ela monta o corpo do 401 no envelope do contrato e conhece o prefixo das rotas, que são fatos da borda HTTP, e um filtro de segurança é borda por natureza. A regra que a arquitetura protege continua íntegra e verificável: em nenhum dos cinco contextos o pacote `domain` importa `api`, `infrastructure` ou framework.
+
 **Alternativa recusada:** Clean Architecture já nesta fase. Aumenta o custo agora sem atender nada que o enunciado peça.
 
 ---
