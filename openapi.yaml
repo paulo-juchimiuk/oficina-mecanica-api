@@ -13,7 +13,7 @@ servers:
 tags:
   - {name: Autenticacao, description: emissao de token JWT para as APIs administrativas}
   - {name: OrdensServico, description: fluxo da Ordem de Servico (administrativo)}
-  - {name: Acompanhamento, description: 'consulta e aprovacao pelo Cliente via Codigo de acompanhamento, sem JWT'}
+  - {name: Acompanhamento, description: 'consulta, aprovacao e reprovacao pelo Cliente via Codigo de acompanhamento, sem JWT'}
   - {name: Clientes, description: CRUD de clientes (referencia completa dos quatro verbos)}
   - {name: Veiculos, description: CRUD de veiculos}
   - {name: Servicos, description: CRUD de servicos do catalogo}

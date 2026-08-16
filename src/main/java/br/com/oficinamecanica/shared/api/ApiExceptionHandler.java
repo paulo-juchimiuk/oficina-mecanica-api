@@ -3,6 +3,7 @@ package br.com.oficinamecanica.shared.api;
 import br.com.oficinamecanica.shared.domain.ConflitoDeEstadoException;
 import br.com.oficinamecanica.shared.domain.DadosInvalidosException;
 import br.com.oficinamecanica.shared.domain.RecursoNaoEncontradoException;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.tomcat.util.http.InvalidParameterException;
@@ -29,6 +30,10 @@ public class ApiExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
     private static final String CODIGO_REQUISICAO_INVALIDA = "REQUISICAO_INVALIDA";
+
+    private static final String MENSAGEM_TIPO_DE_CONTEUDO = "Content-Type ausente ou nao suportado; use application/json";
+
+    private static final String CURINGA = "*";
 
     @ExceptionHandler(DadosInvalidosException.class)
     public ResponseEntity<ErroResponse> dadosInvalidos(DadosInvalidosException excecao) {
@@ -66,8 +71,16 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     public ResponseEntity<ErroResponse> tipoDeConteudoNaoSuportado(HttpMediaTypeNotSupportedException excecao) {
-        return resposta(HttpStatus.UNSUPPORTED_MEDIA_TYPE, CODIGO_REQUISICAO_INVALIDA,
-                "Content-Type ausente ou nao suportado; use application/json");
+        return resposta(HttpStatus.UNSUPPORTED_MEDIA_TYPE, CODIGO_REQUISICAO_INVALIDA, MENSAGEM_TIPO_DE_CONTEUDO);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErroResponse> tipoDeConteudoComCuringa(IllegalArgumentException excecao,
+                                                                HttpServletRequest requisicao) {
+        if (!temCuringa(requisicao.getContentType())) {
+            return erroInterno(excecao);
+        }
+        return resposta(HttpStatus.UNSUPPORTED_MEDIA_TYPE, CODIGO_REQUISICAO_INVALIDA, MENSAGEM_TIPO_DE_CONTEUDO);
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
@@ -113,6 +126,10 @@ public class ApiExceptionHandler {
         log.error("Erro nao tratado ao processar a requisicao", excecao);
         return resposta(HttpStatus.INTERNAL_SERVER_ERROR, "ERRO_INTERNO",
                 "Erro interno ao processar a requisicao");
+    }
+
+    private boolean temCuringa(String tipoDeConteudo) {
+        return tipoDeConteudo != null && tipoDeConteudo.contains(CURINGA);
     }
 
     private String descreve(FieldError erro) {

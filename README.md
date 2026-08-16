@@ -36,7 +36,7 @@ docker compose up --build
 
 O ambiente sobe **populado**: o Flyway cria o schema e, logo depois, o serviço `seed` carrega os dados de demonstração, então não é preciso cadastrar nada para testar.
 
-**Confira que a carga terminou bem.** O `docker compose up` não propaga a falha de um contêiner de tarefa única, então ele pode devolver sucesso com o banco vazio:
+**Confira que a carga terminou bem.** O `docker compose up` não propaga a falha de um contêiner de tarefa única, então ele pode devolver sucesso com o banco vazio. O comando acima segura o terminal enquanto o ambiente estiver de pé, então **abra outro terminal** para conferir:
 
 ```bash
 docker compose ps -a    # seed deve estar Exited (0); qualquer outro código é falha
@@ -95,7 +95,7 @@ TZ=UTC mvn spring-boot:run          # cria o schema pelo Flyway
 
 **O `TZ=UTC` não é enfeite.** As colunas de data e hora são `TIMESTAMP` sem fuso, e o driver JDBC impõe o fuso da JVM à sessão do banco, inclusive ao `NOW()` avaliado no servidor. Os dados de demonstração são carregados por um contêiner em UTC; a aplicação rodando fora do Docker herdaria o fuso da máquina, e as duas escritas ficariam em relógios diferentes. Em fuso a oeste de Brasília isso chega a gravar uma transição **antes** da transição inicial da própria Ordem de Serviço, o que corrompe o tempo médio de execução (ADR-008). Pelo `docker compose up`, todos os contêineres estão em UTC e o problema não existe.
 
-Este caminho sobe o banco **vazio**, porque o serviço `seed` não entra nele. Com a aplicação de pé e o schema criado, carregue os dados de demonstração com:
+Este caminho sobe o banco **vazio**, porque o serviço `seed` não entra nele. O `mvn spring-boot:run` também segura o terminal, então, com a aplicação de pé e o schema criado, carregue os dados de demonstração **em outro terminal**:
 
 ```bash
 docker compose run --rm --no-deps seed

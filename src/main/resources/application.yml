@@ -2,6 +2,10 @@ spring:
   application:
     name: oficina-mecanica-api
 
+  servlet:
+    multipart:
+      enabled: false
+
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/oficina}
     username: ${SPRING_DATASOURCE_USERNAME:oficina}
