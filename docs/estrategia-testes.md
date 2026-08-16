@@ -31,7 +31,7 @@ Este documento define O QUE testar, ONDE exigir os 80% e COMO medir, para que a 
 | Agregado Ordem de Serviço (máquina de estados, versões de Orçamento, itens com snapshot) | estado inválido ou total errado do orçamento é prejuízo financeiro e legal (CDC art. 40) |
 | Agregado Peça (Saldo em estoque, Reserva de peças, Baixa de estoque, Estoque mínimo) | saldo negativo ou reserva fantasma para a operação da oficina |
 | VOs de validação: Documento (CPF/CNPJ) e Placa | são a "validação de dados sensíveis" exigida pelo enunciado |
-| Agregados de Cadastro (Cliente e Veículo) e o VO Contato | guardam as invariantes que sustentam o A1, o A12 e o A13: Documento válido e único, Placa válida, e-mail obrigatório porque é o destino do envio do Orçamento, e a Remoção lógica do ADR-014 |
+| Agregados de Cadastro (Cliente e Veículo) e o VO Contato | guardam as invariantes que sustentam o A1, o A12 e o A13: Documento válido, Placa válida, e-mail obrigatório porque é o destino do envio do Orçamento, e a Remoção lógica do ADR-014 |
 | Agregado Serviço e o VO Dinheiro | o Valor de mão de obra vira snapshot no Item de serviço e entra no total do Orçamento, então valor negativo, com mais de duas casas decimais ou acima do que a coluna persiste é dinheiro errado, que é o primeiro exemplo do critério acima |
 | Agregado Usuário e a hierarquia de erros compartilhada | o Usuário é a credencial do JWT administrativo; a hierarquia de erros é o que traduz invariante violada em resposta da API, então um erro ali some com o 400, o 404 ou o 409 que o contrato promete |
 | Serviços de domínio: Orçamento automático e Reserva de peças | são as automações prometidas ("alteração automática dos status" e reações a eventos). O Lembrete de aprovação está fora, porque o disparo dele ficou fora do MVP (ADR-008) e não haverá código a cobrir. **Ressalva de medição:** as duas são disparadas de dentro dos agregados e dos casos de uso, mas as PORTAS delas (`EnvioDeOrcamento` e `ReservaDePecas`) vivem em `application`, que o gate não mede. O gate morde os pacotes `domain`; a cobertura destas duas é garantida por teste explícito, e não pelo número |
@@ -46,5 +46,5 @@ Este documento define O QUE testar, ONDE exigir os 80% e COMO medir, para que a 
 ## 4. Como a cobertura é medida e verificada
 
 - **Ferramenta:** JaCoCo, plugin Maven, executado em `mvn verify`.
-- **Threshold configurado:** regra `check` com mínimo de 80% de linhas, medido a partir da primeira fatia que tenha código de domínio e seus testes, aplicada por pacote aos domínios críticos da seção 2 (grupo de `includes` apontando para os pacotes de domínio). Build FALHA abaixo do mínimo, que é o único arranjo em que o requisito numérico não depende de disciplina humana.
+- **Threshold configurado:** regra `check` com mínimo de 80% de linhas, aplicada por pacote aos domínios críticos da seção 2 (grupo de `includes` apontando para os pacotes de domínio). Build FALHA abaixo do mínimo, que é o único arranjo em que o requisito numérico não depende de disciplina humana.
 - **Relatório:** `mvn verify` gera `target/site/jacoco/index.html`; comandos e caminho documentados no `README.md`.

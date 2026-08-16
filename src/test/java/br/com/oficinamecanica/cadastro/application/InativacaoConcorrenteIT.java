@@ -243,29 +243,26 @@ class InativacaoConcorrenteIT extends IntegracaoBase {
         UUID veiculoDaRodada = inserirVeiculo(1, donoAtual);
         Placa placa = new Placa(placaDaRodada(1));
 
-        List<Callable<Boolean>> tentativas = new ArrayList<>();
+        List<Callable<Boolean>> alteracoes = new ArrayList<>();
+        List<Callable<Boolean>> criacoes = new ArrayList<>();
         CountDownLatch largada = new CountDownLatch(1);
         for (int via = 1; via <= VIAS_EM_DISPUTA; via++) {
             UUID dono = via % 2 == 0 ? donoAtual : novoDono;
             String relato = "corrida " + via;
-            tentativas.add(tentativa(largada,
+            alteracoes.add(tentativa(largada,
                     () -> alterarVeiculo.executar(veiculoDaRodada, placa, "Volkswagen", "Gol", 2021, dono)));
-            tentativas.add(tentativa(largada,
+            criacoes.add(tentativa(largada,
                     () -> criarOrdemServico.executar(documentoDoDono.numero(), veiculoDaRodada, relato)));
         }
 
-        ExecutorService executor = Executors.newFixedThreadPool(tentativas.size());
-        List<Future<Boolean>> corridas = tentativas.stream().map(executor::submit).toList();
+        ExecutorService executor = Executors.newFixedThreadPool(alteracoes.size() + criacoes.size());
+        List<Future<Boolean>> corridasDeAlteracao = alteracoes.stream().map(executor::submit).toList();
+        List<Future<Boolean>> corridasDeCriacao = criacoes.stream().map(executor::submit).toList();
         largada.countDown();
 
         List<String> impasses = new ArrayList<>();
-        for (Future<Boolean> corrida : corridas) {
-            try {
-                corrida.get(ESPERA_EM_SEGUNDOS, TimeUnit.SECONDS);
-            } catch (ExecutionException falha) {
-                impasses.add(String.valueOf(falha.getCause()));
-            }
-        }
+        int alteracoesAceitas = contarAceitas(corridasDeAlteracao, impasses);
+        contarAceitas(corridasDeCriacao, impasses);
         executor.shutdown();
         assertThat(executor.awaitTermination(ESPERA_EM_SEGUNDOS, TimeUnit.SECONDS)).isTrue();
 
@@ -273,6 +270,23 @@ class InativacaoConcorrenteIT extends IntegracaoBase {
                 .as("toda recusa tem de vir de regra de negocio; falha de banco aqui e impasse por ordem"
                         + " de travas invertida, e a ordem declarada no ADR-020 e Cliente antes de Veiculo")
                 .isEmpty();
+        assertThat(alteracoesAceitas)
+                .as("nenhuma alteracao de veiculo foi aceita, entao a disputa nao aconteceu e a ausencia"
+                        + " de impasse nao prova nada; a criacao da OS pode ser recusada por regra, porque"
+                        + " a troca de dono a torna invalida, e por isso ela nao entra nesta asercao")
+                .isGreaterThanOrEqualTo(1);
+    }
+
+    private int contarAceitas(List<Future<Boolean>> corridas, List<String> impasses) throws Exception {
+        int aceitas = 0;
+        for (Future<Boolean> corrida : corridas) {
+            try {
+                aceitas += Boolean.TRUE.equals(corrida.get(ESPERA_EM_SEGUNDOS, TimeUnit.SECONDS)) ? 1 : 0;
+            } catch (ExecutionException falha) {
+                impasses.add(String.valueOf(falha.getCause()));
+            }
+        }
+        return aceitas;
     }
 
     private Documento documentoDoNovoDono(int rodada) {

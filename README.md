@@ -22,9 +22,9 @@ O recorte é de MVP: back-end, sem interface gráfica, com gestão de ordens de 
 
 ## Documentação DDD
 
-Event Storming, Domain Storytelling (AS-IS e TO-BE), Context Map com os subdomínios, modelo de domínio e Linguagem Ubíqua.
+Event Storming dos dois fluxos, Domain Storytelling (AS-IS e TO-BE), Context Map com os subdomínios, modelo de domínio, Linguagem Ubíqua e o C4 nos níveis de Contexto e de Contêiner.
 
-**Link da documentação:** a preencher quando as pranchas forem publicadas.
+**Link da documentação:** `<a publicar>`
 
 ## Como subir o ambiente completo
 
@@ -203,7 +203,7 @@ A regra aplicada artefato por artefato:
 | Agregados, entidades e value objects | português | `OrdemServico`, `Orcamento`, `ReservaPeca`, `CodigoAcompanhamento` |
 | Comportamentos do domínio | português | `aprovarOrcamento()`, `registrarReparoAdicional()`, `concluirDiagnostico()` |
 | Casos de uso | português | `CriarOrdemServicoUseCase`, `ConsultarTempoMedioExecucaoUseCase` |
-| Transições de status | português, nome do estado | `AGUARDANDO_APROVACAO`, `EM_EXECUCAO` |
+| Status da OS | português, nome do estado | `AGUARDANDO_APROVACAO`, `EM_EXECUCAO` |
 | Exceções de domínio | conceito em português, sufixo técnico em inglês | `PecaComReservaAtivaException` |
 | Padrões e mecanismos técnicos | inglês | `Controller`, `Repository`, `Mapper`, `Configuration` |
 | Métodos herdados de framework | inglês | `save()`, `findById()` |

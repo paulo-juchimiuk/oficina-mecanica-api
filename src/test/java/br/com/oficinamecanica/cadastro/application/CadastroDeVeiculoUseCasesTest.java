@@ -51,7 +51,7 @@ class CadastroDeVeiculoUseCasesTest {
     @DisplayName("deve cadastrar veiculo vinculado a um Cliente ativo")
     void deveCadastrarVeiculoComClienteAtivo() {
         Cliente dono = proprietario();
-        when(clientes.buscarAtivoPorId(dono.id())).thenReturn(Optional.of(dono));
+        when(clientes.buscarAtivoComTrava(dono.id())).thenReturn(Optional.of(dono));
         when(veiculos.placaJaCadastradaPorOutro(any(), any())).thenReturn(false);
         when(veiculos.salvar(any())).thenAnswer(chamada -> chamada.getArgument(0));
 
@@ -66,7 +66,7 @@ class CadastroDeVeiculoUseCasesTest {
     @DisplayName("deve recusar cadastro quando o Cliente proprietario nao existe ou esta inativo")
     void deveRecusarCadastroSemClienteAtivo() {
         UUID clienteId = UUID.randomUUID();
-        when(clientes.buscarAtivoPorId(clienteId)).thenReturn(Optional.empty());
+        when(clientes.buscarAtivoComTrava(clienteId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> new CadastrarVeiculoUseCase(veiculos, clientes)
                 .executar(PLACA, "Fiat", "Uno", 2015, clienteId))
@@ -78,7 +78,7 @@ class CadastroDeVeiculoUseCasesTest {
     @DisplayName("deve recusar cadastro quando a Placa pertence a outro veiculo, inclusive inativo")
     void deveRecusarPlacaJaCadastrada() {
         Cliente dono = proprietario();
-        when(clientes.buscarAtivoPorId(dono.id())).thenReturn(Optional.of(dono));
+        when(clientes.buscarAtivoComTrava(dono.id())).thenReturn(Optional.of(dono));
         when(veiculos.placaJaCadastradaPorOutro(any(), any())).thenReturn(true);
 
         assertThatThrownBy(() -> new CadastrarVeiculoUseCase(veiculos, clientes)

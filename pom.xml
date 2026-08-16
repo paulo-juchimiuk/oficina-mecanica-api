@@ -23,6 +23,9 @@
         <testcontainers.version>2.0.5</testcontainers.version>
         <jacoco.version>0.8.15</jacoco.version>
         <dependency-check.version>10.0.4</dependency-check.version>
+        <tomcat.version>11.0.24</tomcat.version>
+        <postgresql.version>42.7.12</postgresql.version>
+        <log4j2.version>2.25.5</log4j2.version>
         <spotbugs.version>4.9.6.0</spotbugs.version>
         <findsecbugs.version>1.14.0</findsecbugs.version>
         <cobertura.minima.dominio>0.80</cobertura.minima.dominio>
@@ -86,11 +89,6 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers-junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

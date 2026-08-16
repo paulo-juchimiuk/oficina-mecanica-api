@@ -32,7 +32,7 @@ public class CadastrarVeiculoUseCase {
     }
 
     private void exigirClienteAtivo(UUID clienteId) {
-        if (clientes.buscarAtivoPorId(clienteId).isEmpty()) {
+        if (clientes.buscarAtivoComTrava(clienteId).isEmpty()) {
             throw new ClienteNaoEncontradoException(clienteId);
         }
     }

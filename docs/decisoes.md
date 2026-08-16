@@ -118,6 +118,8 @@ São 21 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 **Alternativa recusada:** medir de Recebida a Entregue. Misturaria a espera do cliente com a produtividade da oficina, e a média ficaria refém do cliente lento.
 
+**Declarado:** a validade de dez dias do Orçamento é **informativa**, e a resposta do Cliente continua aceita depois de vencida. O CDC fixa prazo para o orçamento vincular o fornecedor, não para extinguir a manifestação do consumidor, e recusar a aprovação tardia deixaria a OS num estado sem saída pela API.
+
 **Fora do MVP e declarado:** o **disparo** do Lembrete de aprovação. Ele está modelado como política no Event Storming, com o critério de três dias sem resposta dentro da validade, e não existe como código nem agendador. O que está entregue é a validade de dez dias, exibida na consulta.
 
 ---
