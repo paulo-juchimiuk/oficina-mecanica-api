@@ -60,9 +60,9 @@ São 23 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 ---
 
-## ADR-005: JUnit 5, Mockito, Testcontainers e JaCoCo com gate
+## ADR-005: JUnit Jupiter, Mockito, Testcontainers e JaCoCo com gate
 
-**Decisão:** JUnit 5 com Mockito no unitário; Spring Boot Test com Testcontainers e PostgreSQL real na integração; JaCoCo com gate que falha o build abaixo de 80%, restrito aos pacotes `domain` de cada contexto mais o `shared.domain`.
+**Decisão:** JUnit Jupiter com Mockito no unitário; Spring Boot Test com Testcontainers e PostgreSQL real na integração; JaCoCo com gate que falha o build abaixo de 80%, restrito aos pacotes `domain` de cada contexto mais o `shared.domain`.
 
 **Fundamento de negócio:** regressão de cobertura no domínio devolve saldo e status errados à operação da oficina, e um gate no build transforma "temos 80%" em fato que qualquer um verifica com um comando.
 
@@ -204,7 +204,7 @@ São 23 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 **Porquê:** é a única alternativa que entrega o D do CRUD de forma demonstrável **e** preserva o histórico. Remoção física em cascata destruiria Ordens de Serviço encerradas; com `RESTRICT`, o cadastro ficaria indelével na prática e o requisito não seria demonstrável.
 
-**Declarado:** um Documento ou uma Placa de registro inativado ficam **reservados**, porque a chave única não distingue ativo de inativo e não existe reativação. Inativar um Cliente não inativa os Veículos dele. E a **remoção, a alteração e o uso pela Ordem de Serviço disputam a mesma linha**, o que impede tanto ressuscitar um cadastro removido quanto inativar um cadastro enquanto uma OS passa a usá-lo. A serialização entre remoção e alteração é a mesma nos quatro cadastros, e tem teste de concorrência com prova por mutação em Cliente e Veículo. **No Serviço e na Peça não há prova por mutação**, porque a alteração deles não consulta unicidade depois da leitura travada, já que nem um nem outro tem chave natural (ADR-018): a janela da corrida fica curta demais para o estado final distinguir a trava presente da trava ausente. A trava está lá e é a mesma; o que falta é experimento que a observe.
+**Declarado:** um Documento ou uma Placa de registro inativado ficam **reservados**, porque a chave única não distingue ativo de inativo e não existe reativação. Inativar um Cliente não inativa os Veículos dele. E a **remoção, a alteração e o uso pela Ordem de Serviço disputam a mesma linha**, o que impede tanto ressuscitar um cadastro removido quanto inativar um cadastro enquanto uma OS passa a usá-lo. A serialização entre remoção e alteração é a mesma nos quatro cadastros, e **nos quatro ela tem prova por mutação**: removida a leitura travada do caso de uso de alteração, um teste de concorrência quebra. Em Cliente, Veículo e Serviço a prova vem da disputa entre remoção e alteração; na Peça, da disputa entre a alteração do cadastro e a Entrada de estoque. **O que a trava impede é a perda de escrita do ADR-019:** sem ela, a alteração grava o agregado inteiro por cima do que a operação concorrente acabou de confirmar.
 
 ---
 

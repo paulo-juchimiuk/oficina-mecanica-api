@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -19,6 +20,26 @@ class ErrosDeProtocoloIT extends IntegracaoBase {
     @BeforeEach
     void prepararCenario() throws Exception {
         token = tokenAdministrativo();
+    }
+
+    @Test
+    @DisplayName("deve responder 405 com envelope quando o metodo nao e suportado na rota, e nunca 500")
+    void deveResponder405ComEnvelope() throws Exception {
+        mockMvc.perform(delete(PREFIXO + "/auth/login").header("Authorization", "Bearer " + token))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.codigo").value("REQUISICAO_INVALIDA"));
+    }
+
+    @Test
+    @DisplayName("deve responder 400 com envelope quando o corpo esta malformado, e nunca 500")
+    void deveResponder400ComCorpoMalformado() throws Exception {
+        mockMvc.perform(post(PREFIXO + "/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"login\": "))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.codigo").value("REQUISICAO_INVALIDA"));
     }
 
     @Test
