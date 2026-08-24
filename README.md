@@ -24,7 +24,7 @@ O recorte é de MVP: back-end, sem interface gráfica, com gestão de ordens de 
 
 Event Storming dos dois fluxos, Domain Storytelling (AS-IS e TO-BE), Context Map com os subdomínios, modelo de domínio, Linguagem Ubíqua e o C4 nos níveis de Contexto e de Contêiner.
 
-**Link da documentação:** `<a publicar>`
+**Link da documentação:** https://miro.com/app/board/uXjVHuneCTk=/?share_link_id=665030044859
 
 ## Como subir o ambiente completo
 
