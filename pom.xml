@@ -24,7 +24,7 @@
         <testcontainers.version>2.0.5</testcontainers.version>
         <jacoco.version>0.8.15</jacoco.version>
         <dependency-check.version>10.0.4</dependency-check.version>
-        <tomcat.version>11.0.24</tomcat.version>
+        <tomcat.version>11.0.25</tomcat.version>
         <postgresql.version>42.7.12</postgresql.version>
         <log4j2.version>2.25.5</log4j2.version>
         <spotbugs.version>4.9.6.0</spotbugs.version>
@@ -119,6 +119,28 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <id>exige-jdk-do-projeto</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireJavaVersion>
+                                    <version>[${java.version},)</version>
+                                    <message>Este projeto exige Java ${java.version}. O Maven esta rodando numa JDK anterior. Confira com "mvn -version": ele usa o JAVA_HOME, nao o java do PATH. Com SDKMAN, "sdk env" na raiz do projeto le o .sdkmanrc. Ou use "docker compose up --build", que traz a JDK certa dentro do conteiner.</message>
+                                </requireJavaVersion>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
