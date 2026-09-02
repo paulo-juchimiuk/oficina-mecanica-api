@@ -331,3 +331,17 @@ São 23 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 **Porquê:** entre falhar visivelmente e avançar em silêncio para um estado sem saída, a escolha é falhar.
 
 **Alternativa recusada:** gravar a transição e notificar depois, fora da transação. É o padrão correto quando existe reenvio, fila ou retentativa; sem nenhum dos três, ele troca um erro que o operador vê por uma Ordem de Serviço travada que ninguém percebe. Mensageria e agendador estão fora do escopo do MVP.
+
+---
+
+## ADR-024: Cluster Kubernetes local, provisionado por Terraform
+
+**Decisão:** o cluster Kubernetes desta fase é **local**, criado com `kind` e provisionado pelo Terraform. Nenhum recurso é criado em provedor de nuvem, e o banco de dados provisionado pelo Terraform também é local.
+
+**Fundamento de negócio:** o valor que esta fase precisa demonstrar é o ciclo completo, provisionar, publicar, escalar e observar a aplicação escalando. Esse ciclo é o mesmo com ou sem nuvem, e a nuvem acrescenta ao caminho crítico três coisas que não são o objeto da avaliação: identidade e acesso, rede virtual e faturamento. O enunciado da fase autoriza as duas formas de maneira explícita, ao pedir *"provisionamento do cluster Kubernetes (local ou cloud)"*, então a forma local satisfaz o requisito pela letra.
+
+**Fundamento técnico:** `kind` executa um cluster Kubernetes conforme dentro de contêineres Docker, e é mantido pelo próprio SIG de testes do Kubernetes, o que o torna a implementação local mais próxima de um cluster real. O `metrics-server` roda nele, e sem métrica de CPU e memória o Horizontal Pod Autoscaler não escala, o que tornaria a demonstração de escalabilidade impossível. O Terraform gerencia o cluster pelo provider do `kind` e os objetos pelos providers `kubernetes` e `helm`, de modo que o mesmo `apply` que existe contra a nuvem existe aqui.
+
+**Porquê:** a diferença decisiva não é custo, é **quem controla o ambiente no momento da gravação**. Um cluster local sobe do zero em minutos, sempre igual, sem depender de quota, de região ou de conta. Um cluster gerenciado esquecido ligado durante os dois meses da fase custaria mais que a fase inteira, e o risco de esquecer não é hipotético em uma rotina com agenda imprevisível.
+
+**Consequência aceita:** o executor hospedado do provedor de CI não alcança um cluster que roda na máquina do desenvolvedor, então a etapa de publicação do pipeline precisa de um executor com acesso ao cluster. E o desenho da arquitetura entregue descreve um ambiente local, não um ambiente de produção em nuvem, o que precisa estar dito no README para que documento e ambiente não se contradigam.
