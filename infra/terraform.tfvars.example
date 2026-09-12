@@ -1,0 +1,8 @@
+nome_do_cluster = "oficina"
+namespace       = "oficina"
+
+porta_do_hospedeiro = 8080
+
+banco_nome    = "oficina"
+banco_usuario = "oficina"
+banco_senha   = "oficina_local"

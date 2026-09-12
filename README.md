@@ -120,6 +120,31 @@ Este caminho sobe o banco **vazio**, porque o serviço `seed` não entra nele. O
 docker compose run --rm --no-deps seed
 ```
 
+## Provisionamento com Terraform
+
+O ambiente de execução em Kubernetes é provisionado por código, no diretório [`infra/`](infra/): um cluster local com `kind`, de um nó de controle e um nó de trabalho, e o banco de dados dentro dele, com segredo, volume persistente, Deployment e Service. **O que cada recurso é, os pré-requisitos de versão e o porquê de cada decisão estão em [`infra/README.md`](infra/README.md)** (ADR-024).
+
+```bash
+cd infra
+terraform init
+terraform plan -out=plano.tfplan
+terraform apply plano.tfplan
+```
+
+O `apply` leva cerca de um minuto, acompanha o banco até ele estar pronto, e termina imprimindo o caminho do kubeconfig, o namespace e o endereço interno do banco. Conferindo:
+
+```bash
+kubectl get nodes                                     # dois nós Ready
+kubectl -n oficina rollout status deployment/banco    # banco de pé
+terraform output
+```
+
+Para desfazer, `terraform destroy`, que apaga o cluster e, com ele, os dados do banco.
+
+**A porta 8080 é de um ambiente por vez.** O cluster publica a porta `30080` do nó de controle em `127.0.0.1:8080`, que é a mesma porta que o `docker compose` usa para a aplicação. Com o ambiente de Compose de pé, o `terraform apply` falha na criação do nó com `exit status 125`, que é o Docker recusando publicar uma porta ocupada. **Derrube um antes de subir o outro:** `docker compose down`.
+
+**O `apply` troca o contexto corrente do `kubectl`.** Ele acrescenta ao `~/.kube/config` a entrada do cluster criado e a torna corrente; o `destroy` a remove e deixa o `kubectl` sem contexto corrente, sem apagar os demais. Quem usa o `kubectl` com outros clusters volta para o seu com `kubectl config use-context <nome>`.
+
 ## Testes
 
 ```bash

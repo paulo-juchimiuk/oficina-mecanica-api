@@ -29,3 +29,11 @@ application-local.properties
 
 dependency-check-report.*
 zap-report.*
+
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+!*.tfvars.example
+infra/*-config
