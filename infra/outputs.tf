@@ -9,6 +9,6 @@ output "namespace" {
 }
 
 output "endereco_do_banco" {
-  description = "Endereco interno do banco, para a aplicacao publicada no cluster"
-  value       = "${kubernetes_service.banco.metadata[0].name}.${kubernetes_namespace.oficina.metadata[0].name}.svc.cluster.local:5432"
+  description = "Endereco do banco para a aplicacao publicada no mesmo namespace"
+  value       = "${kubernetes_service.banco.metadata[0].name}:5432"
 }
