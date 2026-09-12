@@ -23,6 +23,10 @@ spec:
         - name: oficina-app
           image: ghcr.io/paulo-juchimiuk/oficina-mecanica-api:main
           imagePullPolicy: IfNotPresent
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 10
           ports:
             - name: http
               containerPort: 8080

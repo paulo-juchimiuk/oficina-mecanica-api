@@ -153,7 +153,7 @@ Com o cluster provisionado (seção anterior), a aplicação é publicada pelos 
 
 | Arquivo | Objeto | O que é |
 |---|---|---|
-| `oficina-app-deployment.yaml` | Deployment `oficina-app` | a API, com pedido e limite de CPU e memória e as sondas de inicialização, de prontidão e de vivacidade |
+| `oficina-app-deployment.yaml` | Deployment `oficina-app` | a API, com pedido e limite de CPU e memória, as sondas de inicialização, de prontidão e de vivacidade, e uma pausa de 10 segundos antes de desligar cada réplica, para nenhuma chamada cair numa réplica que está saindo |
 | `oficina-app-service.yaml` | Service `oficina-app` | `NodePort` na porta `30080`, que o cluster publica em `127.0.0.1:8080` |
 | `oficina-app-configmap.yaml` | ConfigMap `oficina-app` | endereço do banco, servidor de e-mail, fuso horário e log de acesso |
 | `oficina-app-secret.yaml` | Secret `oficina-app` | o segredo de assinatura do JWT, com o mesmo valor local de avaliação do `docker-compose.yml`. Usuário e senha do banco não estão aqui: a aplicação os lê do Secret `banco`, criado pelo Terraform |
@@ -221,6 +221,50 @@ kubectl -n oficina delete pod gerador-carga
 A CPU cai abaixo do alvo em pouco mais de um minuto, e o HPA espera a janela de estabilização de 5 minutos antes de reduzir as réplicas, para não oscilar com uma queda momentânea: nesta máquina, a volta a 1 réplica veio cerca de 6 minutos depois de o gerador ser apagado.
 
 A escala é só pela CPU, e a conta que exclui a memória está no ADR-027: a memória de uma réplica quase não muda entre parada e sob carga, então ela não acompanha a demanda e, somada à CPU, impediria a volta a 1 réplica.
+
+## Pipeline de CI/CD
+
+A pipeline é do GitHub Actions, em [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml). Ela dispara em todo `push` e `pull_request` na `main`, e pelo botão **Run workflow** da aba Actions.
+
+### O fluxo de deploy
+
+| Ordem | Job | Onde roda | O que faz | Quando |
+|---|---|---|---|---|
+| 1 | Build e testes | executor hospedado do GitHub | build da aplicação; testes unitários e de integração, com Testcontainers; `terraform init`, `fmt -check` e `validate` de `infra/` | sempre |
+| 2 | Build da imagem Docker | executor hospedado do GitHub | constrói a imagem e a publica no GitHub Container Registry com duas tags, o SHA do commit e `main` | na `main`, fora de pull request |
+| 3 | Deploy no cluster Kubernetes | executor auto-hospedado, com o rótulo `oficina-local` | os cinco passos abaixo | na `main`, fora de pull request |
+
+Os passos do deploy, com o nome que aparece no log:
+
+1. **Conferência do cluster:** gera um kubeconfig próprio a partir do `kind` e confere os nós e o banco provisionado. O job não usa o contexto corrente do `kubectl` da máquina, então não publica em outro cluster que a máquina conheça.
+2. **Carga da imagem no cluster:** baixa do registro a imagem do commit e a carrega nos nós, com a tag do commit e com `main`.
+3. **Aplicação dos manifestos:** apaga o Job da carga anterior, gera o ConfigMap `seed`, aplica `k8s/` com a tag do commit no lugar de `main`, confere a imagem publicada e espera o rollout. Cada publicação vira uma revisão do Deployment com a imagem do commit, que `kubectl -n oficina rollout history deployment/oficina-app` lista.
+4. **Deploy do banco de dados:** confere o banco que o Terraform provisionou, mostra no log a migration que o Flyway aplicou no boot da aplicação e espera a carga de demonstração. Vem depois da aplicação dos manifestos porque o schema nasce no boot da aplicação e a carga espera por ele.
+5. **Conferência da aplicação:** chama a sonda de prontidão pela porta 8080.
+
+**Quem provisiona o banco.** O Terraform provisiona o banco, e a pipeline não roda `terraform apply`: o estado do Terraform é local, e um `apply` disparado pela pipeline teria um estado diferente do `apply` feito no terminal, e tentaria criar um cluster que já existe. Na pipeline, o deploy do banco de dados é o passo que confirma o banco, o schema e a carga (ADR-027).
+
+### O executor auto-hospedado
+
+O deploy precisa alcançar o cluster, que roda na máquina de quem o provisionou, e o executor hospedado do GitHub não alcança essa máquina. Por isso o terceiro job roda num executor registrado nela.
+
+**Registrar, uma vez:** em **Settings, Actions, Runners, New self-hosted runner**, escolha Linux x64 e siga os comandos que a própria página mostra, numa pasta fora do clone, por exemplo `~/actions-runner`. Quando o `config.sh` pedir rótulos adicionais, informe `oficina-local`. Não instale como serviço.
+
+**Ligar, a cada janela de trabalho,** num terminal que fica preso enquanto o executor estiver ligado:
+
+```bash
+cd ~/actions-runner && ./run.sh
+```
+
+A máquina precisa ter o Docker, o `kind` e o `kubectl` no `PATH`, e o cluster precisa estar de pé (seção "Provisionamento com Terraform").
+
+**Com o executor desligado, o deploy espera na fila**, e os dois primeiros jobs rodam normalmente. O job enfileirado começa sozinho quando o executor é ligado, e falha se passar 24 horas na fila.
+
+**Repositório público com executor auto-hospedado.** A disciplina de DevOps alerta que executor auto-hospedado não é recomendado para repositório público, porque o código de um pull request pode rodar na infraestrutura dele. Aqui isso é contido por cinco medidas, detalhadas no ADR-027: o repositório exige aprovação para rodar workflow de colaborador externo; o deploy só roda em `push` na `main` e pelo botão; o executor tem rótulo próprio e fica ligado só nas janelas de trabalho, nunca como serviço; o workflow pede a permissão mínima; e nenhum segredo fica gravado no executor.
+
+### A imagem no registro
+
+A imagem fica em `ghcr.io/paulo-juchimiuk/oficina-mecanica-api`, publicada com o token que o próprio job recebe, sem conta nem segredo a mais. Quando o pacote está público, quem aplica os manifestos sem construir a imagem recebe a do último push na `main`: basta pular o `docker build` e o `kind load` da seção "Deploy em Kubernetes".
 
 ## Testes
 
