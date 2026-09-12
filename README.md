@@ -23,7 +23,7 @@ O recorte segue sendo de MVP: back-end, sem interface gráfica, com gestão de o
 - **Tempo médio de execução** dos serviços, calculado a partir dos timestamps das transições de status.
 - **Autenticação JWT** nas APIs administrativas e validação de dados sensíveis (documento e placa) como regra de domínio.
 
-### Status da OS: o nome do atendimento e o identificador da API
+### Status da OS: o nome no enunciado da fase e o identificador da API
 
 O enunciado da fase nomeia os status em português corrente, e a API responde identificadores. A tabela liga um ao outro, para que a palavra do enunciado leve ao campo certo; a escolha de manter os identificadores está no ADR-026.
 
