@@ -1,0 +1,48 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed
+  namespace: oficina
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: seed
+          image: postgres:18-alpine
+          command: ["sh", "/seed/carrega.sh"]
+          env:
+            - name: PGHOST
+              value: banco
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: banco
+                  key: POSTGRES_USER
+            - name: PGDATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: banco
+                  key: POSTGRES_DB
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: banco
+                  key: POSTGRES_PASSWORD
+            - name: TZ
+              value: UTC
+          volumeMounts:
+            - name: carga
+              mountPath: /seed
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+      volumes:
+        - name: carga
+          configMap:
+            name: seed

@@ -1,6 +1,6 @@
 # Decisões de arquitetura (ADRs)
 
-São 26 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento técnico** e **o porquê**. Onde a alternativa recusada é o próprio argumento, ela aparece em uma linha. Onde algo ficou fora do MVP, isso está declarado, e não omitido.
+São 27 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento técnico** e **o porquê**. Onde a alternativa recusada é o próprio argumento, ela aparece em uma linha. Onde algo ficou fora do MVP, isso está declarado, e não omitido.
 
 ---
 
@@ -216,7 +216,7 @@ São 26 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 ## ADR-015: Dados de demonstração fora do fluxo de migrations
 
-**Decisão:** o arquivo de dados de demonstração vive em `seed/`, fora do classpath da aplicação, e é aplicado por um serviço próprio do `docker-compose.yml`, que espera o schema aparecer, carrega uma vez e sai. A carga é **idempotente** e a espera é **limitada**.
+**Decisão:** o arquivo de dados de demonstração vive em `seed/`, fora do classpath da aplicação, e é aplicado pelo script `seed/carrega.sh`, que espera o schema aparecer, carrega uma vez e sai: no `docker-compose.yml`, por um serviço próprio, e no cluster Kubernetes, por um Job (ADR-027). A carga é **idempotente** e a espera é **limitada**.
 
 **Fundamento de negócio:** quem opera a oficina precisa de um comando e um ambiente pronto para experimentar o sistema antes de confiar nele. E a estrutura do repositório passa a contar a verdade sobre o que é estrutura e o que é dado de exemplo, leitura que se faz em segundos, antes de qualquer documento ser aberto.
 
@@ -454,3 +454,39 @@ Os quatro pacotes de cada contexto já eram esses quatro círculos, e a direçã
 **O status vai no identificador da API, não em nome de exibição.** Um segundo vocabulário para o mesmo fato precisaria de dono, e a tabela do README já liga o identificador ao nome do enunciado.
 
 **Alternativa recusada:** atomicidade só onde o e-mail habilita ação do cliente e melhor esforço nas demais. Cria duas políticas para o mesmo fato, e a segunda é a que perde aviso sem ninguém ver.
+
+---
+
+## ADR-027: Publicação no Kubernetes, com escala pela CPU
+
+**Decisão:** a aplicação é publicada no cluster do ADR-024 por manifestos YAML em `/k8s`, aplicados com `kubectl`: Deployment, Service, ConfigMap, Secret e HorizontalPodAutoscaler da aplicação, a caixa de e-mail do ambiente, o Job da carga de demonstração e o `metrics-server`. O HPA escala a aplicação de 1 a 4 réplicas **só pela CPU**, com alvo de 70% do pedido de cada réplica.
+
+**Fundamento de negócio:** o uso do sistema varia ao longo do dia, e a capacidade precisa acompanhar essa variação sem alguém ajustando réplicas à mão: ela sobe quando a demanda sobe e é devolvida quando a demanda cai.
+
+**Fundamento técnico:** cada escolha dos manifestos responde a um comportamento do Kubernetes reproduzido neste cluster, e a escolha da métrica do HPA responde a uma conta feita com o uso medido das réplicas. As duas seções abaixo trazem uma e outra.
+
+### 1. O que os manifestos decidem
+
+- **O Deployment não declara `replicas`.** Quem decide o número de réplicas é o HPA, e o `minReplicas` dele é o piso. Com um número fixo no manifesto, cada `kubectl apply` devolveria o Deployment àquele número e desfaria a escala em andamento.
+- **Toda réplica declara pedido e limite de CPU e de memória.** O HPA calcula a utilização como o uso dividido pelo pedido, e sem pedido não há percentual para comparar com o alvo.
+- **Três sondas HTTP, como a aula de probes da disciplina de Kubernetes ensina:** inicialização, prontidão e vivacidade. Prontidão e vivacidade consultam endpoints diferentes, `/actuator/health/readiness` e `/actuator/health/liveness`, que é a recomendação da aula para evitar conflito entre elas, e usam os intervalos do exemplo da aula: prontidão a cada 5 segundos com espera de 3, vivacidade a cada 10 com espera de 5. A sonda de inicialização consulta o mesmo endpoint da vivacidade, porque ela existe para segurar a vivacidade até o boot terminar e pergunta a mesma coisa com mais paciência: a cada 5 segundos, por até 3 minutos. O exemplo da aula espera 120 segundos antes da primeira consulta; aqui o boot leva cerca de 16 segundos, e uma espera fixa de 2 minutos deixaria cada réplica nova fora do Service justamente na janela em que o HPA precisa dela.
+- **A atualização é gradual e não perde capacidade:** `RollingUpdate` com `maxUnavailable: 0` e `maxSurge: 1`, então uma réplica nova fica pronta antes de uma antiga sair.
+- **O Service é `NodePort` na porta `30080`**, que o cluster publica em `127.0.0.1:8080` pelo mapeamento declarado no Terraform (ADR-024). Com uma aplicação só num cluster local, um Ingress acrescentaria um controlador sem acrescentar rota.
+- **Configuração e segredo ficam separados.** O ConfigMap guarda o que não é sensível, e o Secret guarda o segredo do JWT, com o mesmo valor local de avaliação que o `docker-compose.yml` já usa e o README já declara. Usuário e senha do banco não são repetidos: a aplicação os lê do Secret `banco`, que o Terraform cria, e o fato fica com um dono só.
+- **A carga de demonstração é um Job** que roda o mesmo `seed/carrega.sh` do compose, lendo os arquivos de um ConfigMap gerado de `seed/` na hora da publicação. O Job é apagado antes de cada `apply`, porque o modelo de Pod de um Job não pode mudar depois de criado; como a carga é idempotente (ADR-015), rodá-la de novo não altera nada.
+- **Todo objeto da aplicação declara o namespace `oficina`.** O `kubectl apply -f k8s/` aplica objetos de dois namespaces, porque o `metrics-server` vive em `kube-system`, e por isso não pode receber `-n`; e o endereço curto do banco, `banco:5432`, só resolve de dentro do namespace dele (ADR-024).
+- **O `metrics-server` é o manifesto oficial da versão 0.9.0, com a opção `--kubelet-insecure-tls`.** O kubelet do `kind` usa certificado autoassinado, e sem essa opção o coletor recusa a conexão, não há métrica e o HPA não escala. O projeto do `metrics-server` marca a opção como própria para teste, e é o caso: o cluster é local e descartável.
+
+### 2. A escala pela CPU, e a conta que exclui a memória
+
+A aula de dimensionamento automático da disciplina de Kubernetes apresenta o HPA com CPU, memória e métricas personalizadas, diz que *"a escolha da métrica certa dependerá do aplicativo e das necessidades específicas do ambiente"*, e o exemplo dela monitora só a CPU: `autoscaling/v1`, mínimo de 1 réplica, máximo de 10, `targetCPUUtilizationPercentage: 70`. O manifesto daqui é o mesmo exemplo na versão atual da API, `autoscaling/v2`, em que o alvo de 70% se escreve `averageUtilization: 70`. O máximo é 4, e não 10, porque o cluster são dois nós na mesma máquina.
+
+**Por que a memória fica fora, medido e não estimado.** O HPA calcula as réplicas desejadas de cada métrica como `teto(réplicas atuais × uso ÷ alvo)` e segue a maior das contas. Neste cluster, contra um pedido de 512 MiB, a réplica usou 277 MiB antes da carga, cada uma das quatro usou cerca de 300 MiB sob carga, e a que sobrou depois da descida seguiu em 302 MiB com a CPU parada: 54%, 59% e 59%. A memória de uma JVM quase não se move com a carga, porque o heap que ela ocupou continua ocupado. Com a memória como segunda métrica, e o mesmo alvo de 70%, a conta dela depois de a carga acabar daria `teto(4 × 59 ÷ 70) = 4`, e o HPA ficaria em 4 réplicas enquanto a CPU já pedisse 1. Para a memória autorizar a volta de 4 para 1, o uso teria de cair abaixo de 17,5% do pedido, e a aplicação parada usa 54%. **O "CPU/memória" do enunciado é lido como uma ou outra**, e a métrica que acompanha a demanda desta aplicação é a CPU.
+
+**A carga que prova a escala** é um Pod dentro do cluster chamando o login em laço. O login confere a senha com BCrypt, que custa CPU a cada chamada, e isso simula o aumento de carga que o enunciado pede sem instalar ferramenta; a aula cita K6 e JMeter, que fariam o mesmo com uma instalação a mais. Medido neste cluster: a CPU passou do alvo e o HPA foi de 1 para 3 réplicas menos de 30 segundos depois de a carga começar, e para 4 réplicas 15 segundos depois. Com a carga desligada, a CPU caiu abaixo do alvo em pouco mais de um minuto, e o HPA voltou a 1 réplica cerca de 6 minutos depois de a carga parar, dos quais 5 são a janela de estabilização padrão da descida.
+
+**Porquê:** é a configuração que sobe e desce sozinha com a demanda desta aplicação, com os objetos que o enunciado nomeia e mais os três que o ambiente precisa para funcionar: a caixa de e-mail, a carga de demonstração e o coletor de métricas.
+
+**Alternativa recusada:** escalar por CPU e memória juntas. É a leitura mais literal do enunciado, e a conta acima mostra que ela prende a aplicação no máximo de réplicas depois do primeiro pico. Helm e Kustomize ficam fora pelo mesmo motivo do ADR-024: o enunciado pede manifestos YAML, e uma camada a mais esconderia o que precisa ficar à vista.
+
+**Consequência aceita:** os manifestos seguem os valores padrão do Terraform, o nome do cluster, o namespace e o nome do banco, então quem trocar esses valores no `terraform.tfvars` troca também em `k8s/`. E a opção do `metrics-server` confia no certificado do kubelet sem verificá-lo, o que só é aceitável num cluster local e descartável.

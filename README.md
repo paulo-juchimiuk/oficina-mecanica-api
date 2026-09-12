@@ -126,6 +126,8 @@ O ambiente de execução em Kubernetes é provisionado por código, no diretóri
 
 **A porta 8080 é de um ambiente por vez.** O cluster publica a porta `30080` do nó de controle em `127.0.0.1:8080`, que é a mesma porta que o `docker compose` usa para a aplicação. Com o ambiente de Compose de pé, o `terraform apply` falha na criação do nó com `exit status 125`, que é o Docker recusando publicar uma porta ocupada. **Derrube um antes de subir o outro:** `docker compose down`.
 
+**Os dois limites de `inotify` do núcleo também precisam estar levantados antes do primeiro `apply`**, senão o segundo nó do cluster não sobe. Os valores e o comando estão nos pré-requisitos de [`infra/README.md`](infra/README.md).
+
 ```bash
 cd infra
 terraform init
@@ -144,6 +146,81 @@ terraform output
 Para desfazer, `terraform destroy`, que apaga o cluster e, com ele, os dados do banco. Se o `apply` for interrompido ou falhar antes de o banco ficar pronto, o cluster pode ficar de pé fora do estado do Terraform, e aí quem o remove é `kind delete cluster --name oficina`.
 
 **O `apply` troca o contexto corrente do `kubectl`.** Ele acrescenta ao `~/.kube/config` a entrada do cluster criado e a torna corrente; o `destroy` a remove e deixa o `kubectl` sem contexto corrente, sem apagar os demais. Quem usa o `kubectl` com outros clusters volta para o seu com `kubectl config use-context <nome>`.
+
+## Deploy em Kubernetes
+
+Com o cluster provisionado (seção anterior), a aplicação é publicada pelos manifestos de [`k8s/`](k8s/), aplicados com `kubectl`. O `terraform apply` já deixa o `kubectl` apontando para o cluster criado.
+
+| Arquivo | Objeto | O que é |
+|---|---|---|
+| `oficina-app-deployment.yaml` | Deployment `oficina-app` | a API, com pedido e limite de CPU e memória e as sondas de inicialização, de prontidão e de vivacidade |
+| `oficina-app-service.yaml` | Service `oficina-app` | `NodePort` na porta `30080`, que o cluster publica em `127.0.0.1:8080` |
+| `oficina-app-configmap.yaml` | ConfigMap `oficina-app` | endereço do banco, servidor de e-mail, fuso horário e log de acesso |
+| `oficina-app-secret.yaml` | Secret `oficina-app` | o segredo de assinatura do JWT, com o mesmo valor local de avaliação do `docker-compose.yml`. Usuário e senha do banco não estão aqui: a aplicação os lê do Secret `banco`, criado pelo Terraform |
+| `oficina-app-hpa.yaml` | HorizontalPodAutoscaler `oficina-app` | de 1 a 4 réplicas, pela CPU, com alvo de 70% |
+| `email-deployment.yaml` e `email-service.yaml` | Deployment e Service `email` | a caixa de e-mail do ambiente, com a mesma imagem do compose |
+| `seed-job.yaml` | Job `seed` | a carga dos dados de demonstração, pelo mesmo `seed/carrega.sh` do compose |
+| `metrics-server.yaml` | `metrics-server`, em `kube-system` | o coletor de CPU e memória que o HPA consulta |
+
+Os manifestos seguem os valores padrão do Terraform: cluster `oficina`, namespace `oficina` e banco `oficina`. Quem trocar esses valores no `terraform.tfvars` troca também em `k8s/` e nos comandos abaixo.
+
+**A imagem.** O Deployment usa a imagem `ghcr.io/paulo-juchimiuk/oficina-mecanica-api:main`. Para publicar o código desta cópia, construa a imagem com esse nome e carregue-a nos nós do cluster; como a política de pull é `IfNotPresent`, o cluster usa a imagem carregada em vez de buscá-la no registro:
+
+```bash
+docker build -t ghcr.io/paulo-juchimiuk/oficina-mecanica-api:main .
+kind load docker-image --name oficina \
+  ghcr.io/paulo-juchimiuk/oficina-mecanica-api:main
+```
+
+**A publicação:**
+
+```bash
+kubectl -n oficina delete job seed --ignore-not-found
+kubectl -n oficina create configmap seed --from-file=seed/ \
+  --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply -f k8s/
+kubectl -n oficina rollout status deployment/oficina-app --timeout=300s
+kubectl -n oficina wait --for=condition=complete job/seed --timeout=300s
+```
+
+O Job é apagado antes do `apply` porque o modelo de Pod de um Job não pode mudar depois de criado; como a carga é idempotente (ADR-015), rodá-la de novo não altera nada, e ela só carrega com o banco vazio. O ConfigMap `seed` é gerado de `seed/` na hora, e não versionado em `k8s/`, para que o script e os dados tenham um dono só. A carga espera o schema, que o Flyway cria no boot da aplicação, então ela termina logo depois de a aplicação ficar pronta, o que nesta máquina leva cerca de 20 segundos.
+
+**Conferindo:**
+
+```bash
+kubectl -n oficina get deployment,service,configmap,secret,hpa,job
+kubectl top pods -n oficina
+curl -s localhost:8080/actuator/health/readiness
+```
+
+O `kubectl top` passa a responder até um minuto depois do primeiro `apply`, que é o tempo de o `metrics-server` colher as primeiras amostras.
+
+Com o cluster de pé, a API, o Swagger e a autenticação respondem nos mesmos endereços do ambiente de Compose, em `localhost:8080`. A caixa de e-mail fica dentro do cluster; para abri-la, encaminhe a porta dela, num terminal que fica preso enquanto o encaminhamento durar, e abra `http://localhost:8025`:
+
+```bash
+kubectl -n oficina port-forward service/email 8025:8025
+```
+
+**Escalabilidade automática.** O HPA mede a CPU das réplicas contra o pedido de cada uma, `250m`, e mantém entre 1 e 4 réplicas, com alvo de 70%. Para simular aumento de carga, um Pod dentro do cluster chama o login em laço; o login confere a senha com BCrypt, que é caro em CPU de propósito, então cada chamada pesa de verdade:
+
+```bash
+kubectl -n oficina run gerador-carga --image=busybox:1.36 \
+  --restart=Never -- /bin/sh -c 'while true; do
+  wget -q -O- --header="Content-Type: application/json" \
+  --post-data="{\"login\":\"admin\",\"senha\":\"admin123\"}" \
+  http://oficina-app:8080/api/v1/auth/login >/dev/null; done'
+kubectl -n oficina get hpa oficina-app -w
+```
+
+Nesta máquina, a CPU média passou do alvo em menos de 30 segundos, o HPA subiu para 3 réplicas e, 15 segundos depois, para 4. Para ver a volta, apague o gerador:
+
+```bash
+kubectl -n oficina delete pod gerador-carga
+```
+
+A CPU cai abaixo do alvo em pouco mais de um minuto, e o HPA espera a janela de estabilização de 5 minutos antes de reduzir as réplicas, para não oscilar com uma queda momentânea: nesta máquina, a volta a 1 réplica veio cerca de 6 minutos depois de o gerador ser apagado.
+
+A escala é só pela CPU, e a conta que exclui a memória está no ADR-027: a memória de uma réplica quase não muda entre parada e sob carga, então ela não acompanha a demanda e, somada à CPU, impediria a volta a 1 réplica.
 
 ## Testes
 
@@ -262,6 +339,6 @@ A correspondência entre cada termo do negócio e seu identificador está no glo
 
 ## Decisões de arquitetura
 
-São **26**, cada uma com fundamento de negócio, fundamento técnico e o porquê, em [`docs/decisoes.md`](docs/decisoes.md). Onde a alternativa recusada é o próprio argumento, ela aparece em uma linha.
+São **27**, cada uma com fundamento de negócio, fundamento técnico e o porquê, em [`docs/decisoes.md`](docs/decisoes.md). Onde a alternativa recusada é o próprio argumento, ela aparece em uma linha.
 
 **Os códigos `ADR-0xx` citados neste README, no contrato da API e nos testes referem-se a esse documento.**
