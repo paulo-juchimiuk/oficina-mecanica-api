@@ -35,6 +35,7 @@ class SecurityConfig {
     private static final String ROTA_DE_LOGIN = ApiPathPrefixConfig.PREFIXO + "/auth/login";
     private static final String ROTAS_DE_ACOMPANHAMENTO = ApiPathPrefixConfig.PREFIXO + "/acompanhamento/**";
     private static final String[] ROTAS_DA_DOCUMENTACAO = {"/v3/api-docs", "/v3/api-docs.yaml", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**"};
+    private static final String[] SONDAS_DE_SAUDE = {"/actuator/health/liveness", "/actuator/health/readiness"};
 
     @Bean
     SecurityFilterChain filtros(HttpSecurity http, AuthenticationEntryPoint entryPoint) throws Exception {
@@ -47,6 +48,7 @@ class SecurityConfig {
                         .requestMatchers(ROTA_DE_LOGIN).permitAll()
                         .requestMatchers(ROTAS_DE_ACOMPANHAMENTO).permitAll()
                         .requestMatchers(ROTAS_DA_DOCUMENTACAO).permitAll()
+                        .requestMatchers(SONDAS_DE_SAUDE).permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(recurso -> recurso

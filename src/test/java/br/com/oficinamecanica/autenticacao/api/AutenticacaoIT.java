@@ -167,6 +167,28 @@ class AutenticacaoIT extends IntegracaoBase {
                 .andExpect(jsonPath("$.info.version").value(doContrato("version")));
     }
 
+    @Test
+    @DisplayName("deve liberar as sondas de vivacidade e de prontidao sem JWT, que e como o Kubernetes as consulta")
+    void deveLiberarSondasDeSaudeSemToken() throws Exception {
+        mockMvc.perform(get("/actuator/health/liveness"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"));
+        mockMvc.perform(get("/actuator/health/readiness"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"));
+    }
+
+    @Test
+    @DisplayName("deve manter fechado o resto do actuator: a raiz da saude pede JWT e nenhum outro endpoint e exposto")
+    void deveManterFechadoORestoDoActuator() throws Exception {
+        mockMvc.perform(get("/actuator/health"))
+                .andExpect(status().isUnauthorized());
+
+        String token = tokenAdministrativo();
+        mockMvc.perform(get("/actuator/env").header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound());
+    }
+
     private String doContrato(String chave) throws IOException {
         try (InputStream contrato = Files.newInputStream(Path.of("openapi.yaml"))) {
             Map<String, Map<String, Object>> raiz = new Yaml().load(contrato);

@@ -62,7 +62,7 @@ docker compose ps -a    # seed deve estar Exited (0); qualquer outro código é 
 docker compose logs seed
 ```
 
-O `seed` é um contêiner de tarefa única: espera o schema existir, carrega uma vez e termina, então vê-lo sair da lista de contêineres em execução é o esperado. Os dados de demonstração vivem em [`seed/`](seed/) e não em `db/migration`, pelo motivo registrado no ADR-015.
+O `seed` é um contêiner de tarefa única: espera o schema existir, carrega uma vez e termina, então vê-lo sair da lista de contêineres em execução é o esperado. Os dados de demonstração e o script que os carrega vivem em [`seed/`](seed/), e não em `db/migration`, pelo motivo registrado no ADR-015.
 
 O que já vem carregado: **uma Ordem de Serviço em cada um dos sete status**, com o histórico completo de transições (insumo do tempo médio de execução), clientes PF e PJ, veículos nos dois formatos de placa, catálogo de serviços e peças com saldo e estoque mínimo.
 
@@ -85,7 +85,7 @@ Com o ambiente de pé:
 
 As duas primeiras servem a especificação **gerada a partir do código**, e ela difere do contrato versionado em conteúdo, não em quantidade de rotas: a especificação gerada traz o título e a área de negócio de cada operação, mas **nenhuma delas tem descrição longa**; **não publica as respostas de erro nem o schema `Erro`**; não carrega as restrições de valor monetário (mínimo, teto e moeda única); **não traz o `info.description`**, que é onde moram as convenções de autorização e de erro de protocolo; expõe uma propriedade de validação de campo cruzado que o contrato não tem; e sai em OpenAPI 3.1.0 contra 3.0.3 do arquivo versionado. **O `openapi.yaml` é a fonte de verdade do contrato completo**, e é ele que deve ser lido para conhecer o contrato; o Swagger UI serve para experimentar as chamadas.
 
-A documentação, o login e as três rotas de acompanhamento do cliente são públicos, estas últimas pelo ADR-007. Todas as demais rotas **sob `/api/v1`** exigem JWT.
+A documentação, o login, as três rotas de acompanhamento do cliente e as duas sondas de saúde (`/actuator/health/liveness` e `/actuator/health/readiness`) são públicos: as de acompanhamento pelo ADR-007, e as sondas porque o Kubernetes as consulta sem credencial. As sondas leem só o estado de disponibilidade da própria aplicação, sem consultar banco nem e-mail, então uma chamada anônima não gera trabalho fora dela. A raiz `/actuator/health` exige JWT, e nenhum outro endpoint do actuator é exposto. Todas as demais rotas **sob `/api/v1`** exigem JWT.
 
 Para experimentar a superfície do cliente sem autenticar, use o código de acompanhamento da Ordem de Serviço que a carga deixa aguardando aprovação: `ACMP-e5a312adaec084e9ea783e0ff3f142a6`.
 

@@ -62,33 +62,14 @@ services:
       app:
         condition: service_started
     environment:
+      PGHOST: banco
+      PGUSER: oficina
+      PGDATABASE: oficina
       PGPASSWORD: oficina_local
       TZ: UTC
     volumes:
-      - ./seed/dados-demonstracao.sql:/dados-demonstracao.sql:ro
-    command:
-      - sh
-      - -c
-      - |
-        tentativas=0
-        until [ "$$(psql -h banco -U oficina -d oficina -tAc "select to_regclass('public.ordem_servico') is not null")" = "t" ]; do
-          tentativas=$$((tentativas + 1))
-          if [ $$tentativas -ge 120 ]; then
-            echo "seed: o schema nao apareceu em 120 tentativas; o Flyway do app nao rodou" >&2
-            exit 1
-          fi
-          sleep 1
-        done
-        existentes=$$(psql -h banco -U oficina -d oficina -tAc 'select count(*) from ordem_servico') || {
-          echo "seed: nao foi possivel consultar o banco para decidir se ja esta populado" >&2
-          exit 1
-        }
-        if [ "$$existentes" != "0" ]; then
-          echo "seed: o banco ja esta populado, nada a fazer"
-          exit 0
-        fi
-        psql -h banco -U oficina -d oficina --single-transaction -v ON_ERROR_STOP=1 -q -f /dados-demonstracao.sql \
-          && echo "seed: dados de demonstracao carregados"
+      - ./seed:/seed:ro
+    command: ["sh", "/seed/carrega.sh"]
 
 volumes:
   dados_banco:

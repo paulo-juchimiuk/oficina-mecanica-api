@@ -12,6 +12,7 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -26,6 +27,7 @@ import static org.springframework.security.test.web.servlet.setup.SecurityMockMv
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 @SpringBootTest
+@TestPropertySource(properties = "management.health.mail.enabled=false")
 public abstract class IntegracaoBase {
 
     protected static final String PREFIXO = ApiPathPrefixConfig.PREFIXO;
