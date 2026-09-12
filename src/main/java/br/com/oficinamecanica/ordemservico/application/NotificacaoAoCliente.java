@@ -6,7 +6,8 @@ import br.com.oficinamecanica.ordemservico.domain.StatusOrdemServico;
 
 public interface NotificacaoAoCliente {
 
-    void enviarOrcamento(String email, CodigoAcompanhamento codigoAcompanhamento, Orcamento versao);
+    void enviarOrcamento(String email, CodigoAcompanhamento codigoAcompanhamento, Orcamento versao,
+                         StatusOrdemServico status);
 
     void enviarMudancaDeStatus(String email, CodigoAcompanhamento codigoAcompanhamento, StatusOrdemServico status);
 }

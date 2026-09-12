@@ -506,7 +506,7 @@ components:
 
     StatusOrdemServico:
       type: string
-      description: 'os 6 status do fluxo de atendimento, mais CANCELADA, o 7o status decidido no ADR-008. O nome do atendimento e o identificador da API, nesta ordem: Recebida e RECEBIDA; Diagnostico e EM_DIAGNOSTICO; Aguardando Aprovacao e AGUARDANDO_APROVACAO; Execucao e EM_EXECUCAO; Finalizada e FINALIZADA; Entregue e ENTREGUE; Cancelada e CANCELADA. A escolha de manter os identificadores esta no ADR-026'
+      description: 'os 6 status do fluxo de atendimento, mais CANCELADA, o 7o status decidido no ADR-008. O nome no enunciado da fase e o identificador da API, nesta ordem: Recebida e RECEBIDA; Diagnostico e EM_DIAGNOSTICO; Aguardando Aprovacao e AGUARDANDO_APROVACAO; Execucao e EM_EXECUCAO; Finalizada e FINALIZADA; Entregue e ENTREGUE; Cancelada e CANCELADA. A escolha de manter os identificadores esta no ADR-026'
       enum: [RECEBIDA, EM_DIAGNOSTICO, AGUARDANDO_APROVACAO, EM_EXECUCAO, FINALIZADA, ENTREGUE, CANCELADA]
 
     Dinheiro:

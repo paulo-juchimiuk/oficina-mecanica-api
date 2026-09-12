@@ -8,9 +8,11 @@ Tech Challenge da pós-graduação em Arquitetura de Software (FIAP). A **Fase 1
 
 A oficina atende, diagnostica, executa e entrega usando anotação manual e planilha, e é dessa forma de trabalho que nascem os cinco problemas que este sistema existe para resolver: erro na priorização dos atendimentos, falha no controle de peças e insumos, dificuldade de acompanhar o status dos serviços, perda do histórico de clientes e veículos, e ineficiência no fluxo de orçamentos e autorizações.
 
-O objetivo desta primeira versão é substituir a planilha pelo registro que o próprio fluxo de trabalho produz: cada mudança de status é gravada com data e hora pela ação que a causou, o orçamento nasce dos itens lançados e vai ao cliente para aprovação, a peça é separada para a OS na aprovação do orçamento e só sai do saldo quando o Mecânico a retira, e o cliente acompanha a própria Ordem de Serviço sem depender de telefonema.
+A primeira versão substituiu a planilha pelo registro que o próprio fluxo de trabalho produz: cada mudança de status é gravada com data e hora pela ação que a causou, o orçamento nasce dos itens lançados e vai ao cliente para aprovação, a peça é separada para a OS na aprovação do orçamento e só sai do saldo quando o Mecânico a retira, e o cliente acompanha a própria Ordem de Serviço sem depender de telefonema.
 
-O recorte é de MVP: back-end, sem interface gráfica, com gestão de ordens de serviço, clientes e peças.
+**O objetivo desta fase é evoluir essa aplicação para garantir qualidade, resiliência e escalabilidade.** A mudança de fundo é arquitetural, e ela deixa de ser promessa de documento porque o build prova: as dependências apontam para o centro e o framework não entra no anel dos casos de uso. Sobre essa base, o atendimento ganha o que o fluxo pedia e não tinha: o cliente pede serviço já na abertura, a fila mostra primeiro o que está na bancada e esconde o que já saiu, a resposta ao orçamento chega de fora por notificação, e cada mudança de status é avisada ao cliente por e-mail.
+
+O recorte segue sendo de MVP: back-end, sem interface gráfica, com gestão de ordens de serviço, clientes e peças.
 
 ## O que o sistema faz
 
@@ -23,9 +25,9 @@ O recorte é de MVP: back-end, sem interface gráfica, com gestão de ordens de 
 
 ### Status da OS: o nome do atendimento e o identificador da API
 
-O atendimento nomeia os status em português corrente, e a API responde identificadores. Os dois vocabulários existem, então a tabela liga um ao outro; a escolha de manter os identificadores está no ADR-026.
+O enunciado da fase nomeia os status em português corrente, e a API responde identificadores. A tabela liga um ao outro, para que a palavra do enunciado leve ao campo certo; a escolha de manter os identificadores está no ADR-026.
 
-| Nome no atendimento | Identificador na API |
+| Nome no enunciado da fase | Identificador na API |
 |---|---|
 | Recebida | `RECEBIDA` |
 | Diagnóstico | `EM_DIAGNOSTICO` |

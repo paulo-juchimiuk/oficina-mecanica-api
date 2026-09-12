@@ -85,7 +85,10 @@ class CicloDaOrdemServicoIT extends IntegracaoBase {
         int transicoes = contar("SELECT COUNT(*) FROM transicao_status WHERE ordem_servico_id = '" + id + "'");
         assertThat(transicoes).isEqualTo(8);
         assertThat(emailsEnviados()).hasSize(transicoes);
-        assertThat(emailsComAssunto(ASSUNTO_DO_ORCAMENTO)).hasSize(2);
+        assertThat(emailsComAssunto(ASSUNTO_DO_ORCAMENTO))
+                .hasSize(2)
+                .allSatisfy(mensagem -> assertThat(mensagem.getText())
+                        .contains("Situacao atual: AGUARDANDO_APROVACAO"));
     }
 
     @Test

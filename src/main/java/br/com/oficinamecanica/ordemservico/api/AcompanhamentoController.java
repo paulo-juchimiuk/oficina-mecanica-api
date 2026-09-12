@@ -39,13 +39,13 @@ public class AcompanhamentoController {
     }
 
     @PostMapping("/{codigoAcompanhamento}/orcamento/aprovacao")
-    @Operation(summary = "Aprovar orcamento (Cliente, sem JWT)")
+    @Operation(summary = "Notificacao externa de aprovacao do orcamento (Cliente, sem JWT)")
     public AcompanhamentoResponse aprovar(@PathVariable String codigoAcompanhamento) {
         return AcompanhamentoResponse.de(aprovarOrcamento.executar(codigoAcompanhamento));
     }
 
     @PostMapping("/{codigoAcompanhamento}/orcamento/reprovacao")
-    @Operation(summary = "Reprovar orcamento (Cliente, sem JWT)")
+    @Operation(summary = "Notificacao externa de recusa do orcamento (Cliente, sem JWT)")
     public AcompanhamentoResponse reprovar(@PathVariable String codigoAcompanhamento) {
         return AcompanhamentoResponse.de(reprovarOrcamento.executar(codigoAcompanhamento));
     }

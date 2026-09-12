@@ -28,8 +28,9 @@ class NotificacaoAoClientePorEmail implements NotificacaoAoCliente {
     }
 
     @Override
-    public void enviarOrcamento(String email, CodigoAcompanhamento codigoAcompanhamento, Orcamento versao) {
-        enviar(email, ASSUNTO_DO_ORCAMENTO, corpoDoOrcamento(codigoAcompanhamento, versao));
+    public void enviarOrcamento(String email, CodigoAcompanhamento codigoAcompanhamento, Orcamento versao,
+                                StatusOrdemServico status) {
+        enviar(email, ASSUNTO_DO_ORCAMENTO, corpoDoOrcamento(codigoAcompanhamento, versao, status));
     }
 
     @Override
@@ -47,16 +48,19 @@ class NotificacaoAoClientePorEmail implements NotificacaoAoCliente {
         mailSender.send(mensagem);
     }
 
-    private String corpoDoOrcamento(CodigoAcompanhamento codigoAcompanhamento, Orcamento versao) {
+    private String corpoDoOrcamento(CodigoAcompanhamento codigoAcompanhamento, Orcamento versao,
+                                    StatusOrdemServico status) {
         return """
                 A versao %d do orcamento esta disponivel para sua aprovacao.
 
                 Total: %s %s
                 Validade: %d dias
 
+                Situacao atual: %s
+
                 Acompanhe em: %s
                 """.formatted(versao.versao(), versao.total().moeda(), versao.total().valor(),
-                versao.validadeDias(), enderecoDeAcompanhamento(codigoAcompanhamento));
+                versao.validadeDias(), status, enderecoDeAcompanhamento(codigoAcompanhamento));
     }
 
     private String corpoDaMudancaDeStatus(CodigoAcompanhamento codigoAcompanhamento, StatusOrdemServico status) {

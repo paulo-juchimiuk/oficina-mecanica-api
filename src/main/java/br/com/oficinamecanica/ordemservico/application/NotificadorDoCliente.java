@@ -16,7 +16,8 @@ public class NotificadorDoCliente {
     }
 
     public void notificarOrcamento(OrdemServico ordemServico, Orcamento versao) {
-        notificacao.enviarOrcamento(emailDoCliente(ordemServico), ordemServico.codigoAcompanhamento(), versao);
+        notificacao.enviarOrcamento(
+                emailDoCliente(ordemServico), ordemServico.codigoAcompanhamento(), versao, ordemServico.status());
     }
 
     public void notificarMudancaDeStatus(OrdemServico ordemServico) {

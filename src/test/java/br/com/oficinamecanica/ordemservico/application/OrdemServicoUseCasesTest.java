@@ -298,7 +298,8 @@ class OrdemServicoUseCasesTest {
 
         assertThat(atualizada.status()).isEqualTo(StatusOrdemServico.AGUARDANDO_APROVACAO);
         verify(notificacao).enviarOrcamento(eq(EMAIL_DO_CLIENTE), eq(ordem.codigoAcompanhamento()),
-                argThat(versao -> versao.versao() == 1 && versao.enviado()));
+                argThat(versao -> versao.versao() == 1 && versao.enviado()),
+                eq(StatusOrdemServico.AGUARDANDO_APROVACAO));
     }
 
     @Test

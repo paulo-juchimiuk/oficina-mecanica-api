@@ -427,7 +427,7 @@ Os quatro pacotes de cada contexto já eram esses quatro círculos, e a direçã
 
 **A exclusão é lógica, e é isso que a torna verificável:** o registro não é apagado nem marcado, continua respondendo pela consulta por identificador e reaparece quando o filtro o pede. **Sem coluna nova:** o critério é o próprio status, então o ADR-014 continua valendo apenas para os quatro cadastros e a OS segue sem coluna `ativo`.
 
-**Fundamento técnico:** a prioridade mora no domínio, no próprio `StatusOrdemServico`, e o adaptador apenas ordena por ela; a exclusão é declarada como o complemento dos status encerrados, então um status novo entra na fila por construção, em vez de ficar fora em silêncio.
+**Fundamento técnico:** a prioridade mora no domínio, no próprio `StatusOrdemServico`, e o caso de uso da listagem apenas ordena por ela; a exclusão é declarada como o complemento dos status encerrados, então um status novo entra na fila por construção, em vez de ficar fora em silêncio.
 
 **Porquê:** a fila existe para o atendente saber o que está na bancada agora. OS entregue não é trabalho, é histórico, e histórico se consulta, não se enfileira.
 

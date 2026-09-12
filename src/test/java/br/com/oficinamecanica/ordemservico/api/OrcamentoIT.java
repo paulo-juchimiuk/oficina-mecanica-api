@@ -187,7 +187,8 @@ class OrcamentoIT extends IntegracaoBase {
         assertThat(mensagem.getText())
                 .contains(codigo)
                 .contains("/acompanhamento/" + codigo)
-                .contains("220.00");
+                .contains("220.00")
+                .contains("AGUARDANDO_APROVACAO");
     }
 
     @Test
