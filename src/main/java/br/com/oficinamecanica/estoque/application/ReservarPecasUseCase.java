@@ -4,13 +4,10 @@ import br.com.oficinamecanica.estoque.domain.Peca;
 import br.com.oficinamecanica.estoque.domain.PecaNaoEncontradaException;
 import br.com.oficinamecanica.estoque.domain.PecaRepository;
 import br.com.oficinamecanica.estoque.domain.ResultadoDaReserva;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 import static java.util.Comparator.comparing;
 
-@Service
 public class ReservarPecasUseCase {
 
     private final PecaRepository pecas;
@@ -19,7 +16,6 @@ public class ReservarPecasUseCase {
         this.pecas = pecas;
     }
 
-    @Transactional
     public List<ResultadoDaReserva> executar(UUID ordemServicoId, List<ItemAReservar> itens) {
         return itens.stream()
                 .sorted(comparing(ItemAReservar::pecaId))

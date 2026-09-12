@@ -4,11 +4,8 @@ import br.com.oficinamecanica.estoque.domain.Dinheiro;
 import br.com.oficinamecanica.estoque.domain.Peca;
 import br.com.oficinamecanica.estoque.domain.PecaNaoEncontradaException;
 import br.com.oficinamecanica.estoque.domain.PecaRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 
-@Service
 public class AlterarPecaUseCase {
 
     private final PecaRepository pecas;
@@ -17,7 +14,6 @@ public class AlterarPecaUseCase {
         this.pecas = pecas;
     }
 
-    @Transactional
     public Peca executar(UUID id, String nome, String unidadeMedida, Dinheiro preco, int estoqueMinimo) {
         Peca peca = pecas.buscarAtivaComTrava(id).orElseThrow(() -> new PecaNaoEncontradaException(id));
         peca.alterar(nome, unidadeMedida, preco, estoqueMinimo);

@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -68,7 +69,7 @@ public class OrdemServico {
     }
 
     public void incluirItens(List<ServicoAIncluir> servicos, List<PecaAIncluir> pecas) {
-        exigirStatus(StatusOrdemServico.EM_DIAGNOSTICO);
+        exigirStatusEntre(StatusOrdemServico.queAceitamItens());
         acrescentarItens(versaoCorrenteOuRascunho(), servicos, pecas);
     }
 
@@ -228,6 +229,12 @@ public class OrdemServico {
 
     private boolean versaoFoiReprovada(int versao) {
         return orcamentos.stream().filter(orcamento -> orcamento.versao() == versao).anyMatch(Orcamento::reprovado);
+    }
+
+    private void exigirStatusEntre(Set<StatusOrdemServico> aceitos) {
+        if (!aceitos.contains(status)) {
+            throw new EstadoExigidoException(status, aceitos);
+        }
     }
 
     private void exigirStatus(StatusOrdemServico esperado) {

@@ -5,11 +5,8 @@ import br.com.oficinamecanica.catalogo.domain.Servico;
 import br.com.oficinamecanica.catalogo.domain.ServicoComOrdemServicoEmAndamentoException;
 import br.com.oficinamecanica.catalogo.domain.ServicoNaoEncontradoException;
 import br.com.oficinamecanica.catalogo.domain.ServicoRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 
-@Service
 public class InativarServicoUseCase {
 
     private final ServicoRepository servicos;
@@ -20,7 +17,6 @@ public class InativarServicoUseCase {
         this.ordensServico = ordensServico;
     }
 
-    @Transactional
     public void executar(UUID id) {
         Servico servico = servicos.buscarAtivoComTrava(id).orElseThrow(() -> new ServicoNaoEncontradoException(id));
         if (ordensServico.existemParaServico(id)) {

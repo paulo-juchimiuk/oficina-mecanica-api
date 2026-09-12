@@ -168,12 +168,26 @@ class OrdemServicoTest {
     }
 
     @Test
-    @DisplayName("deve recusar incluir itens fora de Em diagnostico")
-    void deveRecusarIncluirItensForaDeEmDiagnostico() {
+    @DisplayName("deve aceitar itens na OS Recebida, abrindo a versao 1 sem mudar o status")
+    void deveAceitarItensNaOrdemRecebida() {
         OrdemServico ordem = ordemAberta();
 
+        ordem.incluirItens(List.of(new ServicoAIncluir(UUID.randomUUID(), reais("120.00"))), List.of());
+
+        assertThat(ordem.status()).isEqualTo(StatusOrdemServico.RECEBIDA);
+        assertThat(ordem.versaoMaisRecente().orElseThrow().versao()).isEqualTo(1);
+        assertThat(ordem.versaoMaisRecente().orElseThrow().total()).isEqualTo(reais("120.00"));
+    }
+
+    @Test
+    @DisplayName("deve recusar incluir itens depois que o diagnostico foi concluido")
+    void deveRecusarIncluirItensDepoisDoDiagnostico() {
+        OrdemServico ordem = ordemEmDiagnostico();
+        ordem.incluirItens(List.of(new ServicoAIncluir(UUID.randomUUID(), reais("120.00"))), List.of());
+        ordem.concluirDiagnostico();
+
         assertThatThrownBy(() -> ordem.incluirItens(
-                List.of(new ServicoAIncluir(UUID.randomUUID(), reais("120.00"))), List.of()))
+                List.of(new ServicoAIncluir(UUID.randomUUID(), reais("80.00"))), List.of()))
                 .isInstanceOf(EstadoExigidoException.class);
     }
 

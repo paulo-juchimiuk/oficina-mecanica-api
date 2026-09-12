@@ -6,11 +6,8 @@ import br.com.oficinamecanica.estoque.domain.PecaComOrdemServicoEmAndamentoExcep
 import br.com.oficinamecanica.estoque.domain.PecaComReservaAtivaException;
 import br.com.oficinamecanica.estoque.domain.PecaNaoEncontradaException;
 import br.com.oficinamecanica.estoque.domain.PecaRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 
-@Service
 public class InativarPecaUseCase {
 
     private final PecaRepository pecas;
@@ -21,7 +18,6 @@ public class InativarPecaUseCase {
         this.ordensServicoEmAndamento = ordensServicoEmAndamento;
     }
 
-    @Transactional
     public void executar(UUID id) {
         Peca peca = pecas.buscarAtivaComTrava(id).orElseThrow(() -> new PecaNaoEncontradaException(id));
         if (ordensServicoEmAndamento.existemParaPeca(id)) {

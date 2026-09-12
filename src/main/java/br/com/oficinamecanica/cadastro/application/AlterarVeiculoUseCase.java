@@ -7,11 +7,8 @@ import br.com.oficinamecanica.cadastro.domain.PlacaJaCadastradaException;
 import br.com.oficinamecanica.cadastro.domain.Veiculo;
 import br.com.oficinamecanica.cadastro.domain.VeiculoNaoEncontradoException;
 import br.com.oficinamecanica.cadastro.domain.VeiculoRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 
-@Service
 public class AlterarVeiculoUseCase {
 
     private final VeiculoRepository veiculos;
@@ -22,7 +19,6 @@ public class AlterarVeiculoUseCase {
         this.clientes = clientes;
     }
 
-    @Transactional
     public Veiculo executar(UUID id, Placa placa, String marca, String modelo, int ano, UUID clienteId) {
         if (clientes.buscarAtivoComTrava(clienteId).isEmpty()) {
             throw new ClienteNaoEncontradoException(clienteId);

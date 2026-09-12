@@ -3,24 +3,24 @@ package br.com.oficinamecanica.ordemservico.application;
 import br.com.oficinamecanica.ordemservico.domain.OrdemServico;
 import br.com.oficinamecanica.ordemservico.domain.OrdemServicoNaoEncontradaException;
 import br.com.oficinamecanica.ordemservico.domain.OrdemServicoRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 
-@Service
 public class ConcluirExecucaoUseCase {
 
     private final OrdemServicoRepository ordensServico;
+    private final NotificadorDoCliente notificador;
 
-    public ConcluirExecucaoUseCase(OrdemServicoRepository ordensServico) {
+    public ConcluirExecucaoUseCase(OrdemServicoRepository ordensServico, NotificadorDoCliente notificador) {
         this.ordensServico = ordensServico;
+        this.notificador = notificador;
     }
 
-    @Transactional
     public OrdemServico executar(UUID id) {
         OrdemServico ordemServico = ordensServico.buscarComTrava(id)
                 .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
         ordemServico.concluirExecucao();
-        return ordensServico.salvar(ordemServico);
+        OrdemServico gravada = ordensServico.salvar(ordemServico);
+        notificador.notificarMudancaDeStatus(gravada);
+        return gravada;
     }
 }

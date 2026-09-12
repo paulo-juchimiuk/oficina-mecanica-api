@@ -5,10 +5,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.mail.MailSendException;
+import org.springframework.mail.SimpleMailMessage;
 import org.springframework.test.web.servlet.ResultActions;
 import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.matchesPattern;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -46,6 +51,45 @@ class OrdemServicoIT extends IntegracaoBase {
                 .andExpect(jsonPath("$.transicoesStatus.length()").value(1))
                 .andExpect(jsonPath("$.transicoesStatus[0].deStatus").value(nullValue()))
                 .andExpect(jsonPath("$.transicoesStatus[0].paraStatus").value("RECEBIDA"));
+    }
+
+    @Test
+    @DisplayName("deve abrir a OS com os servicos e as pecas pedidos pelo Cliente, ja na versao 1 do Orcamento")
+    void deveAbrirAOrdemServicoComOPedidoInicial() throws Exception {
+        UUID servicoId = inserirServico();
+        UUID pecaId = inserirPeca();
+
+        mockMvc.perform(post(PREFIXO + "/ordens-servico")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"documentoCliente": "%s", "veiculoId": "%s", "relatoDoProblema": "%s",
+                                 "itensServico": [{"servicoId": "%s"}],
+                                 "itensPeca": [{"pecaId": "%s", "quantidade": 2}]}
+                                """.formatted(DOCUMENTO, veiculoId, RELATO, servicoId, pecaId)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("RECEBIDA"))
+                .andExpect(jsonPath("$.orcamentos.length()").value(1))
+                .andExpect(jsonPath("$.orcamentos[0].versao").value(1))
+                .andExpect(jsonPath("$.orcamentos[0].situacao").value("PENDENTE"))
+                .andExpect(jsonPath("$.orcamentos[0].total.valor").value(220.00))
+                .andExpect(jsonPath("$.itensServico.length()").value(1))
+                .andExpect(jsonPath("$.itensPeca[0].quantidade").value(2))
+                .andExpect(jsonPath("$.transicoesStatus.length()").value(1));
+    }
+
+    @Test
+    @DisplayName("deve recusar a abertura quando o Servico pedido nao esta no catalogo")
+    void deveRecusarAberturaComServicoInexistente() throws Exception {
+        mockMvc.perform(post(PREFIXO + "/ordens-servico")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"documentoCliente": "%s", "veiculoId": "%s", "relatoDoProblema": "%s",
+                                 "itensServico": [{"servicoId": "%s"}]}
+                                """.formatted(DOCUMENTO, veiculoId, RELATO, UUID.randomUUID())))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.codigo").value("SERVICO_NAO_ENCONTRADO"));
     }
 
     @Test
@@ -131,6 +175,36 @@ class OrdemServicoIT extends IntegracaoBase {
     }
 
     @Test
+    @DisplayName("nao deve mudar o status quando o envio do e-mail falha, deixando a OS como estava")
+    void naoDeveMudarOStatusQuandoOEnvioFalha() throws Exception {
+        UUID id = idDaOrdemCriada();
+        doThrow(new MailSendException("caixa de e-mail indisponivel"))
+                .when(mailSender).send(any(SimpleMailMessage.class));
+
+        iniciarDiagnostico(id).andExpect(status().isInternalServerError());
+
+        assertThat(jdbc.queryForObject("SELECT status FROM ordem_servico WHERE id = ?", String.class, id))
+                .isEqualTo("RECEBIDA");
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM transicao_status WHERE ordem_servico_id = ?", Integer.class, id))
+                .isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("deve notificar o Cliente por e-mail em cada transicao, inclusive na abertura da OS")
+    void deveNotificarOClienteEmCadaTransicao() throws Exception {
+        UUID id = idDaOrdemCriada();
+
+        iniciarDiagnostico(id).andExpect(status().isOk());
+
+        int transicoes = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM transicao_status WHERE ordem_servico_id = ?", Integer.class, id);
+        assertThat(transicoes).isEqualTo(2);
+        assertThat(emailsEnviados()).hasSize(transicoes);
+        assertThat(emailsEnviados().getLast().getText()).contains("EM_DIAGNOSTICO");
+    }
+
+    @Test
     @DisplayName("deve listar a fila de OSs e filtrar por Status da OS")
     void deveListarEFiltrarPorStatus() throws Exception {
         UUID emDiagnostico = idDaOrdemCriada();
@@ -139,7 +213,10 @@ class OrdemServicoIT extends IntegracaoBase {
 
         mockMvc.perform(get(PREFIXO + "/ordens-servico").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(2));
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].id").value(emDiagnostico.toString()))
+                .andExpect(jsonPath("$[0].status").value("EM_DIAGNOSTICO"))
+                .andExpect(jsonPath("$[1].status").value("RECEBIDA"));
 
         mockMvc.perform(get(PREFIXO + "/ordens-servico?status=EM_DIAGNOSTICO")
                         .header("Authorization", "Bearer " + token))
@@ -233,6 +310,25 @@ class OrdemServicoIT extends IntegracaoBase {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return objectMapper.readTree(corpo).get(campo).asText();
+    }
+
+    private UUID inserirServico() {
+        UUID id = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO servico (id, nome, descricao, valor_mao_de_obra, moeda)
+                VALUES (?, 'Troca de oleo', 'Troca completa', 120.00, 'BRL')
+                """, id);
+        return id;
+    }
+
+    private UUID inserirPeca() {
+        UUID id = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO peca (id, nome, unidade_medida, preco, moeda, saldo_em_estoque,
+                                  quantidade_reservada, estoque_minimo)
+                VALUES (?, 'Filtro de oleo', 'unidade', 50.00, 'BRL', 10, 0, 2)
+                """, id);
+        return id;
     }
 
     private UUID inserirCliente(String documento, String nome, boolean ativo) {

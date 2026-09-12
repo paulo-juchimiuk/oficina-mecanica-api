@@ -8,7 +8,6 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.http.MediaType;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.ResultActions;
 import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -23,10 +22,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class OrcamentoIT extends IntegracaoBase {
 
     private static final String DOCUMENTO = "10433218100";
+    private static final String ASSUNTO_DO_ORCAMENTO = "Orcamento da sua Ordem de Servico";
     private static final String EMAIL_DO_CLIENTE = "ana@example.com";
-
-    @MockitoBean
-    private MailSender mailSender;
 
     private String token;
     private UUID clienteId;
@@ -135,9 +132,23 @@ class OrcamentoIT extends IntegracaoBase {
     }
 
     @Test
-    @DisplayName("deve responder 409 ao incluir itens numa OS que ainda nao esta Em diagnostico")
-    void deveResponder409AoIncluirItensForaDeEmDiagnostico() throws Exception {
+    @DisplayName("deve aceitar itens na OS Recebida, abrindo a versao 1 antes do diagnostico")
+    void deveAceitarItensNaOrdemRecebida() throws Exception {
         UUID id = criarOrdem();
+
+        incluirItens(id, corpoComServico())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("RECEBIDA"))
+                .andExpect(jsonPath("$.orcamentos.length()").value(1))
+                .andExpect(jsonPath("$.orcamentos[0].versao").value(1));
+    }
+
+    @Test
+    @DisplayName("deve responder 409 ao incluir itens depois que o diagnostico foi concluido")
+    void deveResponder409AoIncluirItensDepoisDoDiagnostico() throws Exception {
+        UUID id = ordemEmDiagnostico();
+        incluirItens(id, corpoComServico()).andExpect(status().isOk());
+        concluirDiagnostico(id).andExpect(status().isOk());
 
         incluirItens(id, corpoComServico())
                 .andExpect(status().isConflict())
@@ -157,7 +168,7 @@ class OrcamentoIT extends IntegracaoBase {
                 .andExpect(jsonPath("$.orcamentos[0].situacao").value("PENDENTE"))
                 .andExpect(jsonPath("$.transicoesStatus.length()").value(3));
 
-        verify(mailSender).send(any(SimpleMailMessage.class));
+        assertThat(emailsComAssunto(ASSUNTO_DO_ORCAMENTO)).hasSize(1);
     }
 
     @Test
@@ -170,11 +181,9 @@ class OrcamentoIT extends IntegracaoBase {
 
         concluirDiagnostico(id).andExpect(status().isOk());
 
-        ArgumentCaptor<SimpleMailMessage> enviada = ArgumentCaptor.forClass(SimpleMailMessage.class);
-        verify(mailSender).send(enviada.capture());
-        SimpleMailMessage mensagem = enviada.getValue();
+        assertThat(emailsComAssunto(ASSUNTO_DO_ORCAMENTO)).hasSize(1);
+        SimpleMailMessage mensagem = emailsComAssunto(ASSUNTO_DO_ORCAMENTO).getFirst();
         assertThat(mensagem.getTo()).containsExactly(EMAIL_DO_CLIENTE);
-        assertThat(mensagem.getSubject()).isNotBlank();
         assertThat(mensagem.getText())
                 .contains(codigo)
                 .contains("/acompanhamento/" + codigo)

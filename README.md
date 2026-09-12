@@ -1,8 +1,8 @@
 # oficina-mecanica-api
 
-API de gestão para oficina mecânica de médio porte: ordem de serviço, orçamento com aprovação do cliente, controle de estoque e acompanhamento do atendimento. Back-end monolítico, modelado com DDD.
+API de gestão para oficina mecânica de médio porte: ordem de serviço, orçamento com aprovação do cliente, controle de estoque e acompanhamento do atendimento. Back-end em **Clean Architecture**, com o domínio modelado por DDD.
 
-Tech Challenge da Fase 1 da pós-graduação em Arquitetura de Software (FIAP).
+Tech Challenge da pós-graduação em Arquitetura de Software (FIAP). A **Fase 1** entregou o domínio, a API e o ambiente local. A **Fase 2** evolui esta mesma aplicação: a arquitetura passa a ser Clean Architecture com a regra de dependência provada no build (ADR-025), e o atendimento ganha o pedido inicial do cliente na abertura, a fila de atendimento com exclusão lógica das encerradas, a notificação externa de aprovação do orçamento e o aviso por e-mail a cada mudança de status (ADR-026).
 
 ## Objetivos
 
@@ -15,10 +15,27 @@ O recorte é de MVP: back-end, sem interface gráfica, com gestão de ordens de 
 ## O que o sistema faz
 
 - **Ordem de Serviço** com máquina de estados (Recebida, Em diagnóstico, Aguardando aprovação, Em execução, Finalizada, Entregue, mais Cancelada, o sétimo status decidido no ADR-008), com mudança automática de status conforme as ações no sistema.
-- **Orçamento** gerado automaticamente a partir dos itens de serviço e de peça, enviado ao cliente, com aprovação ou reprovação via API pelo código de acompanhamento, sem exigir login do cliente.
+- **Orçamento** gerado automaticamente a partir dos itens de serviço e de peça, enviado ao cliente por e-mail, e respondido pela **notificação externa de aprovação ou de recusa**: duas rotas públicas que quem está fora do sistema chama portando o código de acompanhamento, sem exigir login do cliente.
 - **CRUDs** de clientes, veículos, serviços e peças, este último com controle de estoque (reserva, baixa, entrada e consulta de peças abaixo do estoque mínimo).
+- **Atualização de status por e-mail:** toda transição de status envia ao cliente um e-mail com o status novo e o endereço de acompanhamento. **A leitura adotada do requisito é esta**, notificar o cliente, e ela está fundamentada no ADR-026. O envio é atômico com a transição: se o e-mail não sai, a transição não acontece, porque falha visível é preferível a notificação perdida em silêncio. A transição que gera orçamento é notificada pelo e-mail do orçamento, que já carrega o status novo e o mesmo endereço, então cada transição produz exatamente um e-mail.
 - **Tempo médio de execução** dos serviços, calculado a partir dos timestamps das transições de status.
 - **Autenticação JWT** nas APIs administrativas e validação de dados sensíveis (documento e placa) como regra de domínio.
+
+### Status da OS: o nome do atendimento e o identificador da API
+
+O atendimento nomeia os status em português corrente, e a API responde identificadores. Os dois vocabulários existem, então a tabela liga um ao outro; a escolha de manter os identificadores está no ADR-026.
+
+| Nome no atendimento | Identificador na API |
+|---|---|
+| Recebida | `RECEBIDA` |
+| Diagnóstico | `EM_DIAGNOSTICO` |
+| Aguardando Aprovação | `AGUARDANDO_APROVACAO` |
+| Execução | `EM_EXECUCAO` |
+| Finalizada | `FINALIZADA` |
+| Entregue | `ENTREGUE` |
+| Cancelada (sétimo status, ADR-008) | `CANCELADA` |
+
+A **listagem sem filtro** devolve a fila de atendimento nesta ordem de prioridade: `EM_EXECUCAO`, `AGUARDANDO_APROVACAO`, `EM_DIAGNOSTICO`, `RECEBIDA`, e dentro do mesmo status da mais antiga para a mais nova. As OSs `FINALIZADA`, `ENTREGUE` e `CANCELADA` ficam fora dela. **A exclusão é lógica:** o registro continua respondendo pela consulta por identificador e reaparece quando o filtro `?status=` o pede.
 
 ## Documentação DDD
 
@@ -54,7 +71,7 @@ O que já vem carregado: **uma Ordem de Serviço em cada um dos sete status**, c
 
 - API: `http://localhost:8080/api/v1`
 - Banco: PostgreSQL 18 em `localhost:5432` (base, usuário e senha `oficina`, `oficina` e `oficina_local`, apenas para o ambiente local)
-- Caixa de e-mail do ambiente: `http://localhost:8025`. É onde o orçamento chega, sem provedor externo e sem credencial (ADR-007).
+- Caixa de e-mail do ambiente: `http://localhost:8025`. É onde chegam o orçamento e o aviso de cada mudança de status, sem provedor externo e sem credencial (ADR-007).
 
 ## Swagger
 
@@ -158,7 +175,7 @@ O raciocínio completo, com a alternativa recusada e a política de versão, est
 
 ## Estrutura do projeto
 
-Monolito em camadas, como o enunciado permite para um MVP, com os **contextos delimitados** do Context Map como pacotes de primeiro nível e as **quatro camadas do DDD** dentro de cada contexto. As duas exigências se encontram aqui: a camada vem do requisito técnico, o contexto vem do DDD. Cada pacote nasce junto da fatia do seu contexto.
+**Clean Architecture** (ADR-025), com os **contextos delimitados** do Context Map como pacotes de primeiro nível e os **quatro anéis** dentro de cada contexto. Os quatro pacotes são os quatro anéis, e o que define qual é qual é a direção das dependências: nada de um anel interno menciona o nome de algo declarado num anel externo. O contexto vem do DDD, o anel vem da arquitetura, e cada pacote nasce junto da fatia do seu contexto.
 
 ```
 br.com.oficinamecanica
@@ -172,14 +189,14 @@ br.com.oficinamecanica
 
 Dentro de cada contexto:
 
-| Pacote | Camada do DDD | Responsabilidade |
+| Pacote | Anel da Clean Architecture | Responsabilidade |
 |---|---|---|
-| `api` | interface do usuário | controllers REST e DTOs |
-| `application` | aplicação | orquestra casos de uso e resolve as pré-condições que atravessam agregados, como o vínculo entre Veículo e Cliente na criação da OS; a regra de dentro de um agregado mora no `domain` |
-| `domain` | domínio | agregados, value objects, entidades internas, portas de leitura |
-| `infrastructure` | infraestrutura | persistência e adaptadores |
+| `api` | Adaptadores de interface: Controllers e Presenters | controllers REST, DTOs de entrada e as respostas que traduzem o agregado para a borda |
+| `application` | Casos de uso | orquestra os casos de uso e resolve as pré-condições que atravessam agregados, como o vínculo entre Veículo e Cliente na criação da OS; a regra de dentro de um agregado mora no `domain`. **Não tem uma linha de import do framework** |
+| `domain` | Entidades | agregados, value objects, entidades internas, portas de leitura e de saída |
+| `infrastructure` | Adaptadores de interface: Gateways, mais a fronteira com Frameworks e drivers | persistência, adaptadores das portas, e as `@Configuration` que registram os casos de uso como bean e declaram a transação |
 
-**A regra de dependência aponta para o domínio.** O pacote `domain` não importa `infrastructure` nem `api`, e por isso é testável sem subir o Spring.
+**A regra de dependência aponta para o centro, e isso tem prova no build.** Um teste de arquitetura afirma que `domain` e `application` não dependem de framework, de borda nem de infraestrutura, e que a borda não depende da infraestrutura; ele foi conferido por controle negativo, com um import proibido inserido de propósito para ver o teste ficar vermelho. Os casos de uso são registrados como bean por métodos explícitos numa `@Configuration` por contexto, na infraestrutura, e a transação é declarada por classe em `shared/infrastructure`: um teste de integração lista os casos de uso que existem no código e exige um bean transacional para cada um, com o atributo esperado. Por isso o `domain` e o `application` são testáveis sem subir o Spring.
 
 **Dentro das camadas não há subpacotes, e isso é decisão (ADR-021).** A unidade de encapsulamento é a camada dentro do contexto: as classes de persistência de `infrastructure` são package-private, então é o compilador que impede qualquer outra camada de importar uma entidade JPA. Como em Java o acesso de pacote não atravessa subpacote, subdividir a camada tornaria essas classes públicas e trocaria uma garantia verificada pelo compilador por uma regra que nada verifica.
 
@@ -205,7 +222,7 @@ A regra aplicada artefato por artefato:
 | Casos de uso | português | `CriarOrdemServicoUseCase`, `ConsultarTempoMedioExecucaoUseCase` |
 | Status da OS | português, nome do estado | `AGUARDANDO_APROVACAO`, `EM_EXECUCAO` |
 | Exceções de domínio | conceito em português, sufixo técnico em inglês | `PecaComReservaAtivaException` |
-| Padrões e mecanismos técnicos | inglês | `Controller`, `Repository`, `Mapper`, `Configuration` |
+| Padrões e mecanismos técnicos | inglês | `Controller`, `Repository`, `UseCase`, `Configuration` |
 | Métodos herdados de framework | inglês | `save()`, `findById()` |
 | DTOs e campos JSON | conceito em português, função técnica em inglês | `CriarOrdemServicoRequest`, `codigoAcompanhamento` |
 | Tabelas e colunas de domínio | português, `snake_case` | `ordem_servico`, `codigo_acompanhamento` |
@@ -218,6 +235,6 @@ A correspondência entre cada termo do negócio e seu identificador está no glo
 
 ## Decisões de arquitetura
 
-São **23**, cada uma com fundamento de negócio, fundamento técnico e o porquê, em [`docs/decisoes.md`](docs/decisoes.md). Onde a alternativa recusada é o próprio argumento, ela aparece em uma linha.
+São **26**, cada uma com fundamento de negócio, fundamento técnico e o porquê, em [`docs/decisoes.md`](docs/decisoes.md). Onde a alternativa recusada é o próprio argumento, ela aparece em uma linha.
 
 **Os códigos `ADR-0xx` citados neste README, no contrato da API e nos testes referem-se a esse documento.**

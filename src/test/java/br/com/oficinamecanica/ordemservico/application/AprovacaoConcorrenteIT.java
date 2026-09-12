@@ -10,7 +10,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.MailSender;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -27,9 +26,6 @@ class AprovacaoConcorrenteIT extends IntegracaoBase {
     private static final int QUANTIDADE_DE_PECAS = 2;
     private static final int SALDO_INICIAL = 50;
     private static final int RESPOSTAS_SIMULTANEAS = 4;
-
-    @MockitoBean
-    private MailSender mailSender;
 
     @Autowired
     private CriarOrdemServicoUseCase criarOrdemServico;
@@ -77,7 +73,7 @@ class AprovacaoConcorrenteIT extends IntegracaoBase {
                 VALUES (?, 'Filtro de oleo', 'unidade', 50.00, 'BRL', ?, 0, 2)
                 """, pecaId, SALDO_INICIAL);
 
-        OrdemServico ordem = criarOrdemServico.executar("10433218100", veiculoId, "Barulho ao frear");
+        OrdemServico ordem = criarOrdemServico.executar("10433218100", veiculoId, "Barulho ao frear", List.of(), List.of());
         iniciarDiagnostico.executar(ordem.id());
         incluirItens.executar(ordem.id(), List.of(new ItemDeServicoRequisitado(servicoId)),
                 List.of(new ItemDePecaRequisitado(pecaId, QUANTIDADE_DE_PECAS)));

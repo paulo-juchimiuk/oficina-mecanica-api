@@ -2,6 +2,7 @@ package br.com.oficinamecanica.ordemservico.domain;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 public interface OrdemServicoRepository {
@@ -16,7 +17,9 @@ public interface OrdemServicoRepository {
 
     Optional<OrdemServico> buscarComTravaPorCodigo(CodigoAcompanhamento codigoAcompanhamento);
 
-    List<OrdemServico> listar(Optional<StatusOrdemServico> status);
+    List<OrdemServico> listarComStatus(StatusOrdemServico status);
+
+    List<OrdemServico> listarExceto(Set<StatusOrdemServico> status);
 
     List<OrdemServico> listarComExecucaoConcluida(Optional<UUID> servicoId);
 }

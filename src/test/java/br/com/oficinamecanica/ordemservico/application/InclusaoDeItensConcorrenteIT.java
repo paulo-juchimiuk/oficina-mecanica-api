@@ -5,7 +5,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.MailSender;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -22,9 +21,6 @@ class InclusaoDeItensConcorrenteIT extends IntegracaoBase {
     private static final int RODADAS = 8;
     private static final int QUANTIDADE = 1;
     private static final int ITENS_POR_ORDEM = 2;
-
-    @MockitoBean
-    private MailSender mailSender;
 
     @Autowired
     private IncluirItensUseCase incluirItens;

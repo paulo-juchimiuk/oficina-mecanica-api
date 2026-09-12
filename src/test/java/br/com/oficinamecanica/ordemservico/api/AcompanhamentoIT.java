@@ -6,7 +6,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.mail.MailSender;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.ResultActions;
 import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -23,9 +22,6 @@ class AcompanhamentoIT extends IntegracaoBase {
     private static final String DOCUMENTO = "10433218100";
     private static final int QUANTIDADE_DE_PECAS = 2;
     private static final int SALDO_INICIAL = 10;
-
-    @MockitoBean
-    private MailSender mailSender;
 
     private String token;
     private UUID veiculoId;

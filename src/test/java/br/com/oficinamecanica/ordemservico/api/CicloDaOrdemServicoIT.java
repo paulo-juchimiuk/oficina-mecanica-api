@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.ResultActions;
 import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,9 +25,7 @@ class CicloDaOrdemServicoIT extends IntegracaoBase {
     private static final int QUANTIDADE_DE_PECAS = 2;
     private static final int QUANTIDADE_DO_ADICIONAL = 3;
     private static final int SALDO_INICIAL = 20;
-
-    @MockitoBean
-    private MailSender mailSender;
+    private static final String ASSUNTO_DO_ORCAMENTO = "Orcamento da sua Ordem de Servico";
 
     private String token;
     private UUID veiculoId;
@@ -85,7 +82,10 @@ class CicloDaOrdemServicoIT extends IntegracaoBase {
         assertThat(contar("SELECT COUNT(*) FROM reserva_peca WHERE peca_id = '" + pecaId + "'")).isEqualTo(2);
         assertThat(contar("SELECT quantidade_reservada FROM peca WHERE id = '" + pecaId + "'"))
                 .isEqualTo(QUANTIDADE_DE_PECAS + QUANTIDADE_DO_ADICIONAL);
-        verify(mailSender, times(2)).send(any(SimpleMailMessage.class));
+        int transicoes = contar("SELECT COUNT(*) FROM transicao_status WHERE ordem_servico_id = '" + id + "'");
+        assertThat(transicoes).isEqualTo(8);
+        assertThat(emailsEnviados()).hasSize(transicoes);
+        assertThat(emailsComAssunto(ASSUNTO_DO_ORCAMENTO)).hasSize(2);
     }
 
     @Test
@@ -270,6 +270,18 @@ class CicloDaOrdemServicoIT extends IntegracaoBase {
         UUID id = ordemAguardandoAprovacao();
         aprovar(id).andExpect(status().isOk());
         return id;
+    }
+
+    @Test
+    @DisplayName("deve registrar a entrega mesmo com o cadastro do Cliente inativado depois da OS")
+    void deveRegistrarAEntregaComCadastroInativado() throws Exception {
+        UUID id = ordemEmExecucao();
+        concluirExecucao(id).andExpect(status().isOk());
+        jdbc.update("UPDATE cliente SET ativo = FALSE WHERE documento = ?", DOCUMENTO);
+
+        entregar(id)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ENTREGUE"));
     }
 
     private int contar(String consulta) {

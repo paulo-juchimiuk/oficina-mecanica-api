@@ -2,26 +2,25 @@ package br.com.oficinamecanica.ordemservico.application;
 
 import br.com.oficinamecanica.ordemservico.domain.OrdemServico;
 import br.com.oficinamecanica.ordemservico.domain.OrdemServicoRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-@Service
 public class ReprovarOrcamentoUseCase {
 
     private final OrdemServicoRepository ordensServico;
     private final ConsultarAcompanhamentoUseCase acompanhamento;
+    private final NotificadorDoCliente notificador;
 
     public ReprovarOrcamentoUseCase(OrdemServicoRepository ordensServico,
-                                    ConsultarAcompanhamentoUseCase acompanhamento) {
+                                    ConsultarAcompanhamentoUseCase acompanhamento,
+                                    NotificadorDoCliente notificador) {
         this.ordensServico = ordensServico;
         this.acompanhamento = acompanhamento;
+        this.notificador = notificador;
     }
 
-    @Transactional
     public Acompanhamento executar(String codigo) {
         OrdemServico ordemServico = ConsultarAcompanhamentoUseCase.ordemDoCodigoComTrava(ordensServico, codigo);
         ordemServico.reprovarOrcamento();
-        ordensServico.salvar(ordemServico);
+        notificador.notificarMudancaDeStatus(ordensServico.salvar(ordemServico));
         return acompanhamento.executar(codigo);
     }
 }

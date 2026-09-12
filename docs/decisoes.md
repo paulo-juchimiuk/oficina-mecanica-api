@@ -1,6 +1,6 @@
 # Decisões de arquitetura (ADRs)
 
-São 23 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento técnico** e **o porquê**. Onde a alternativa recusada é o próprio argumento, ela aparece em uma linha. Onde algo ficou fora do MVP, isso está declarado, e não omitido.
+São 26 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento técnico** e **o porquê**. Onde a alternativa recusada é o próprio argumento, ela aparece em uma linha. Onde algo ficou fora do MVP, isso está declarado, e não omitido.
 
 ---
 
@@ -44,6 +44,8 @@ São 23 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 **Alternativa recusada:** Clean Architecture já nesta fase. Aumenta o custo agora sem atender nada que o enunciado peça.
 
+**Substituído pelo ADR-025 na Fase 2**, que adota a Clean Architecture quando a fase passa a exigi-la. Este registro fica como histórico da decisão da Fase 1.
+
 ---
 
 ## ADR-004: Análise de vulnerabilidades em três superfícies
@@ -82,7 +84,7 @@ São 23 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 **Fundamento técnico:** a Placa muda no mundo real, por transferência ou pela conversão ao padrão Mercosul, e identidade de agregado não pode mudar. Agregados pequenos com referência por identidade reduzem contenção e mantêm invariantes locais. Cada Item registra a versão do orçamento que o introduziu, e é isso que separa o escopo aprovado do reparo adicional recusado: uma versão **anterior** já reprovada não entra no escopo, e a versão corrente nunca se autoexclui, senão ela exibiria orçamento vazio justamente para o Cliente que precisa lê-lo.
 
-**Consequência que a implementação torna visível:** como o vínculo entre item e versão é obrigatório, a **versão 1 existe como rascunho** desde a inclusão do primeiro item, com a data de envio ainda nula. Isso é compatível com a decisão, que declara a versão imutável **depois de enviada**, e não depois de criada.
+**Consequência que a implementação torna visível:** como o vínculo entre item e versão é obrigatório, a **versão 1 existe como rascunho** desde a inclusão do primeiro item, com a data de envio ainda nula. **Na Fase 2 esse primeiro item pode chegar na própria abertura da OS** (ADR-026), então a versão 1 pode existir com a OS ainda em `RECEBIDA`; o que não muda é o envio ao cliente, que segue amarrado à conclusão do diagnóstico. Isso é compatível com a decisão, que declara a versão imutável **depois de enviada**, e não depois de criada.
 
 **Porquê:** a fronteira cai onde a linguagem do negócio muda. O Veículo significa algo fora do contexto do Cliente, então não pertence a ele; e o Orçamento reprova no critério de objeto de valor, porque exatamente o que ele não pode ser é substituído.
 
@@ -115,6 +117,8 @@ São 23 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 **Porquê:** o enunciado aponta o recorte ao dizer tempo médio de **execução**, e a permissão para um sétimo status é condicionada a justificá-lo pelo fluxo, que é o caso.
 
 **Semântica declarada do filtro por Serviço:** ele devolve a **média das OSs que INCLUEM aquele serviço**, e não o tempo do serviço isolado. Medir o serviço isolado exigiria o Mecânico apontar início e fim por item, comandos que o enunciado não pede.
+
+**Na fila de atendimento, Cancelada é tratada como as outras encerradas** (ADR-026): fica fora da listagem sem filtro e continua respondendo pela consulta por identificador e pelo filtro de status. A OS reprovada sai da fila, que é o efeito que esta decisão queria.
 
 **Renegociação fica fora do MVP.** Reprovação é desfecho: se o cliente quiser renegociar, isso acontece antes de formalizar a reprovação, e o retorno dele depois gera OS nova. A estrutura de versões já suporta a renegociação no dia em que ela for requisito.
 
@@ -204,6 +208,8 @@ São 23 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 **Porquê:** é a única alternativa que entrega o D do CRUD de forma demonstrável **e** preserva o histórico. Remoção física em cascata destruiria Ordens de Serviço encerradas; com `RESTRICT`, o cadastro ficaria indelével na prática e o requisito não seria demonstrável.
 
+**Esta decisão vale para os quatro cadastros e não para a Ordem de Serviço.** A exclusão lógica que a Fase 2 pede na listagem de OS é por **status**, sem coluna nova, e está no ADR-026: a OS não tem coluna `ativo` e nada aqui muda por causa dela.
+
 **Declarado:** um Documento ou uma Placa de registro inativado ficam **reservados**, porque a chave única não distingue ativo de inativo e não existe reativação. Inativar um Cliente não inativa os Veículos dele. E a **remoção, a alteração e o uso pela Ordem de Serviço disputam a mesma linha**, o que impede tanto ressuscitar um cadastro removido quanto inativar um cadastro enquanto uma OS passa a usá-lo. A serialização entre remoção e alteração é a mesma nos quatro cadastros, e **nos quatro ela tem prova por mutação**: removida a leitura travada do caso de uso de alteração, um teste de concorrência quebra. Em Cliente, Veículo e Serviço a prova vem da disputa entre remoção e alteração; na Peça, da disputa entre a alteração do cadastro e a Entrada de estoque. **O que a trava impede é a perda de escrita do ADR-019:** sem ela, a alteração grava o agregado inteiro por cima do que a operação concorrente acabou de confirmar.
 
 ---
@@ -231,6 +237,8 @@ São 23 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 **Fundamento técnico:** o eixo que decide não é "novo contra antigo", é **"com correção contra sem correção"**. Framework fora de suporte acumula CVE por construção, e nenhuma delas será corrigida. O caminho conservador chega na mesma conclusão, porque quem quer estabilidade escolhe a versão suportada mais madura.
 
 **Porquê:** o ônus da prova inverte. Usar a versão corrente é o comportamento padrão de quem inicia um projeto; usar uma versão sem manutenção é que exigiria justificativa.
+
+**Reavaliação da Fase 2:** a política mandou reavaliar, e a reavaliação **mantém as três versões**. O Java 25 é o LTS corrente, o Spring Boot 4.1 está dentro da janela de suporte e o PostgreSQL 18 é a major corrente, que é exatamente o que a decisão pede em cada um dos três eixos. **Nenhuma versão sobe nesta fase**, e o gatilho para reabrir isto é CVE crítica com correção disponível, medida pelo perfil de análise de dependências, não impressão.
 
 **Fora desta política:** ferramenta de build, que não é superfície de ataque do produto entregue.
 
@@ -345,3 +353,98 @@ São 23 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 **Porquê:** a diferença decisiva não é custo, é **quem controla o ambiente no momento da gravação**. Um cluster local sobe do zero em minutos, sempre igual, sem depender de quota, de região ou de conta. Um cluster gerenciado esquecido ligado durante os dois meses da fase custaria mais que a fase inteira, e o risco de esquecer não é hipotético em uma rotina com agenda imprevisível.
 
 **Consequência aceita:** o executor hospedado do provedor de CI não alcança um cluster que roda na máquina do desenvolvedor, então a etapa de publicação do pipeline precisa de um executor com acesso ao cluster. E o desenho da arquitetura entregue descreve um ambiente local, não um ambiente de produção em nuvem, o que precisa estar dito no README para que documento e ambiente não se contradigam.
+
+---
+
+## ADR-025: Clean Architecture, com o framework fora dos casos de uso
+
+**Decisão:** a aplicação adota **Clean Architecture** nos quatro anéis que os quatro pacotes de cada contexto já formam, e o framework sai do anel dos casos de uso: o pacote `application` não importa nada do Spring. O registro dos casos de uso como bean e a declaração de transação passam para a infraestrutura, e a regra de dependência passa a ser provada pelo build. **Este ADR substitui o ADR-003**, que declarava monolito em camadas e recusava a Clean Architecture para o MVP da Fase 1.
+
+**Fundamento de negócio:** esta mesma aplicação vai ser evoluída nas fases seguintes do curso, e a tabela comparativa da disciplina de Arquitetura de Software indica a Clean Architecture justamente para *"projetos com expectativa de longo prazo, mudanças tecnológicas e alta exigência de qualidade"*, listando *"independência de frameworks"* entre os benefícios. O custo que a mesma tabela cobra, *"verbosidade"* e *"maior esforço inicial de estruturação"*, é pago uma vez e aproveitado por três fases.
+
+**Fundamento técnico:** o artigo de Robert C. Martin publicado em 13 de agosto de 2012, que a disciplina indica como fonte, nomeia quatro círculos, Entities, Use Cases, Interface Adapters e Frameworks and Drivers, e enuncia a regra de dependência assim: *"Source code dependencies can only point inwards. Nothing in an inner circle can know anything at all about something in an outer circle."*, e adiante, de forma literal: *"The name of something declared in an outer circle must not be mentioned by the code in an inner circle."* A apostila diz o mesmo em uma linha, *"as dependências de código devem sempre apontar para o centro"*, e atribui a inversão de dependência ao fato de que *"frameworks e ferramentas dependem do domínio, e não o contrário"*.
+
+Os quatro pacotes de cada contexto já eram esses quatro círculos, e a direção das dependências já era obedecida: nenhuma das classes de `domain` importa framework, borda ou infraestrutura. O que faltava estava em um lugar só: as anotações `@Service` e `@Transactional` nos casos de uso. Anotação é o nome de algo declarado no círculo externo escrito dentro do círculo interno, que é exatamente o que a segunda frase do artigo proíbe.
+
+**O grau, declarado:** os 41 casos de uso não têm anotação nenhuma e não importam Spring. Cada contexto ganha na infraestrutura uma `@Configuration` com um método `@Bean` por caso de uso, que é o círculo onde o artigo põe a cola com o framework. A transação é declarada em `shared/infrastructure`, por classe e não por nome de método, com a máquina padrão do Spring: uma fonte de atributos de transação própria mais o advisor. Todo caso de uso é transacional, os 14 de consulta em `readOnly`, listados nominalmente, e `AutenticarUsuarioUseCase` fora de transação, que é o que as anotações anteriores diziam. A dependência do `PasswordEncoder` do Spring Security sai do caso de uso por uma porta, `VerificadorDeSenha`, implementada na infraestrutura com BCrypt, mantendo o ADR-009.
+
+**O que prova, e é execução e não promessa:** um teste de arquitetura afirma que `domain` e `application` não dependem de framework, de borda nem de infraestrutura, e que a borda não depende da infraestrutura. Um teste de integração lista os casos de uso que existem no código, exige um bean para cada um, e afirma o atributo de transação de cada bean: quem criar um caso de uso e esquecer de registrá-lo ou de declarar a transação derruba o build.
+
+**Os nomes do artigo neste código:**
+
+| Nome no artigo | Onde vive aqui |
+|---|---|
+| Entities | pacote `domain` de cada contexto: agregados, objetos de valor e as exceções de invariante |
+| Use Cases | pacote `application`: as classes `*UseCase`, um método `executar` cada |
+| Interface Adapters, Controllers | pacote `api`: os `*Controller` |
+| Interface Adapters, Presenters | pacote `api`: os `*Response`, com o `static de(...)` que traduz o agregado para a borda |
+| Interface Adapters, Gateways | as portas de saída declaradas em `domain` e `application`, e os adaptadores JPA que as implementam em `infrastructure` |
+| Frameworks and Drivers | as classes `*Config` da infraestrutura, mais Tomcat, JPA e Flyway |
+
+**Porquê:** é a forma de ser Clean de fato que custa menos sobre 212 arquivos de produção e preserva três decisões inteiras: o ADR-021, porque nenhum pacote é renomeado nem ganha subpacote; o ADR-005, porque o gate de cobertura mira `*.domain` pelo nome; e o ADR-012, porque nenhuma classe é renomeada.
+
+**Alternativa recusada:** Arquitetura Hexagonal. Ela cabe nos mesmos quatro pacotes e custaria praticamente o mesmo, porque as portas de saída já existem e `api` e `infrastructure` já são adaptadores. Recusada porque a tabela da disciplina indica a Hexagonal para *"sistemas que precisam se comunicar com múltiplas interfaces"*, e este sistema tem uma borda, REST, e uma persistência, PostgreSQL, e porque a Clean nomeia os anéis que os quatro pacotes já são.
+
+**Limites declarados, dois:** o artigo desenha uma porta de entrada por caso de uso, a Use Case Input Port, e aqui não existe interface separada para isso, porque o único chamador de um caso de uso é a borda REST e a interface não teria segundo implementador nem segundo consumidor. E a configuração de segurança segue sendo a única classe de `infrastructure` que importa de `api`, limite que o ADR-003 já declarava: ela monta o corpo do 401 no envelope do contrato e conhece o prefixo das rotas, que são fatos da borda HTTP.
+
+---
+
+## ADR-026: As APIs da Fase 2
+
+**Decisão:** as cinco mudanças de API que a fase pede entram sem rota nova além do que o enunciado descreve, e cada uma tem a leitura adotada declarada aqui: **(1)** os identificadores de status continuam os de hoje, com a tabela de nomes no README e no contrato; **(2)** a abertura da OS aceita serviços e peças opcionais; **(3)** as duas rotas públicas de resposta ao orçamento são a entrada da notificação externa; **(4)** a listagem sem filtro devolve a fila de atendimento ordenada por status, sem as encerradas; **(5)** toda transição de status envia e-mail ao cliente, e o envio é atômico com a transição.
+
+**Fundamento de negócio:** as cinco mudanças descrevem o mesmo atendimento visto de fora: o cliente pede serviço no balcão, acompanha por um código, responde ao orçamento sem login, recebe aviso a cada passo, e o atendente trabalha por uma fila que mostra primeiro o que está na bancada.
+
+### 1. Identificadores de status, e a tabela de nomes
+
+**Decisão: os identificadores ficam.** O enunciado grafa os nomes em português corrente, e usa grafias diferentes no mesmo documento, "Execução" na consulta de status e "Em Execução" na ordenação da listagem. A API responde `RECEBIDA`, `EM_DIAGNOSTICO`, `AGUARDANDO_APROVACAO`, `EM_EXECUCAO`, `FINALIZADA`, `ENTREGUE` e `CANCELADA`, e o README e as descrições do contrato trazem a tabela que liga o nome do enunciado ao identificador.
+
+**Fundamento técnico:** renomear custaria migration alterando três `CHECK` da primeira versão do schema, a carga de demonstração, o contrato, mais de cento e cinquenta linhas de literais em código e teste, e a Linguagem Ubíqua entregue na fase anterior passaria a divergir do código. O prefixo não é literal nem para quem escreveu o enunciado, e `DIAGNOSTICO` também não seria "Diagnóstico".
+
+**Porquê:** o item pede que a consulta informe a situação atual, e informa; o nome do enunciado chega ao leitor pela tabela, que é onde ele procura.
+
+### 2. Abertura da OS com serviços e peças
+
+**Decisão:** a abertura aceita duas listas **opcionais**, de serviços e de peças, e o caso de uso inclui os itens como o pedido inicial do cliente. Sem itens, a OS nasce sem orçamento, como antes. O guard do agregado passou a aceitar item em `RECEBIDA` e em `EM_DIAGNOSTICO`.
+
+**Fundamento de negócio:** o cliente chega dizendo o que quer, e o atendente não tem por que digitar isso duas vezes. O que ele pede na abertura é pedido, não diagnóstico: o orçamento nasce como rascunho e só vai ao cliente quando o diagnóstico é concluído.
+
+**Fundamento técnico:** a versão 1 do orçamento continua nascendo na inclusão do primeiro item, que é o que o ADR-006 já declarava; o que mudou é que esse primeiro item pode chegar mais cedo. Nada mais no ciclo muda, porque o envio ao cliente segue amarrado à conclusão do diagnóstico.
+
+**Alternativa recusada:** manter item só no diagnóstico e pedir ao atendente uma segunda chamada. Deixaria a letra do requisito descoberta.
+
+### 3. Notificação externa de aprovação e de recusa
+
+**Decisão:** as duas rotas públicas que já existem, de aprovação e de reprovação pelo código de acompanhamento, **são** a entrada da notificação externa. Nada novo se cria; o contrato e o README passam a chamá-las pelas palavras do enunciado.
+
+**Fundamento técnico:** quem chama essas rotas está fora do sistema e porta o código, que é a credencial do cliente para responder (ADR-007 e ADR-022). O requisito pede um endpoint para receber a notificação de aprovação ou recusa, e é exatamente o que elas fazem.
+
+**Alternativa recusada:** um endpoint único com a decisão no corpo da requisição. Traria de volta a escrita de decisão como dado, contra o ADR-022, que é a razão de as transições serem disparadas por comando e não por escrita de status.
+
+### 4. A fila de atendimento, com exclusão lógica por status
+
+**Decisão:** a listagem sem filtro devolve a fila ordenada por `EM_EXECUCAO`, `AGUARDANDO_APROVACAO`, `EM_DIAGNOSTICO`, `RECEBIDA` e, dentro do mesmo status, das mais antigas para as mais novas; as OSs `FINALIZADA`, `ENTREGUE` e `CANCELADA` ficam **fora** dela. Com o filtro de status, a listagem devolve as OSs daquele status, **inclusive as encerradas**.
+
+**A exclusão é lógica, e é isso que a torna verificável:** o registro não é apagado nem marcado, continua respondendo pela consulta por identificador e reaparece quando o filtro o pede. **Sem coluna nova:** o critério é o próprio status, então o ADR-014 continua valendo apenas para os quatro cadastros e a OS segue sem coluna `ativo`.
+
+**Fundamento técnico:** a prioridade mora no domínio, no próprio `StatusOrdemServico`, e o adaptador apenas ordena por ela; a exclusão é declarada como o complemento dos status encerrados, então um status novo entra na fila por construção, em vez de ficar fora em silêncio.
+
+**Porquê:** a fila existe para o atendente saber o que está na bancada agora. OS entregue não é trabalho, é histórico, e histórico se consulta, não se enfileira.
+
+### 5. E-mail a cada transição de status
+
+**Decisão:** **toda transição de status envia um e-mail ao cliente**, com o status novo e o endereço de acompanhamento, pela mesma porta de notificação que envia o orçamento. **O envio é atômico com a transição:** se o e-mail não sai, a transição não acontece. **Cada transição produz exatamente um e-mail:** quando a transição gera orçamento, o e-mail do orçamento é a notificação dela, porque já carrega o status novo e o mesmo endereço. **A abertura da OS também notifica**, porque é a transição que entrega o código de acompanhamento ao cliente, sem o qual a notificação externa de aprovação não tem como chegar.
+
+**Fundamento de negócio:** o cliente da oficina liga para saber do carro. O aviso a cada passo é o que substitui o telefonema, e é por isso que ele carrega o endereço de acompanhamento em vez de só o nome do status.
+
+**Fundamento técnico, e ele é próprio deste ADR:** a caixa de e-mail faz parte do ambiente que a entrega sobe, então o envio não depende de provedor externo nem de credencial. Falha visível é preferível a notificação perdida em silêncio, e sem fila nem retentativa a única forma de não perder é derrubar a operação. Um só caminho de código e um só de teste: quem cria um caso de uso que transiciona e esquece de notificar não tem como o teste passar, porque a contagem de e-mails é afirmada contra a contagem de transições gravadas.
+
+**O custo assumido, declarado:** a caixa de e-mail do ambiente passa a ser dependência de toda transição, e não só das duas do orçamento. É o mesmo risco que o ADR-023 já aceitava, agora mais amplo, e ele é local: a caixa sobe no mesmo `docker compose` da aplicação.
+
+**Por que não herdar o fundamento do ADR-023:** aquele ADR justifica a atomicidade dizendo que o cliente precisa receber o orçamento para poder agir, e esse argumento não transfere para uma transição informativa, como a entrega. O fundamento desta decisão é outro, e está escrito acima.
+
+**A notificação lê o contato do cliente da OS mesmo com o cadastro inativado**, e a razão está no ADR-014: Ordem de Serviço encerrada é documento de uma relação de consumo e não pode virar registro órfão porque alguém limpou um cadastro. O guard da inativação recusa apagar cadastro com OS **em andamento**, mas uma OS já finalizada pode ter o cliente inativado depois, e a entrega dela precisa continuar possível. Abrir OS nova para cliente inativo segue recusado, porque essa é a superfície do cadastro, e não a de uma OS que já existe.
+
+**O status vai no identificador da API, não em nome de exibição.** Um segundo vocabulário para o mesmo fato precisaria de dono, e a tabela do README já liga o identificador ao nome do enunciado.
+
+**Alternativa recusada:** atomicidade só onde o e-mail habilita ação do cliente e melhor esforço nas demais. Cria duas políticas para o mesmo fato, e a segunda é a que perde aviso sem ninguém ver.

@@ -6,15 +6,22 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.mockito.ArgumentCaptor;
+import org.springframework.mail.MailSender;
+import org.springframework.mail.SimpleMailMessage;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import tools.jackson.databind.ObjectMapper;
+import java.util.List;
 import java.util.UUID;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
@@ -42,6 +49,9 @@ public abstract class IntegracaoBase {
         registro.add("spring.datasource.username", BANCO::getUsername);
         registro.add("spring.datasource.password", BANCO::getPassword);
     }
+
+    @MockitoBean
+    protected MailSender mailSender;
 
     @Autowired
     private WebApplicationContext contexto;
@@ -73,6 +83,16 @@ public abstract class IntegracaoBase {
                                 """.formatted(login, senha)))
                 .andReturn().getResponse().getContentAsString();
         return objectMapper.readTree(corpo).get("token").asText();
+    }
+
+    protected List<SimpleMailMessage> emailsEnviados() {
+        ArgumentCaptor<SimpleMailMessage> enviados = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender, atLeast(0)).send(enviados.capture());
+        return enviados.getAllValues();
+    }
+
+    protected List<SimpleMailMessage> emailsComAssunto(String assunto) {
+        return emailsEnviados().stream().filter(mensagem -> assunto.equals(mensagem.getSubject())).toList();
     }
 
     protected String tokenAdministrativo() throws Exception {

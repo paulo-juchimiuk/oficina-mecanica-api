@@ -6,11 +6,8 @@ import br.com.oficinamecanica.cadastro.domain.Placa;
 import br.com.oficinamecanica.cadastro.domain.PlacaJaCadastradaException;
 import br.com.oficinamecanica.cadastro.domain.Veiculo;
 import br.com.oficinamecanica.cadastro.domain.VeiculoRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 
-@Service
 public class CadastrarVeiculoUseCase {
 
     private final VeiculoRepository veiculos;
@@ -21,7 +18,6 @@ public class CadastrarVeiculoUseCase {
         this.clientes = clientes;
     }
 
-    @Transactional
     public Veiculo executar(Placa placa, String marca, String modelo, int ano, UUID clienteId) {
         exigirClienteAtivo(clienteId);
         Veiculo veiculo = Veiculo.cadastrar(placa, marca, modelo, ano, clienteId);

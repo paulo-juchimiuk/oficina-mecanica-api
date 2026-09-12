@@ -5,11 +5,8 @@ import br.com.oficinamecanica.cadastro.domain.Veiculo;
 import br.com.oficinamecanica.cadastro.domain.VeiculoComOrdemServicoEmAndamentoException;
 import br.com.oficinamecanica.cadastro.domain.VeiculoNaoEncontradoException;
 import br.com.oficinamecanica.cadastro.domain.VeiculoRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 
-@Service
 public class InativarVeiculoUseCase {
 
     private final VeiculoRepository veiculos;
@@ -20,7 +17,6 @@ public class InativarVeiculoUseCase {
         this.ordensServico = ordensServico;
     }
 
-    @Transactional
     public void executar(UUID id) {
         Veiculo veiculo = veiculos.buscarAtivoComTrava(id).orElseThrow(() -> new VeiculoNaoEncontradoException(id));
         if (ordensServico.existemParaVeiculo(id)) {

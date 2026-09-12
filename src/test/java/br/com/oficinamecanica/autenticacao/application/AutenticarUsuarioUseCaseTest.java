@@ -9,7 +9,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,7 +29,7 @@ class AutenticarUsuarioUseCaseTest {
     private UsuarioRepository usuarios;
 
     @Mock
-    private PasswordEncoder encoder;
+    private VerificadorDeSenha verificadorDeSenha;
 
     @Mock
     private EmissorDeToken emissorDeToken;
@@ -43,7 +42,7 @@ class AutenticarUsuarioUseCaseTest {
     void deveEmitirTokenComCredenciaisValidas() {
         TokenJwt esperado = new TokenJwt("token-assinado", Instant.now());
         when(usuarios.buscarPorLogin("admin")).thenReturn(Optional.of(ADMIN));
-        when(encoder.matches("admin123", HASH)).thenReturn(true);
+        when(verificadorDeSenha.confere("admin123", HASH)).thenReturn(true);
         when(emissorDeToken.emitir(ADMIN)).thenReturn(esperado);
 
         assertThat(autenticarUsuario.executar("admin", "admin123")).isEqualTo(esperado);
@@ -63,7 +62,7 @@ class AutenticarUsuarioUseCaseTest {
     @DisplayName("deve recusar senha errada sem emitir token")
     void deveRecusarSenhaErrada() {
         when(usuarios.buscarPorLogin("admin")).thenReturn(Optional.of(ADMIN));
-        when(encoder.matches("errada", HASH)).thenReturn(false);
+        when(verificadorDeSenha.confere("errada", HASH)).thenReturn(false);
 
         assertThatThrownBy(() -> autenticarUsuario.executar("admin", "errada"))
                 .isInstanceOf(CredenciaisInvalidasException.class);

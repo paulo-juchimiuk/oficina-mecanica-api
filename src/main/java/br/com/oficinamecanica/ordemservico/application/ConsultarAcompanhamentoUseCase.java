@@ -12,15 +12,12 @@ import br.com.oficinamecanica.ordemservico.domain.OrdemServicoRepository;
 import br.com.oficinamecanica.ordemservico.domain.Pecas;
 import br.com.oficinamecanica.ordemservico.domain.Servicos;
 import br.com.oficinamecanica.ordemservico.domain.Veiculos;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-@Service
 public class ConsultarAcompanhamentoUseCase {
 
     private final OrdemServicoRepository ordensServico;
@@ -36,7 +33,6 @@ public class ConsultarAcompanhamentoUseCase {
         this.pecas = pecas;
     }
 
-    @Transactional(readOnly = true)
     public Acompanhamento executar(String codigo) {
         OrdemServico ordemServico = ordemDoCodigo(ordensServico, codigo);
         Optional<Orcamento> versao = ordemServico.versaoMaisRecenteEnviada();

@@ -43,9 +43,9 @@ interface OrdemServicoJpaRepository extends JpaRepository<OrdemServicoJpaEntity,
     boolean existeComPeca(@Param("peca") UUID pecaId,
                           @Param("status") Collection<StatusOrdemServico> status);
 
-    List<OrdemServicoJpaEntity> findAllByOrderByCriadaEmAsc();
-
     List<OrdemServicoJpaEntity> findAllByStatusOrderByCriadaEmAsc(StatusOrdemServico status);
+
+    List<OrdemServicoJpaEntity> findAllByStatusNotInOrderByCriadaEmAsc(Collection<StatusOrdemServico> status);
 
     @Query(value = """
             SELECT ordem.* FROM ordem_servico ordem

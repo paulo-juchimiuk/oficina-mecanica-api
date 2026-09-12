@@ -6,11 +6,8 @@ import br.com.oficinamecanica.cadastro.domain.ClienteRepository;
 import br.com.oficinamecanica.cadastro.domain.Contato;
 import br.com.oficinamecanica.cadastro.domain.Documento;
 import br.com.oficinamecanica.cadastro.domain.DocumentoJaCadastradoException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 
-@Service
 public class AlterarClienteUseCase {
 
     private final ClienteRepository clientes;
@@ -19,7 +16,6 @@ public class AlterarClienteUseCase {
         this.clientes = clientes;
     }
 
-    @Transactional
     public Cliente executar(UUID id, String nome, Documento documento, Contato contato) {
         Cliente cliente = clientes.buscarAtivoComTrava(id).orElseThrow(() -> new ClienteNaoEncontradoException(id));
         if (clientes.documentoJaCadastradoPorOutro(id, documento)) {

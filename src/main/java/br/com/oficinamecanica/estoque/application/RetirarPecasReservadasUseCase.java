@@ -8,13 +8,10 @@ import br.com.oficinamecanica.estoque.domain.PecaNaoEncontradaException;
 import br.com.oficinamecanica.estoque.domain.PecaRepository;
 import br.com.oficinamecanica.estoque.domain.ReservaNaoEncontradaException;
 import br.com.oficinamecanica.estoque.domain.ReservaPeca;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 import static java.util.Comparator.comparing;
 
-@Service
 public class RetirarPecasReservadasUseCase {
 
     private final PecaRepository pecas;
@@ -25,7 +22,6 @@ public class RetirarPecasReservadasUseCase {
         this.ordensServico = ordensServico;
     }
 
-    @Transactional
     public List<ReservaPeca> executar(UUID ordemServicoId, List<UUID> reservaIds) {
         if (!ordensServico.existe(ordemServicoId)) {
             throw new OrdemServicoNaoEncontradaException(ordemServicoId);

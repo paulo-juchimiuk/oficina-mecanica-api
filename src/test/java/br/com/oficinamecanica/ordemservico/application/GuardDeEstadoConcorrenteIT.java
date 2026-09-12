@@ -10,7 +10,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.MailSender;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -28,9 +27,6 @@ class GuardDeEstadoConcorrenteIT extends IntegracaoBase {
     private static final int RODADAS = 15;
     private static final String EM_EXECUCAO = "EM_EXECUCAO";
     private static final String DOCUMENTO = "10433218100";
-
-    @MockitoBean
-    private MailSender mailSender;
 
     @Autowired
     private CriarOrdemServicoUseCase criarOrdemServico;
@@ -82,7 +78,7 @@ class GuardDeEstadoConcorrenteIT extends IntegracaoBase {
     }
 
     private void abrirOrdemEmExecucao() {
-        OrdemServico ordem = criarOrdemServico.executar(DOCUMENTO, veiculoId, "Barulho ao frear");
+        OrdemServico ordem = criarOrdemServico.executar(DOCUMENTO, veiculoId, "Barulho ao frear", List.of(), List.of());
         ordemId = ordem.id();
         iniciarDiagnostico.executar(ordemId);
         incluirItens.executar(ordemId, List.of(new ItemDeServicoRequisitado(servicoId)), List.of());

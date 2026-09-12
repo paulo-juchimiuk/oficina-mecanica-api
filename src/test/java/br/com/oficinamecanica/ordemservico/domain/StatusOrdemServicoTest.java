@@ -12,6 +12,7 @@ import static br.com.oficinamecanica.ordemservico.domain.StatusOrdemServico.EM_E
 import static br.com.oficinamecanica.ordemservico.domain.StatusOrdemServico.ENTREGUE;
 import static br.com.oficinamecanica.ordemservico.domain.StatusOrdemServico.FINALIZADA;
 import static br.com.oficinamecanica.ordemservico.domain.StatusOrdemServico.RECEBIDA;
+import static java.util.Comparator.comparingInt;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DisplayName("Status da OS e a maquina de estados")
@@ -72,6 +73,25 @@ class StatusOrdemServicoTest {
     @DisplayName("nao deve permitir voltar de Finalizada para Em execucao")
     void naoDevePermitirVoltarDeFinalizadaParaEmExecucao() {
         assertThat(FINALIZADA.aceitaTransicaoPara(EM_EXECUCAO)).isFalse();
+    }
+
+    @Test
+    @DisplayName("deve declarar Finalizada, Entregue e Cancelada como encerrados, e so esses tres")
+    void deveDeclararOsStatusEncerrados() {
+        assertThat(StatusOrdemServico.encerrados())
+                .containsExactlyInAnyOrder(FINALIZADA, ENTREGUE, CANCELADA);
+    }
+
+    @Test
+    @DisplayName("deve priorizar a fila de Em execucao a Recebida, com os encerrados no fim")
+    void devePriorizarAFilaDeAtendimento() {
+        List<StatusOrdemServico> porPrioridade = EnumSet.allOf(StatusOrdemServico.class).stream()
+                .sorted(comparingInt(StatusOrdemServico::prioridadeNaFila))
+                .toList();
+
+        assertThat(porPrioridade).startsWith(EM_EXECUCAO, AGUARDANDO_APROVACAO, EM_DIAGNOSTICO, RECEBIDA);
+        assertThat(porPrioridade.subList(4, porPrioridade.size()))
+                .containsExactlyInAnyOrder(FINALIZADA, ENTREGUE, CANCELADA);
     }
 
     private List<StatusOrdemServico> destinosDe(StatusOrdemServico origem) {

@@ -13,7 +13,7 @@ class ClientesJpa implements Clientes {
     private static final String POR_DOCUMENTO =
             "SELECT id FROM cliente WHERE documento = :documento AND ativo = TRUE FOR UPDATE";
     private static final String EMAIL_POR_IDENTIDADE =
-            "SELECT email FROM cliente WHERE id = :cliente AND ativo = TRUE";
+            "SELECT email FROM cliente WHERE id = :cliente";
 
     private final EntityManager entityManager;
 

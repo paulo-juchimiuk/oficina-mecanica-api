@@ -37,7 +37,7 @@ paths:
     post:
       tags: [OrdensServico]
       summary: Criar Ordem de Servico
-      description: Executado pelo Atendente. Identificacao do Cliente pelo Documento (CPF/CNPJ). A OS nasce RECEBIDA, gera o Codigo de acompanhamento e registra a primeira Transicao de status.
+      description: Executado pelo Atendente. Identificacao do Cliente pelo Documento (CPF/CNPJ). A OS nasce RECEBIDA, gera o Codigo de acompanhamento e registra a primeira Transicao de status. Os servicos e as pecas pedidos pelo Cliente podem vir na abertura, e abrem a versao 1 do Orcamento; sem eles, a OS nasce sem Orcamento e os itens entram depois, no diagnostico.
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CriarOrdemServicoRequest'}}}}
       responses:
         '201': {description: OS criada, content: {application/json: {schema: {$ref: '#/components/schemas/OrdemServico'}}}}
@@ -47,7 +47,7 @@ paths:
     get:
       tags: [OrdensServico]
       summary: Listar Ordens de Servico
-      description: Fila de OSs por status (filtro opcional).
+      description: Sem filtro, devolve a fila de atendimento, ordenada por Status da OS (EM_EXECUCAO, AGUARDANDO_APROVACAO, EM_DIAGNOSTICO, RECEBIDA) e, dentro do mesmo status, das mais antigas para as mais novas, sem as OSs FINALIZADA, ENTREGUE e CANCELADA. Com o filtro, devolve as OSs do status pedido, inclusive os encerrados, das mais antigas para as mais novas.
       parameters:
         - {name: status, in: query, required: false, schema: {$ref: '#/components/schemas/StatusOrdemServico'}}
       responses:
@@ -80,7 +80,7 @@ paths:
     post:
       tags: [OrdensServico]
       summary: Incluir itens na OS
-      description: 'Itens de servico e Itens de peca, com preco copiado como snapshot na inclusao. Exige EM_DIAGNOSTICO.'
+      description: 'Itens de servico e Itens de peca, com preco copiado como snapshot na inclusao. Exige RECEBIDA ou EM_DIAGNOSTICO, porque o Cliente pode pedir servico na abertura e o Mecanico acrescenta no diagnostico (ADR-026); depois da conclusao do diagnostico a inclusao e recusada com 409.'
       parameters: [{$ref: '#/components/parameters/IdRecurso'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/IncluirItensRequest'}}}}
       responses:
@@ -161,8 +161,8 @@ paths:
   /acompanhamento/{codigoAcompanhamento}/orcamento/aprovacao:
     post:
       tags: [Acompanhamento]
-      summary: Aprovar orcamento (Cliente, sem JWT)
-      description: 'Exige AGUARDANDO_APROVACAO: o poder de aprovar expira pela maquina de estados (ADR-007). Aprovacao do orcamento mais recente. Leva a OS a EM_EXECUCAO (transicao automatica do agregado) e ativa a Reserva de pecas.'
+      summary: Notificacao externa de aprovacao do orcamento (Cliente, sem JWT)
+      description: 'Entrada da notificacao externa de aprovacao do orcamento: quem chama esta rota esta fora do sistema e porta o Codigo de acompanhamento, que e a credencial do Cliente para responder (ADR-022). Exige AGUARDANDO_APROVACAO: o poder de aprovar expira pela maquina de estados (ADR-007). Aprovacao do orcamento mais recente. Leva a OS a EM_EXECUCAO (transicao automatica do agregado) e ativa a Reserva de pecas.'
       security: []
       parameters: [{$ref: '#/components/parameters/CodigoAcompanhamento'}]
       responses:
@@ -173,8 +173,8 @@ paths:
   /acompanhamento/{codigoAcompanhamento}/orcamento/reprovacao:
     post:
       tags: [Acompanhamento]
-      summary: Reprovar orcamento (Cliente, sem JWT)
-      description: 'Exige AGUARDANDO_APROVACAO: o poder de reprovar expira pela maquina de estados (ADR-007). Reprovacao do orcamento mais recente. O desfecho depende de haver versao aprovada nesta OS - se NAO houver, a OS vai a CANCELADA; se houver, a OS volta a EM_EXECUCAO e somente o escopo ja aprovado e concluido (ADR-008).'
+      summary: Notificacao externa de recusa do orcamento (Cliente, sem JWT)
+      description: 'Entrada da notificacao externa de recusa do orcamento: quem chama esta rota esta fora do sistema e porta o Codigo de acompanhamento (ADR-022). Exige AGUARDANDO_APROVACAO: o poder de reprovar expira pela maquina de estados (ADR-007). Reprovacao do orcamento mais recente. O desfecho depende de haver versao aprovada nesta OS - se NAO houver, a OS vai a CANCELADA; se houver, a OS volta a EM_EXECUCAO e somente o escopo ja aprovado e concluido (ADR-008).'
       security: []
       parameters: [{$ref: '#/components/parameters/CodigoAcompanhamento'}]
       responses:
@@ -506,7 +506,7 @@ components:
 
     StatusOrdemServico:
       type: string
-      description: os 6 status do fluxo de atendimento; CANCELADA e 7o status decidido no ADR-008
+      description: 'os 6 status do fluxo de atendimento, mais CANCELADA, o 7o status decidido no ADR-008. O nome do atendimento e o identificador da API, nesta ordem: Recebida e RECEBIDA; Diagnostico e EM_DIAGNOSTICO; Aguardando Aprovacao e AGUARDANDO_APROVACAO; Execucao e EM_EXECUCAO; Finalizada e FINALIZADA; Entregue e ENTREGUE; Cancelada e CANCELADA. A escolha de manter os identificadores esta no ADR-026'
       enum: [RECEBIDA, EM_DIAGNOSTICO, AGUARDANDO_APROVACAO, EM_EXECUCAO, FINALIZADA, ENTREGUE, CANCELADA]
 
     Dinheiro:
@@ -599,6 +599,8 @@ components:
         documentoCliente: {type: string, description: identificacao do Cliente por CPF/CNPJ, pattern: '^[0-9]{11}$|^[0-9]{14}$'}
         veiculoId: {type: string, format: uuid}
         relatoDoProblema: {type: string, maxLength: 1000}
+        itensServico: {type: array, minItems: 1, description: 'servicos pedidos pelo Cliente na abertura, opcional; incluidos na versao 1 do Orcamento', items: {$ref: '#/components/schemas/ItemServico'}}
+        itensPeca: {type: array, minItems: 1, description: 'pecas pedidas pelo Cliente na abertura, opcional; incluidas na versao 1 do Orcamento', items: {$ref: '#/components/schemas/ItemPeca'}}
 
     ReservasRequest:
       type: object

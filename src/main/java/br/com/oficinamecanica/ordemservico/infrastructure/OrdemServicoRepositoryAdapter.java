@@ -9,6 +9,7 @@ import jakarta.persistence.LockModeType;
 import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Component
@@ -54,10 +55,15 @@ class OrdemServicoRepositoryAdapter implements OrdemServicoRepository {
     }
 
     @Override
-    public List<OrdemServico> listar(Optional<StatusOrdemServico> status) {
-        return status.map(repository::findAllByStatusOrderByCriadaEmAsc)
-                .orElseGet(repository::findAllByOrderByCriadaEmAsc)
-                .stream()
+    public List<OrdemServico> listarComStatus(StatusOrdemServico status) {
+        return repository.findAllByStatusOrderByCriadaEmAsc(status).stream()
+                .map(OrdemServicoJpaEntity::paraDominio)
+                .toList();
+    }
+
+    @Override
+    public List<OrdemServico> listarExceto(Set<StatusOrdemServico> status) {
+        return repository.findAllByStatusNotInOrderByCriadaEmAsc(status).stream()
                 .map(OrdemServicoJpaEntity::paraDominio)
                 .toList();
     }
@@ -80,6 +86,8 @@ class OrdemServicoRepositoryAdapter implements OrdemServicoRepository {
     }
 
     private OrdemServicoJpaEntity inserir(OrdemServico ordemServico) {
-        return repository.save(OrdemServicoJpaEntity.de(ordemServico));
+        OrdemServicoJpaEntity entidade = OrdemServicoJpaEntity.de(ordemServico);
+        entityManager.persist(entidade);
+        return entidade;
     }
 }

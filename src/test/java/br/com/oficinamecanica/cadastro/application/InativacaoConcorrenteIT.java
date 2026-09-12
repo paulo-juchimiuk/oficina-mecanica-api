@@ -21,7 +21,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.MailSender;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,9 +48,6 @@ class InativacaoConcorrenteIT extends IntegracaoBase {
     private static final int ESPERA_EM_SEGUNDOS = 60;
     private static final int VIAS_EM_DISPUTA = 12;
     private static final String MOEDA = "BRL";
-
-    @MockitoBean
-    private MailSender mailSender;
 
     @Autowired
     private CriarOrdemServicoUseCase criarOrdemServico;
@@ -141,7 +137,7 @@ class InativacaoConcorrenteIT extends IntegracaoBase {
             String relato = "corrida " + rodada;
 
             int aceitas = disputar(
-                    () -> criarOrdemServico.executar(documentoDaRodada.numero(), veiculoDaRodada, relato),
+                    () -> criarOrdemServico.executar(documentoDaRodada.numero(), veiculoDaRodada, relato, List.of(), List.of()),
                     () -> {
                         inativarCliente.executar(clienteDaRodada);
                         return null;
@@ -252,7 +248,7 @@ class InativacaoConcorrenteIT extends IntegracaoBase {
             alteracoes.add(tentativa(largada,
                     () -> alterarVeiculo.executar(veiculoDaRodada, placa, "Volkswagen", "Gol", 2021, dono)));
             criacoes.add(tentativa(largada,
-                    () -> criarOrdemServico.executar(documentoDoDono.numero(), veiculoDaRodada, relato)));
+                    () -> criarOrdemServico.executar(documentoDoDono.numero(), veiculoDaRodada, relato, List.of(), List.of())));
         }
 
         ExecutorService executor = Executors.newFixedThreadPool(alteracoes.size() + criacoes.size());
@@ -342,7 +338,7 @@ class InativacaoConcorrenteIT extends IntegracaoBase {
     }
 
     private UUID abrirOrdemEmDiagnostico(int rodada) {
-        OrdemServico ordem = criarOrdemServico.executar(DOCUMENTO, veiculoId, "corrida " + rodada);
+        OrdemServico ordem = criarOrdemServico.executar(DOCUMENTO, veiculoId, "corrida " + rodada, List.of(), List.of());
         iniciarDiagnostico.executar(ordem.id());
         incluirItens.executar(ordem.id(), List.of(new ItemDeServicoRequisitado(servicoId)), List.of());
         return ordem.id();

@@ -7,11 +7,8 @@ import br.com.oficinamecanica.estoque.domain.Peca;
 import br.com.oficinamecanica.estoque.domain.PecaNaoEncontradaException;
 import br.com.oficinamecanica.estoque.domain.PecaRepository;
 import br.com.oficinamecanica.estoque.domain.PendenciaPeca;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 
-@Service
 public class RegistrarFaltaDePecaUseCase {
 
     private final PecaRepository pecas;
@@ -22,7 +19,6 @@ public class RegistrarFaltaDePecaUseCase {
         this.ordensServico = ordensServico;
     }
 
-    @Transactional
     public PendenciaPeca executar(UUID ordemServicoId, UUID pecaId, int quantidadeFaltante) {
         if (!ordensServico.existe(ordemServicoId)) {
             throw new OrdemServicoNaoEncontradaException(ordemServicoId);

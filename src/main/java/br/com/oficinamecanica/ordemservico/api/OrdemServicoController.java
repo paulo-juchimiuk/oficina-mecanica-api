@@ -72,7 +72,8 @@ public class OrdemServicoController {
     @ResponseStatus(HttpStatus.CREATED)
     public OrdemServicoResponse criar(@Valid @RequestBody CriarOrdemServicoRequest requisicao) {
         return OrdemServicoResponse.de(criarOrdemServico.executar(
-                requisicao.documentoCliente(), requisicao.veiculoId(), requisicao.relatoDoProblema()));
+                requisicao.documentoCliente(), requisicao.veiculoId(), requisicao.relatoDoProblema(),
+                servicosDe(requisicao.itensServico()), pecasDe(requisicao.itensPeca())));
     }
 
     @GetMapping

@@ -52,6 +52,39 @@ class AmbienteDeDemonstracaoIT extends IntegracaoBase {
     }
 
     @Test
+    @DisplayName("deve listar so a fila de atendimento, na ordem de prioridade, sem as encerradas")
+    void deveListarAFilaNaOrdemDePrioridade() throws Exception {
+        token = autenticar(LOGIN_DOCUMENTADO, SENHA_DOCUMENTADA);
+
+        mockMvc.perform(get(PREFIXO + "/ordens-servico").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(4))
+                .andExpect(jsonPath("$[0].status").value("EM_EXECUCAO"))
+                .andExpect(jsonPath("$[1].status").value("AGUARDANDO_APROVACAO"))
+                .andExpect(jsonPath("$[2].status").value("EM_DIAGNOSTICO"))
+                .andExpect(jsonPath("$[3].status").value("RECEBIDA"));
+    }
+
+    @Test
+    @DisplayName("deve manter as encerradas alcancaveis pelo filtro de status e pelo identificador")
+    void deveManterAsEncerradasAlcancaveis() throws Exception {
+        token = autenticar(LOGIN_DOCUMENTADO, SENHA_DOCUMENTADA);
+        UUID entregue = jdbc.queryForObject(
+                "SELECT id FROM ordem_servico WHERE status = 'ENTREGUE'", UUID.class);
+
+        mockMvc.perform(get(PREFIXO + "/ordens-servico?status=ENTREGUE")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(entregue.toString()));
+
+        mockMvc.perform(get(PREFIXO + "/ordens-servico/" + entregue)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ENTREGUE"));
+    }
+
+    @Test
     @DisplayName("deve recusar a remocao de um cliente da carga que tem Ordem de Servico em andamento")
     void deveRecusarRemocaoDeClienteComOrdemEmAndamento() throws Exception {
         token = autenticar(LOGIN_DOCUMENTADO, SENHA_DOCUMENTADA);

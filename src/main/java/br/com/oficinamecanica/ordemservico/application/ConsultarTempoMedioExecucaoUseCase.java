@@ -2,14 +2,11 @@ package br.com.oficinamecanica.ordemservico.application;
 
 import br.com.oficinamecanica.ordemservico.domain.OrdemServico;
 import br.com.oficinamecanica.ordemservico.domain.OrdemServicoRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-@Service
 public class ConsultarTempoMedioExecucaoUseCase {
 
     private static final double SEGUNDOS_POR_HORA = 3600.0;
@@ -20,7 +17,6 @@ public class ConsultarTempoMedioExecucaoUseCase {
         this.ordensServico = ordensServico;
     }
 
-    @Transactional(readOnly = true)
     public TempoMedioExecucao executar(Optional<UUID> servicoId) {
         List<Duration> tempos = ordensServico.listarComExecucaoConcluida(servicoId).stream()
                 .map(OrdemServico::tempoEmExecucao)

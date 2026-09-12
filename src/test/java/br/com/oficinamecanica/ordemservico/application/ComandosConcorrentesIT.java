@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
@@ -28,11 +27,10 @@ import static org.mockito.Mockito.verify;
 @DisplayName("Concorrencia nos comandos administrativos da Ordem de Servico")
 class ComandosConcorrentesIT extends IntegracaoBase {
 
+    private static final String ASSUNTO_DO_ORCAMENTO = "Orcamento da sua Ordem de Servico";
+
     private static final int SIMULTANEAS = 4;
     private static final String VALOR_DO_SERVICO = "120.00";
-
-    @MockitoBean
-    private MailSender mailSender;
 
     @Autowired
     private CriarOrdemServicoUseCase criarOrdemServico;
@@ -73,7 +71,7 @@ class ComandosConcorrentesIT extends IntegracaoBase {
                 INSERT INTO servico (id, nome, descricao, valor_mao_de_obra, moeda)
                 VALUES (?, 'Troca de oleo', 'Troca completa', %s, 'BRL')
                 """.formatted(VALOR_DO_SERVICO), servicoId);
-        ordemId = criarOrdemServico.executar("10433218100", veiculoId, "Barulho ao frear").id();
+        ordemId = criarOrdemServico.executar("10433218100", veiculoId, "Barulho ao frear", List.of(), List.of()).id();
     }
 
     @Test
@@ -106,7 +104,7 @@ class ComandosConcorrentesIT extends IntegracaoBase {
 
         assertThat(disparar(() -> concluirDiagnostico.executar(ordemId))).isEqualTo(1);
         assertThat(transicoesPara("AGUARDANDO_APROVACAO")).isEqualTo(1);
-        verify(mailSender, times(1)).send(any(SimpleMailMessage.class));
+        assertThat(emailsComAssunto(ASSUNTO_DO_ORCAMENTO)).hasSize(1);
     }
 
     @Test
