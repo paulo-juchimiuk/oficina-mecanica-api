@@ -229,9 +229,9 @@ A pipeline é do GitHub Actions, em [`.github/workflows/ci-cd.yml`](.github/work
 
 | Ordem | Job | Onde roda | O que faz | Quando |
 |---|---|---|---|---|
-| 1 | Build e testes | executor hospedado do GitHub | build da aplicação; testes unitários e de integração, com Testcontainers; `terraform init`, `fmt -check` e `validate` de `infra/` | sempre |
-| 2 | Build da imagem Docker | executor hospedado do GitHub | constrói a imagem e a publica no GitHub Container Registry com duas tags, o SHA do commit e `main` | na `main`, fora de pull request |
-| 3 | Deploy no cluster Kubernetes | executor auto-hospedado, com o rótulo `oficina-local` | os cinco passos abaixo | na `main`, fora de pull request |
+| 1 | Build e testes | runner hospedado pelo GitHub | build da aplicação; testes unitários e de integração, com Testcontainers; `terraform init`, `fmt -check` e `validate` de `infra/` | sempre |
+| 2 | Build da imagem Docker | runner hospedado pelo GitHub | constrói a imagem e a publica no GitHub Container Registry com duas tags, o SHA do commit e `main` | na `main`, fora de pull request |
+| 3 | Deploy no cluster Kubernetes | runner auto-hospedado, com o rótulo `oficina-local` | os cinco passos abaixo | na `main`, fora de pull request |
 
 Os passos do deploy, com o nome que aparece no log:
 
@@ -243,13 +243,13 @@ Os passos do deploy, com o nome que aparece no log:
 
 **Quem provisiona o banco.** O Terraform provisiona o banco, e a pipeline não roda `terraform apply`: o estado do Terraform é local, e um `apply` disparado pela pipeline teria um estado diferente do `apply` feito no terminal, e tentaria criar um cluster que já existe. Na pipeline, o deploy do banco de dados é o passo que confirma o banco, o schema e a carga (ADR-027).
 
-### O executor auto-hospedado
+### O runner auto-hospedado
 
-O deploy precisa alcançar o cluster, que roda na máquina de quem o provisionou, e o executor hospedado do GitHub não alcança essa máquina. Por isso o terceiro job roda num executor registrado nela.
+O deploy precisa alcançar o cluster, que roda na máquina de quem o provisionou, e o runner hospedado pelo GitHub não alcança essa máquina. Por isso o terceiro job roda num runner registrado nela.
 
 **Registrar, uma vez:** em **Settings, Actions, Runners, New self-hosted runner**, escolha Linux x64 e siga os comandos que a própria página mostra, numa pasta fora do clone, por exemplo `~/actions-runner`. Quando o `config.sh` pedir rótulos adicionais, informe `oficina-local`. Não instale como serviço.
 
-**Ligar, a cada janela de trabalho,** num terminal que fica preso enquanto o executor estiver ligado:
+**Ligar, a cada janela de trabalho,** num terminal que fica preso enquanto o runner estiver ligado:
 
 ```bash
 cd ~/actions-runner && ./run.sh
@@ -257,9 +257,9 @@ cd ~/actions-runner && ./run.sh
 
 A máquina precisa ter o Docker, o `kind` e o `kubectl` no `PATH`, e o cluster precisa estar de pé (seção "Provisionamento com Terraform").
 
-**Com o executor desligado, o deploy espera na fila**, e os dois primeiros jobs rodam normalmente. O job enfileirado começa sozinho quando o executor é ligado, e falha se passar 24 horas na fila.
+**Com o runner desligado, o deploy espera na fila**, e os dois primeiros jobs rodam normalmente. O job enfileirado começa sozinho quando o runner é ligado, e falha se passar 24 horas na fila.
 
-**Repositório público com executor auto-hospedado.** A disciplina de DevOps alerta que executor auto-hospedado não é recomendado para repositório público, porque o código de um pull request pode rodar na infraestrutura dele. Aqui isso é contido por cinco medidas, detalhadas no ADR-027: o repositório exige aprovação para rodar workflow de colaborador externo; o deploy só roda em `push` na `main` e pelo botão; o executor tem rótulo próprio e fica ligado só nas janelas de trabalho, nunca como serviço; o workflow pede a permissão mínima; e nenhum segredo fica gravado no executor.
+**Repositório público com runner auto-hospedado.** A disciplina de DevOps alerta que runner auto-hospedado não é recomendado para repositório público, porque o código de um pull request pode rodar na infraestrutura dele. Aqui isso é contido por cinco medidas, detalhadas no ADR-027: o repositório exige aprovação para rodar workflow de colaborador externo; o deploy só roda em `push` na `main` e pelo botão; o runner tem rótulo próprio e fica ligado só nas janelas de trabalho, nunca como serviço; o workflow pede a permissão mínima; e nenhum segredo fica gravado no runner.
 
 ### A imagem no registro
 
