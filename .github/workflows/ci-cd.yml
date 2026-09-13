@@ -124,12 +124,10 @@ jobs:
         run: |
           cp -r k8s "$RUNNER_TEMP/k8s"
           sed -i "s|$IMAGEM:main|$IMAGEM:$GITHUB_SHA|" "$RUNNER_TEMP/k8s/oficina-app-deployment.yaml"
+          grep -F "image: $IMAGEM:$GITHUB_SHA" "$RUNNER_TEMP/k8s/oficina-app-deployment.yaml"
           kubectl -n "$NAMESPACE" delete job seed --ignore-not-found
           kubectl -n "$NAMESPACE" create configmap seed --from-file=seed/ --dry-run=client -o yaml | kubectl apply -f -
           kubectl apply -f "$RUNNER_TEMP/k8s/"
-          PUBLICADA=$(kubectl -n "$NAMESPACE" get deployment oficina-app -o jsonpath='{.spec.template.spec.containers[0].image}')
-          echo "Imagem publicada: $PUBLICADA"
-          [ "$PUBLICADA" = "$IMAGEM:$GITHUB_SHA" ]
           kubectl -n "$NAMESPACE" rollout status deployment/oficina-app --timeout=300s
 
       - name: Deploy do banco de dados

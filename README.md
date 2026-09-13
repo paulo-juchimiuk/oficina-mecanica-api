@@ -129,10 +129,9 @@ O ambiente de execução em Kubernetes é provisionado por código, no diretóri
 **Os dois limites de `inotify` do núcleo também precisam estar levantados antes do primeiro `apply`**, senão o segundo nó do cluster não sobe. Os valores e o comando estão nos pré-requisitos de [`infra/README.md`](infra/README.md).
 
 ```bash
-cd infra
-terraform init
-terraform plan -out=plano.tfplan
-terraform apply plano.tfplan
+terraform -chdir=infra init
+terraform -chdir=infra plan -out=plano.tfplan
+terraform -chdir=infra apply plano.tfplan
 ```
 
 O `apply` leva cerca de um minuto, acompanha o banco até ele estar pronto, e termina imprimindo o caminho do kubeconfig, o namespace e o endereço interno do banco. Conferindo:
@@ -140,10 +139,10 @@ O `apply` leva cerca de um minuto, acompanha o banco até ele estar pronto, e te
 ```bash
 kubectl get nodes                                     # dois nós Ready
 kubectl -n oficina rollout status deployment/banco    # banco de pé
-terraform output
+terraform -chdir=infra output
 ```
 
-Para desfazer, `terraform destroy`, que apaga o cluster e, com ele, os dados do banco. Se o `apply` for interrompido ou falhar antes de o banco ficar pronto, o cluster pode ficar de pé fora do estado do Terraform, e aí quem o remove é `kind delete cluster --name oficina`.
+Todos os comandos deste README rodam da raiz do repositório; por isso o Terraform é chamado com `-chdir=infra`. Para desfazer, `terraform -chdir=infra destroy`, que apaga o cluster e, com ele, os dados do banco. Se o `apply` for interrompido ou falhar antes de o banco ficar pronto, o cluster pode ficar de pé fora do estado do Terraform, e aí quem o remove é `kind delete cluster --name oficina`.
 
 **O `apply` troca o contexto corrente do `kubectl`.** Ele acrescenta ao `~/.kube/config` a entrada do cluster criado e a torna corrente; o `destroy` a remove e deixa o `kubectl` sem contexto corrente, sem apagar os demais. Quem usa o `kubectl` com outros clusters volta para o seu com `kubectl config use-context <nome>`.
 
@@ -212,7 +211,7 @@ kubectl -n oficina run gerador-carga --image=busybox:1.36 \
 kubectl -n oficina get hpa oficina-app -w
 ```
 
-Nesta máquina, a CPU média passou do alvo em menos de 30 segundos, o HPA subiu para 3 réplicas e, 15 segundos depois, para 4. Para ver a volta, apague o gerador:
+Nesta máquina, a CPU média passou do alvo em cerca de 30 segundos, e o HPA chegou a 4 réplicas em menos de um minuto, direto ou passando por 3, conforme o valor da primeira leitura acima do alvo. Para ver a volta, apague o gerador:
 
 ```bash
 kubectl -n oficina delete pod gerador-carga
@@ -238,8 +237,8 @@ Os passos do deploy, com o nome que aparece no log:
 
 1. **Conferência do cluster:** gera um kubeconfig próprio a partir do `kind` e confere os nós e o banco provisionado. O job não usa o contexto corrente do `kubectl` da máquina, então não publica em outro cluster que a máquina conheça.
 2. **Carga da imagem no cluster:** baixa do registro a imagem do commit e a carrega nos nós, com a tag do commit e com `main`.
-3. **Aplicação dos manifestos:** apaga o Job da carga anterior, gera o ConfigMap `seed`, aplica `k8s/` com a tag do commit no lugar de `main`, confere a imagem publicada e espera o rollout. Cada publicação vira uma revisão do Deployment com a imagem do commit, que `kubectl -n oficina rollout history deployment/oficina-app` lista.
-4. **Deploy do banco de dados:** confere o banco que o Terraform provisionou, mostra no log a migration que o Flyway aplicou no boot da aplicação e espera a carga de demonstração. Vem depois da aplicação dos manifestos porque o schema nasce no boot da aplicação e a carga espera por ele.
+3. **Aplicação dos manifestos:** troca a tag `main` pela do commit numa cópia dos manifestos e confere a troca antes de qualquer comando no cluster; depois apaga o Job da carga anterior, gera o ConfigMap `seed`, aplica a cópia e espera o rollout. Cada commit publicado vira uma revisão do Deployment com a imagem dele, que `kubectl -n oficina rollout history deployment/oficina-app` lista; executar de novo o mesmo commit não cria revisão, porque o Deployment não muda.
+4. **Deploy do banco de dados:** confere o banco que o Terraform provisionou, mostra no log o que o Flyway fez no boot da aplicação, a migration aplicada ou o aviso de que o schema já está em dia, e espera a carga de demonstração. Vem depois da aplicação dos manifestos porque o schema nasce no boot da aplicação e a carga espera por ele.
 5. **Conferência da aplicação:** chama a sonda de prontidão pela porta 8080.
 
 **Quem provisiona o banco.** O Terraform provisiona o banco, e a pipeline não roda `terraform apply`: o estado do Terraform é local, e um `apply` disparado pela pipeline teria um estado diferente do `apply` feito no terminal, e tentaria criar um cluster que já existe. Na pipeline, o deploy do banco de dados é o passo que confirma o banco, o schema e a carga (ADR-027).
