@@ -2,7 +2,7 @@
 
 API de gestão para oficina mecânica de médio porte: ordem de serviço, orçamento com aprovação do cliente, controle de estoque e acompanhamento do atendimento. Back-end em **Clean Architecture**, com o domínio modelado por DDD.
 
-Tech Challenge da pós-graduação em Arquitetura de Software (FIAP). A **Fase 1** entregou o domínio, a API e o ambiente local. A **Fase 2** evolui esta mesma aplicação: a arquitetura passa a ser Clean Architecture com a regra de dependência provada no build (ADR-025), e o atendimento ganha o pedido inicial do cliente na abertura, a fila de atendimento com exclusão lógica das encerradas, a notificação externa de aprovação do orçamento e o aviso por e-mail a cada mudança de status (ADR-026).
+Tech Challenge da pós-graduação em Arquitetura de Software (FIAP). A **Fase 1** entregou o domínio, a API e o ambiente local. A **Fase 2** evolui esta mesma aplicação: a arquitetura passa a ser Clean Architecture com a regra de dependência provada no build (ADR-025), e o atendimento ganha o pedido inicial do cliente na abertura, a fila de atendimento com exclusão lógica das encerradas, a notificação externa de aprovação do orçamento e o aviso por e-mail a cada mudança de status (ADR-026). E a aplicação passa a rodar em Kubernetes: um cluster local provisionado por Terraform junto com o banco (ADR-024), publicado por manifestos e por uma pipeline de CI/CD, com escala automática pela CPU (ADR-027).
 
 ## Objetivos
 
@@ -11,6 +11,8 @@ A oficina atende, diagnostica, executa e entrega usando anotação manual e plan
 A primeira versão substituiu a planilha pelo registro que o próprio fluxo de trabalho produz: cada mudança de status é gravada com data e hora pela ação que a causou, o orçamento nasce dos itens lançados e vai ao cliente para aprovação, a peça é separada para a OS na aprovação do orçamento e só sai do saldo quando o Mecânico a retira, e o cliente acompanha a própria Ordem de Serviço sem depender de telefonema.
 
 **O objetivo desta fase é evoluir essa aplicação para garantir qualidade, resiliência e escalabilidade.** A mudança de fundo é arquitetural, e ela deixa de ser promessa de documento porque o build prova: as dependências apontam para o centro e o framework não entra no anel dos casos de uso. Sobre essa base, o atendimento ganha o que o fluxo pedia e não tinha: o cliente pede serviço já na abertura, a fila mostra primeiro o que está na bancada e esconde o que já saiu, a resposta ao orçamento chega de fora por notificação, e cada mudança de status é avisada ao cliente por e-mail.
+
+A outra metade do objetivo é o ambiente. Ele deixa de depender de alguém lembrar a sequência de comandos: o cluster e o banco nascem de código, cada push na `main` é construído, testado e publicado no cluster pela pipeline, a publicação troca as réplicas sem perder chamada, e a aplicação ganha réplicas quando a carga sobe e as devolve quando ela cai.
 
 O recorte segue sendo de MVP: back-end, sem interface gráfica, com gestão de ordens de serviço, clientes e peças.
 
@@ -39,13 +41,130 @@ O enunciado da fase nomeia os status em português corrente, e a API responde id
 
 A **listagem sem filtro** devolve a fila de atendimento nesta ordem de prioridade: `EM_EXECUCAO`, `AGUARDANDO_APROVACAO`, `EM_DIAGNOSTICO`, `RECEBIDA`, e dentro do mesmo status da mais antiga para a mais nova. As OSs `FINALIZADA`, `ENTREGUE` e `CANCELADA` ficam fora dela. **A exclusão é lógica:** o registro continua respondendo pela consulta por identificador e reaparece quando o filtro `?status=` o pede.
 
+## Desenho da arquitetura
+
+O ambiente desenhado é local e descartável, e não descreve um ambiente de produção em nuvem (ADR-024).
+
+### Componentes da aplicação e infraestrutura provisionada
+
+```mermaid
+flowchart TB
+    usuario["Atendente, mecânico e cliente<br/>HTTP na porta 8080"]
+
+    subgraph maquina["Máquina local"]
+        porta["127.0.0.1:8080"]
+
+        subgraph cluster["Cluster kind oficina: nó de controle e nó de trabalho"]
+
+            subgraph kubeSystem["Namespace kube-system"]
+                metrics["metrics-server"]
+            end
+
+            subgraph ns["Namespace oficina"]
+                svcApp["Service oficina-app<br/>NodePort 30080"]
+
+                subgraph escala["Configuração e escala"]
+                    config["ConfigMap e Secret<br/>oficina-app"]
+                    hpa["HorizontalPodAutoscaler<br/>1 a 4 réplicas pela CPU, alvo de 70%"]
+                end
+
+                subgraph app["Deployment oficina-app: API Spring Boot em Clean Architecture"]
+                    api["api<br/>Controllers e Presenters"]
+                    application["application<br/>Casos de uso"]
+                    domain["domain<br/>Entidades e portas"]
+                    infrastructure["infrastructure<br/>Gateways, JPA, Flyway, SMTP"]
+                end
+
+                subgraph dados["Banco de dados"]
+                    secretBanco["Secret banco"]
+                    svcBanco["Service banco<br/>porta 5432"]
+                    banco["Deployment banco<br/>PostgreSQL 18, 1 réplica"]
+                    pvc["PersistentVolumeClaim banco<br/>1Gi"]
+                end
+
+                subgraph apoio["Apoio ao ambiente"]
+                    email["Deployment e Service email<br/>Mailpit, SMTP na porta 1025"]
+                    seed["Job seed<br/>dados de demonstração"]
+                end
+            end
+        end
+    end
+
+    usuario --> porta --> svcApp --> api
+    api --> application --> domain
+    api --> domain
+    infrastructure --> application
+    infrastructure --> domain
+    infrastructure --> svcBanco --> banco --> pvc
+    infrastructure --> email
+    seed --> svcBanco
+    config -.-> app
+    secretBanco -.-> app
+    secretBanco -.-> banco
+    metrics -.-> hpa -.-> app
+
+    classDef terraform fill:#ede7f6,stroke:#5e35b1,color:#1a1a1a
+    classDef manifesto fill:#e3f2fd,stroke:#1565c0,color:#1a1a1a
+    classDef anel fill:#fff8e1,stroke:#f9a825,color:#1a1a1a
+    classDef neutro fill:#fafafa,stroke:#9e9e9e,color:#1a1a1a
+    class cluster,ns,dados,secretBanco,svcBanco,banco,pvc terraform
+    class app,svcApp,config,hpa,email,seed,metrics manifesto
+    class api,application,domain,infrastructure anel
+    class maquina,kubeSystem,usuario,porta,escala,apoio neutro
+```
+
+| Cor | O que é | Quem cria |
+|---|---|---|
+| roxo | o cluster `kind`, com um nó de controle e um de trabalho, o namespace `oficina` e o banco, com segredo, volume, Deployment e Service | o `terraform apply`, a partir de [`infra/`](infra/) |
+| azul | a aplicação, com Service, ConfigMap, Secret e HPA, a caixa de e-mail, a carga de demonstração e o `metrics-server` | os manifestos de [`k8s/`](k8s/), aplicados com `kubectl` à mão ou pela pipeline |
+| amarelo | os quatro anéis da Clean Architecture, que se repetem dentro de cada contexto delimitado | o código da aplicação, descrito em "Estrutura do projeto" |
+| cinza | a máquina, o namespace `kube-system` e os agrupamentos do desenho | o `kube-system` vem com o cluster; os demais não são objetos criados |
+
+Uma chamada entra por `127.0.0.1:8080`, que o cluster liga à porta `30080` do Service, e chega a uma das réplicas. Dentro da aplicação, as setas sólidas entre os anéis são dependências de código, e todas apontam para o centro. As setas pontilhadas são configuração e controle: o ConfigMap e os dois Secrets entregam configuração, e o HPA lê a CPU no `metrics-server` para decidir quantas réplicas manter.
+
+### Fluxo de deploy
+
+```mermaid
+flowchart LR
+    gatilho["push na main<br/>ou botão Run workflow"]
+    pr["pull request na main"]
+
+    subgraph hospedado["GitHub Actions: runner hospedado pelo GitHub"]
+        build["1. Build e testes<br/>mvn verify com Testcontainers<br/>terraform fmt e validate"]
+        imagem["2. Build da imagem Docker<br/>tags SHA do commit e main"]
+    end
+
+    ghcr[("GitHub Container Registry")]
+
+    subgraph local["3. Deploy no cluster Kubernetes: runner auto-hospedado oficina-local"]
+        conferencia["Conferência do cluster<br/>kubeconfig próprio do job"]
+        carga["Carga da imagem no cluster<br/>docker pull e kind load"]
+        manifestos["Aplicação dos manifestos<br/>k8s/ com a tag do SHA e rollout"]
+        bancoPasso["Deploy do banco de dados<br/>banco, Flyway e carga"]
+        prontidao["Conferência da aplicação<br/>sonda de prontidão"]
+    end
+
+    cluster[("Cluster kind oficina")]
+    terraform["terraform apply<br/>no terminal, antes da pipeline"]
+
+    gatilho --> build --> imagem --> ghcr
+    pr -. só o job 1 .-> build
+    imagem -- espera o runner na fila --> conferencia
+    conferencia --> carga --> manifestos --> bancoPasso --> prontidao
+    ghcr --> carga
+    manifestos --> cluster
+    terraform -. provisiona cluster e banco .-> cluster
+```
+
+Os dois primeiros jobs rodam no GitHub. O deploy roda na máquina onde o cluster está, e por isso espera na fila enquanto o runner estiver desligado. Cada passo, com o nome que aparece no log, está em "Pipeline de CI/CD".
+
 ## Documentação DDD
 
 Event Storming dos dois fluxos, Domain Storytelling (AS-IS e TO-BE), Context Map com os subdomínios, modelo de domínio, Linguagem Ubíqua e o C4 nos níveis de Contexto e de Contêiner.
 
 **Link da documentação:** https://miro.com/app/board/uXjVHuneCTk=/?share_link_id=665030044859
 
-## Como subir o ambiente completo
+## Execução local com Docker Compose
 
 Pré-requisitos: Docker e Docker Compose, com as portas **5432**, **8080**, **1025** e **8025** livres. Se houver um PostgreSQL ou outra aplicação ocupando alguma delas na máquina, o `docker compose up` falha com `port is already allocated`: pare o serviço local, ou ajuste o mapeamento no `docker-compose.yml`.
 
@@ -75,7 +194,7 @@ O que já vem carregado: **uma Ordem de Serviço em cada um dos sete status**, c
 - Banco: PostgreSQL 18 em `localhost:5432` (base, usuário e senha `oficina`, `oficina` e `oficina_local`, apenas para o ambiente local)
 - Caixa de e-mail do ambiente: `http://localhost:8025`. É onde chegam o orçamento e o aviso de cada mudança de status, sem provedor externo e sem credencial (ADR-007).
 
-## Swagger
+## Collection das APIs: Swagger e contrato OpenAPI
 
 Com o ambiente de pé:
 
@@ -103,7 +222,7 @@ curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/clientes
 
 O token é HS256, com validade padrão de 60 minutos, assinado com o segredo de `oficina.jwt.segredo`. O segredo precisa ter no mínimo 32 bytes: abaixo disso a aplicação **não sobe**, e falha com a contagem de bytes na mensagem, em vez de quebrar no primeiro login.
 
-## Executar localmente sem Docker
+## Execução local sem Docker
 
 Requer **Java 25** e Maven. A versão exata do JDK está fixada em [`.sdkmanrc`](.sdkmanrc); com SDKMAN, basta `sdk env` na raiz do projeto.
 
