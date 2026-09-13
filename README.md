@@ -2,7 +2,7 @@
 
 API de gestão para oficina mecânica de médio porte: ordem de serviço, orçamento com aprovação do cliente, controle de estoque e acompanhamento do atendimento. Back-end em **Clean Architecture**, com o domínio modelado por DDD.
 
-Tech Challenge da pós-graduação em Arquitetura de Software (FIAP). A **Fase 1** entregou o domínio, a API e o ambiente local. A **Fase 2** evolui esta mesma aplicação: a arquitetura passa a ser Clean Architecture com a regra de dependência provada no build (ADR-025), e o atendimento ganha o pedido inicial do cliente na abertura, a fila de atendimento com exclusão lógica das encerradas, a notificação externa de aprovação do orçamento e o aviso por e-mail a cada mudança de status (ADR-026). E a aplicação passa a rodar em Kubernetes: um cluster local provisionado por Terraform junto com o banco (ADR-024), publicado por manifestos e por uma pipeline de CI/CD, com escala automática pela CPU (ADR-027).
+Tech Challenge da pós-graduação em Arquitetura de Software (FIAP). A **Fase 1** entregou o domínio, a API e o ambiente local. A **Fase 2** evolui esta mesma aplicação: a arquitetura passa a ser Clean Architecture com a regra de dependência provada no build (ADR-025), e o atendimento ganha o pedido inicial do cliente na abertura, a fila de atendimento com exclusão lógica das encerradas, a notificação externa de aprovação do orçamento e o aviso por e-mail a cada mudança de status (ADR-026). E a aplicação passa a rodar em Kubernetes, publicada por manifestos e por uma pipeline de CI/CD num cluster local que o Terraform provisiona junto com o banco (ADR-024), com escala automática pela CPU (ADR-027).
 
 ## Objetivos
 
@@ -12,7 +12,7 @@ A primeira versão substituiu a planilha pelo registro que o próprio fluxo de t
 
 **O objetivo desta fase é evoluir essa aplicação para garantir qualidade, resiliência e escalabilidade.** A mudança de fundo é arquitetural, e ela deixa de ser promessa de documento porque o build prova: as dependências apontam para o centro e o framework não entra no anel dos casos de uso. Sobre essa base, o atendimento ganha o que o fluxo pedia e não tinha: o cliente pede serviço já na abertura, a fila mostra primeiro o que está na bancada e esconde o que já saiu, a resposta ao orçamento chega de fora por notificação, e cada mudança de status é avisada ao cliente por e-mail.
 
-A outra metade do objetivo é o ambiente. Ele deixa de depender de alguém lembrar a sequência de comandos: o cluster e o banco nascem de código, cada push na `main` é construído, testado e publicado no cluster pela pipeline, a publicação troca as réplicas sem perder chamada, e a aplicação ganha réplicas quando a carga sobe e as devolve quando ela cai.
+A outra metade do objetivo é o ambiente. Ele deixa de depender de alguém lembrar a sequência de comandos: o cluster e o banco nascem de código, cada push na `main` é construído e testado pela pipeline e, com o runner ligado, publicado no cluster, a publicação troca as réplicas sem perder chamada, e a aplicação ganha réplicas quando a carga sobe e as devolve quando ela cai.
 
 O recorte segue sendo de MVP: back-end, sem interface gráfica, com gestão de ordens de serviço, clientes e peças.
 
@@ -107,18 +107,18 @@ flowchart TB
     classDef manifesto fill:#e3f2fd,stroke:#1565c0,color:#1a1a1a
     classDef anel fill:#fff8e1,stroke:#f9a825,color:#1a1a1a
     classDef neutro fill:#fafafa,stroke:#9e9e9e,color:#1a1a1a
-    class cluster,ns,dados,secretBanco,svcBanco,banco,pvc terraform
+    class cluster,ns,dados,porta,secretBanco,svcBanco,banco,pvc terraform
     class app,svcApp,config,hpa,email,seed,metrics manifesto
     class api,application,domain,infrastructure anel
-    class maquina,kubeSystem,usuario,porta,escala,apoio neutro
+    class maquina,kubeSystem,usuario,escala,apoio neutro
 ```
 
 | Cor | O que é | Quem cria |
 |---|---|---|
-| roxo | o cluster `kind`, com um nó de controle e um de trabalho, o namespace `oficina` e o banco, com segredo, volume, Deployment e Service | o `terraform apply`, a partir de [`infra/`](infra/) |
+| roxo | o cluster `kind`, com um nó de controle e um de trabalho e a porta `127.0.0.1:8080` que ele publica na máquina, o namespace `oficina` e o banco, com segredo, volume, Deployment e Service | o `terraform apply`, a partir de [`infra/`](infra/) |
 | azul | a aplicação, com Service, ConfigMap, Secret e HPA, a caixa de e-mail, a carga de demonstração e o `metrics-server` | os manifestos de [`k8s/`](k8s/), aplicados com `kubectl` à mão ou pela pipeline |
 | amarelo | os quatro anéis da Clean Architecture, que se repetem dentro de cada contexto delimitado | o código da aplicação, descrito em "Estrutura do projeto" |
-| cinza | a máquina, o namespace `kube-system` e os agrupamentos do desenho | o `kube-system` vem com o cluster; os demais não são objetos criados |
+| cinza | a máquina, quem chama a API, o namespace `kube-system` e os agrupamentos do desenho | o `kube-system` vem com o cluster; os demais não são objetos criados |
 
 Uma chamada entra por `127.0.0.1:8080`, que o cluster liga à porta `30080` do Service, e chega a uma das réplicas. Dentro da aplicação, as setas sólidas entre os anéis são dependências de código, e todas apontam para o centro. As setas pontilhadas são configuração e controle: o ConfigMap e os dois Secrets entregam configuração, e o HPA lê a CPU no `metrics-server` para decidir quantas réplicas manter.
 
@@ -154,6 +154,9 @@ flowchart LR
     ghcr --> carga
     manifestos --> cluster
     terraform -. provisiona cluster e banco .-> cluster
+
+    classDef neutro fill:#fafafa,stroke:#9e9e9e,color:#1a1a1a
+    class hospedado,local neutro
 ```
 
 Os dois primeiros jobs rodam no GitHub. O deploy roda na máquina onde o cluster está, e por isso espera na fila enquanto o runner estiver desligado. Cada passo, com o nome que aparece no log, está em "Pipeline de CI/CD".
@@ -303,15 +306,13 @@ kubectl -n oficina wait --for=condition=complete job/seed --timeout=300s
 
 O Job é apagado antes do `apply` porque o modelo de Pod de um Job não pode mudar depois de criado; como a carga é idempotente (ADR-015), rodá-la de novo não altera nada, e ela só carrega com o banco vazio. O ConfigMap `seed` é gerado de `seed/` na hora, e não versionado em `k8s/`, para que o script e os dados tenham um dono só. A carga espera o schema, que o Flyway cria no boot da aplicação, então ela termina logo depois de a aplicação ficar pronta, o que nesta máquina leva cerca de 20 segundos.
 
-**Conferindo:**
+**Conferindo.** O `kubectl top` passa a responder até um minuto depois do primeiro `apply`, que é o tempo de o `metrics-server` colher as primeiras amostras; antes disso ele devolve `error: Metrics API not available`, e basta repetir o comando.
 
 ```bash
 kubectl -n oficina get deployment,service,configmap,secret,hpa,job
 kubectl top pods -n oficina
 curl -s localhost:8080/actuator/health/readiness
 ```
-
-O `kubectl top` passa a responder até um minuto depois do primeiro `apply`, que é o tempo de o `metrics-server` colher as primeiras amostras.
 
 Com o cluster de pé, a API, o Swagger e a autenticação respondem nos mesmos endereços do ambiente de Compose, em `localhost:8080`. A caixa de e-mail fica dentro do cluster; para abri-la, encaminhe a porta dela, num terminal que fica preso enquanto o encaminhamento durar, e abra `http://localhost:8025`:
 
