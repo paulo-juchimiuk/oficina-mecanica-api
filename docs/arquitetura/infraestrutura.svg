@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="830" height="850" viewBox="0 0 830 850" font-family="Arial, Helvetica, sans-serif">
+  <defs>
+    <marker id="ponta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#707070"/>
+    </marker>
+  </defs>
+  <rect width="830" height="850" fill="#ffffff"/>
+
+  <circle cx="440" cy="36" r="24" fill="#6b1010"/>
+  <rect x="345" y="52" width="190" height="92" rx="20" fill="#6b1010"/>
+  <text x="440" y="80" text-anchor="middle" font-size="13" font-weight="bold" fill="#ffffff">Equipe e cliente</text>
+  <text x="440" y="95" text-anchor="middle" font-size="9.5" fill="#fff0f0">[Pessoa]</text>
+  <text x="440" y="113" text-anchor="middle" font-size="10.5" fill="#ffffff">atendente, mecânico, estoquista</text>
+  <text x="440" y="127" text-anchor="middle" font-size="10.5" fill="#ffffff">e cliente</text>
+
+  <rect x="15" y="185" width="800" height="600" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+  <text x="27" y="765" font-size="12" font-weight="bold" fill="#333333">Máquina local</text>
+  <text x="27" y="778" font-size="9.5" fill="#444444">[Nó de implantação: Linux com Docker]</text>
+
+  <rect x="30" y="200" width="770" height="545" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+  <text x="42" y="725" font-size="12" font-weight="bold" fill="#333333">Cluster kind oficina</text>
+  <text x="42" y="738" font-size="9.5" fill="#444444">[Nó de implantação: Kubernetes 1.35 com dois nós, criado pelo terraform apply]</text>
+
+  <rect x="45" y="215" width="530" height="490" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+  <text x="57" y="685" font-size="12" font-weight="bold" fill="#333333">Namespace oficina</text>
+  <text x="57" y="698" font-size="9.5" fill="#444444">[Nó de implantação: namespace, criado pelo terraform apply]</text>
+
+  <rect x="595" y="215" width="190" height="250" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+  <text x="605" y="445" font-size="12" font-weight="bold" fill="#333333">Namespace kube-system</text>
+  <text x="605" y="458" font-size="9.5" fill="#444444">[Nó de implantação: namespace]</text>
+
+  <rect x="65" y="235" width="200" height="125" fill="#5a5a5a"/>
+  <text x="165" y="265" text-anchor="middle" font-size="13" font-weight="bold" fill="#ffffff">Serviço de e-mail</text>
+  <text x="165" y="281" text-anchor="middle" font-size="9.5" fill="#ffffff">[Sistema de software: Mailpit 1.21]</text>
+  <text x="165" y="300" text-anchor="middle" font-size="10.5" fill="#ffffff">Deployment e Service,</text>
+  <text x="165" y="314" text-anchor="middle" font-size="10.5" fill="#ffffff">SMTP na porta 1025</text>
+  <text x="165" y="346" text-anchor="middle" font-size="9.5" font-style="italic" fill="#ffffff">aplicado de k8s/</text>
+
+  <rect x="345" y="235" width="190" height="125" fill="#8c1c1c"/>
+  <text x="440" y="263" text-anchor="middle" font-size="13" font-weight="bold" fill="#ffffff">API REST</text>
+  <text x="440" y="279" text-anchor="middle" font-size="9.5" fill="#fff0f0">[Contêiner: Java 25 e Spring Boot]</text>
+  <text x="440" y="297" text-anchor="middle" font-size="10.5" fill="#ffffff">Deployment de 1 a 4 réplicas,</text>
+  <text x="440" y="311" text-anchor="middle" font-size="10.5" fill="#ffffff">HPA pela CPU com alvo de 70%,</text>
+  <text x="440" y="325" text-anchor="middle" font-size="10.5" fill="#ffffff">Service, ConfigMap e Secret</text>
+  <text x="440" y="348" text-anchor="middle" font-size="9.5" font-style="italic" fill="#fff0f0">aplicado de k8s/</text>
+
+  <rect x="617" y="235" width="156" height="125" fill="#efefef" stroke="#767676" stroke-width="1"/>
+  <text x="695" y="263" text-anchor="middle" font-size="13" font-weight="bold" fill="#2e2e2e">metrics-server</text>
+  <text x="695" y="279" text-anchor="middle" font-size="9.5" fill="#3a3a3a">[Nó de infraestrutura: v0.9.0]</text>
+  <text x="695" y="298" text-anchor="middle" font-size="10.5" fill="#2e2e2e">coleta a CPU das</text>
+  <text x="695" y="312" text-anchor="middle" font-size="10.5" fill="#2e2e2e">réplicas para o HPA</text>
+  <text x="695" y="346" text-anchor="middle" font-size="9.5" font-style="italic" fill="#3a3a3a">aplicado de k8s/</text>
+
+  <rect x="65" y="455" width="200" height="115" fill="#8c1c1c"/>
+  <text x="165" y="483" text-anchor="middle" font-size="13" font-weight="bold" fill="#ffffff">Carga de demonstração</text>
+  <text x="165" y="499" text-anchor="middle" font-size="9.5" fill="#fff0f0">[Contêiner: Job, PostgreSQL 18]</text>
+  <text x="165" y="518" text-anchor="middle" font-size="10.5" fill="#ffffff">roda a cada publicação e só</text>
+  <text x="165" y="532" text-anchor="middle" font-size="10.5" fill="#ffffff">carrega com o banco vazio</text>
+  <text x="165" y="556" text-anchor="middle" font-size="9.5" font-style="italic" fill="#fff0f0">aplicado de k8s/</text>
+
+  <path d="M345,455 L345,590 A95,13 0 0,0 535,590 L535,455 Z" fill="#8c1c1c"/>
+  <ellipse cx="440" cy="455" rx="95" ry="13" fill="#9c2424" stroke="#6b1010" stroke-width="1"/>
+  <text x="440" y="495" text-anchor="middle" font-size="13" font-weight="bold" fill="#ffffff">Banco de dados</text>
+  <text x="440" y="511" text-anchor="middle" font-size="9.5" fill="#fff0f0">[Contêiner: PostgreSQL 18]</text>
+  <text x="440" y="530" text-anchor="middle" font-size="10.5" fill="#ffffff">1 réplica, volume persistente</text>
+  <text x="440" y="544" text-anchor="middle" font-size="10.5" fill="#ffffff">de 1Gi e credencial no Secret</text>
+  <text x="440" y="572" text-anchor="middle" font-size="9.5" font-style="italic" fill="#fff0f0">criado pelo terraform apply</text>
+
+  <path d="M440,144 L440,233" fill="none" stroke="#707070" stroke-width="1.3" stroke-dasharray="7 5" marker-end="url(#ponta)"/>
+  <path d="M345,305 L267,305" fill="none" stroke="#707070" stroke-width="1.3" stroke-dasharray="7 5" marker-end="url(#ponta)"/>
+  <path d="M440,360 L440,440" fill="none" stroke="#707070" stroke-width="1.3" stroke-dasharray="7 5" marker-end="url(#ponta)"/>
+  <path d="M265,512 L343,512" fill="none" stroke="#707070" stroke-width="1.3" stroke-dasharray="7 5" marker-end="url(#ponta)"/>
+  <path d="M617,300 L537,300" fill="none" stroke="#707070" stroke-width="1.3" stroke-dasharray="7 5" marker-end="url(#ponta)"/>
+
+  <text x="450" y="163" font-size="10.5" fill="#222222">chamam a API</text>
+  <text x="450" y="175" font-size="9.5" fill="#333333">[JSON/HTTP em 127.0.0.1:8080, que o cluster liga à porta 30080 do Service]</text>
+
+  <text x="305" y="289" text-anchor="middle" font-size="10.5" fill="#222222">envia avisos</text>
+  <text x="305" y="299" text-anchor="middle" font-size="9.5" fill="#333333">[SMTP]</text>
+
+  <text x="450" y="393" font-size="10.5" fill="#222222">lê e grava</text>
+  <text x="450" y="405" font-size="9.5" fill="#333333">[JDBC, banco:5432]</text>
+
+  <text x="305" y="496" text-anchor="middle" font-size="10.5" fill="#222222">carrega</text>
+  <text x="305" y="506" text-anchor="middle" font-size="9.5" fill="#333333">[SQL]</text>
+
+  <rect x="545" y="268" width="62" height="28" fill="#ffffff"/>
+  <text x="576" y="279" text-anchor="middle" font-size="10.5" fill="#222222">mede a CPU</text>
+  <text x="576" y="291" text-anchor="middle" font-size="9.5" fill="#333333">[pelo kubelet]</text>
+
+  <text x="15" y="815" font-size="15" font-weight="bold" fill="#222222">[Implantação] oficina-mecanica-api: ambiente local</text>
+  <text x="15" y="834" font-size="10.5" fill="#555555">Ambiente local e descartável: o Terraform de infra/ cria o cluster e o banco, e os manifestos de k8s/ publicam o resto (ADR-024 e ADR-027).</text>
+</svg>

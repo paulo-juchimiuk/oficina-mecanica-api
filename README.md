@@ -43,123 +43,25 @@ A **listagem sem filtro** devolve a fila de atendimento nesta ordem de prioridad
 
 ## Desenho da arquitetura
 
-O ambiente desenhado é local e descartável, e não descreve um ambiente de produção em nuvem (ADR-024).
+O ambiente desenhado é local e descartável, e não descreve um ambiente de produção em nuvem (ADR-024). Os dois primeiros desenhos seguem o C4 Model e continuam o C4 de Contexto e de Contêiner da documentação DDD: o diagrama de componentes abre o contêiner da API REST, e o diagrama de implantação mostra onde cada contêiner roda.
 
-### Componentes da aplicação e infraestrutura provisionada
+### Componentes da aplicação
 
-```mermaid
-flowchart TB
-    usuario["Atendente, mecânico e cliente<br/>HTTP na porta 8080"]
+![Diagrama de componentes da API REST: controllers, casos de uso, entidades e gateways, com o banco de dados e o serviço de e-mail](docs/arquitetura/componentes.svg)
 
-    subgraph maquina["Máquina local"]
-        porta["127.0.0.1:8080"]
+Os pacotes de cada contexto delimitado estão em "Estrutura do projeto", e a regra de dependência, com o teste que a prova, no ADR-025.
 
-        subgraph cluster["Cluster kind oficina: nó de controle e nó de trabalho"]
+### Infraestrutura provisionada
 
-            subgraph kubeSystem["Namespace kube-system"]
-                metrics["metrics-server"]
-            end
+![Diagrama de implantação do ambiente local: máquina, cluster kind, namespaces oficina e kube-system, e o que cada um executa](docs/arquitetura/infraestrutura.svg)
 
-            subgraph ns["Namespace oficina"]
-                svcApp["Service oficina-app<br/>NodePort 30080"]
-
-                subgraph escala["Configuração e escala"]
-                    config["ConfigMap e Secret<br/>oficina-app"]
-                    hpa["HorizontalPodAutoscaler<br/>1 a 4 réplicas pela CPU, alvo de 70%"]
-                end
-
-                subgraph app["Deployment oficina-app: API Spring Boot em Clean Architecture"]
-                    api["api<br/>Controllers e Presenters"]
-                    application["application<br/>Casos de uso"]
-                    domain["domain<br/>Entidades e portas"]
-                    infrastructure["infrastructure<br/>Gateways, JPA, Flyway, SMTP"]
-                end
-
-                subgraph dados["Banco de dados"]
-                    secretBanco["Secret banco"]
-                    svcBanco["Service banco<br/>porta 5432"]
-                    banco["Deployment banco<br/>PostgreSQL 18, 1 réplica"]
-                    pvc["PersistentVolumeClaim banco<br/>1Gi"]
-                end
-
-                subgraph apoio["Apoio ao ambiente"]
-                    email["Deployment e Service email<br/>Mailpit, SMTP na porta 1025"]
-                    seed["Job seed<br/>dados de demonstração"]
-                end
-            end
-        end
-    end
-
-    usuario --> porta --> svcApp --> api
-    api --> application --> domain
-    api --> domain
-    infrastructure --> application
-    infrastructure --> domain
-    infrastructure --> svcBanco --> banco --> pvc
-    infrastructure --> email
-    seed --> svcBanco
-    config -.-> app
-    secretBanco -.-> app
-    secretBanco -.-> banco
-    metrics -.-> hpa -.-> app
-
-    classDef terraform fill:#ede7f6,stroke:#5e35b1,color:#1a1a1a
-    classDef manifesto fill:#e3f2fd,stroke:#1565c0,color:#1a1a1a
-    classDef anel fill:#fff8e1,stroke:#f9a825,color:#1a1a1a
-    classDef neutro fill:#fafafa,stroke:#9e9e9e,color:#1a1a1a
-    class cluster,ns,dados,porta,secretBanco,svcBanco,banco,pvc terraform
-    class app,svcApp,config,hpa,email,seed,metrics manifesto
-    class api,application,domain,infrastructure anel
-    class maquina,kubeSystem,usuario,escala,apoio neutro
-```
-
-| Cor | O que é | Quem cria |
-|---|---|---|
-| roxo | o cluster `kind`, com um nó de controle e um de trabalho e a porta `127.0.0.1:8080` que ele publica na máquina, o namespace `oficina` e o banco, com segredo, volume, Deployment e Service | o `terraform apply`, a partir de [`infra/`](infra/) |
-| azul | a aplicação, com Service, ConfigMap, Secret e HPA, a caixa de e-mail, a carga de demonstração e o `metrics-server` | os manifestos de [`k8s/`](k8s/), aplicados com `kubectl` à mão ou pela pipeline |
-| amarelo | os quatro anéis da Clean Architecture, que se repetem dentro de cada contexto delimitado | o código da aplicação, descrito em "Estrutura do projeto" |
-| cinza | a máquina, quem chama a API, o namespace `kube-system` e os agrupamentos do desenho | o `kube-system` vem com o cluster; os demais não são objetos criados |
-
-Uma chamada entra por `127.0.0.1:8080`, que o cluster liga à porta `30080` do Service, e chega a uma das réplicas. Dentro da aplicação, as setas sólidas entre os anéis são dependências de código, e todas apontam para o centro. As setas pontilhadas são configuração e controle: o ConfigMap e os dois Secrets entregam configuração, e o HPA lê a CPU no `metrics-server` para decidir quantas réplicas manter.
+Cada caixa diz de onde vem: o `terraform apply` de [`infra/`](infra/) cria o cluster, o namespace e o banco, e os manifestos de [`k8s/`](k8s/) publicam o resto. Os comandos estão em "Provisionamento com Terraform" e "Deploy em Kubernetes".
 
 ### Fluxo de deploy
 
-```mermaid
-flowchart LR
-    gatilho["push na main<br/>ou botão Run workflow"]
-    pr["pull request na main"]
+![Fluxo de deploy da pipeline de CI/CD: build e testes, imagem no GitHub Container Registry e deploy no cluster pelo runner auto-hospedado](docs/arquitetura/fluxo-de-deploy.svg)
 
-    subgraph hospedado["GitHub Actions: runner hospedado pelo GitHub"]
-        build["1. Build e testes<br/>mvn verify com Testcontainers<br/>terraform fmt e validate"]
-        imagem["2. Build da imagem Docker<br/>tags SHA do commit e main"]
-    end
-
-    ghcr[("GitHub Container Registry")]
-
-    subgraph local["3. Deploy no cluster Kubernetes: runner auto-hospedado oficina-local"]
-        conferencia["Conferência do cluster<br/>kubeconfig próprio do job"]
-        carga["Carga da imagem no cluster<br/>docker pull e kind load"]
-        manifestos["Aplicação dos manifestos<br/>k8s/ com a tag do SHA e rollout"]
-        bancoPasso["Deploy do banco de dados<br/>banco, Flyway e carga"]
-        prontidao["Conferência da aplicação<br/>sonda de prontidão"]
-    end
-
-    cluster[("Cluster kind oficina")]
-    terraform["terraform apply<br/>no terminal, antes da pipeline"]
-
-    gatilho --> build --> imagem --> ghcr
-    pr -. só o job 1 .-> build
-    imagem -- espera o runner na fila --> conferencia
-    conferencia --> carga --> manifestos --> bancoPasso --> prontidao
-    ghcr --> carga
-    manifestos --> cluster
-    terraform -. provisiona cluster e banco .-> cluster
-
-    classDef neutro fill:#fafafa,stroke:#9e9e9e,color:#1a1a1a
-    class hospedado,local neutro
-```
-
-Os dois primeiros jobs rodam no GitHub. O deploy roda na máquina onde o cluster está, e por isso espera na fila enquanto o runner estiver desligado. Cada passo, com o nome que aparece no log, está em "Pipeline de CI/CD".
+Cada passo, com o nome que aparece no log, está em "Pipeline de CI/CD".
 
 ## Documentação DDD
 
