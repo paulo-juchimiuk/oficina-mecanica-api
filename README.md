@@ -16,6 +16,12 @@ A outra metade do objetivo é o ambiente. Ele deixa de depender de alguém lembr
 
 O recorte segue sendo de MVP: back-end, sem interface gráfica, com gestão de ordens de serviço, clientes e peças.
 
+## Documentação DDD
+
+Event Storming dos dois fluxos, Domain Storytelling (AS-IS e TO-BE), Context Map com os subdomínios, modelo de domínio, Linguagem Ubíqua e o C4 nos níveis de Contexto e de Contêiner.
+
+**Link da documentação:** https://miro.com/app/board/uXjVHuneCTk=/?share_link_id=665030044859
+
 ## O que o sistema faz
 
 - **Ordem de Serviço** com máquina de estados (Recebida, Em diagnóstico, Aguardando aprovação, Em execução, Finalizada, Entregue, mais Cancelada, o sétimo status decidido no ADR-008), com mudança automática de status conforme as ações no sistema.
@@ -62,12 +68,6 @@ Cada caixa diz de onde vem: o `terraform apply` de [`infra/`](infra/) cria o clu
 ![Fluxo de deploy da pipeline de CI/CD: build e testes, imagem no GitHub Container Registry e deploy no cluster pelo runner auto-hospedado](docs/arquitetura/fluxo-de-deploy.svg)
 
 Cada passo, com o nome que aparece no log, está em "Pipeline de CI/CD".
-
-## Documentação DDD
-
-Event Storming dos dois fluxos, Domain Storytelling (AS-IS e TO-BE), Context Map com os subdomínios, modelo de domínio, Linguagem Ubíqua e o C4 nos níveis de Contexto e de Contêiner.
-
-**Link da documentação:** https://miro.com/app/board/uXjVHuneCTk=/?share_link_id=665030044859
 
 ## Execução local com Docker Compose
 
