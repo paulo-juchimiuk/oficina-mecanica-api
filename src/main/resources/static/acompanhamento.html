@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:,">
+    <title>Sua Ordem de Serviço</title>
+    <style>
+        body { font-family: system-ui, sans-serif; color: #1f2933; background: #f5f7fa; margin: 0; }
+        main { max-width: 40rem; margin: 2rem auto; padding: 1.5rem; background: #ffffff; border-radius: 0.5rem; }
+        h1 { font-size: 1.5rem; margin-top: 0; }
+        h2 { font-size: 1.2rem; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 0.4rem; border-bottom: 1px solid #d9e2ec; }
+        .mensagem { font-weight: bold; }
+        .resposta { display: flex; gap: 1rem; margin-top: 1.5rem; }
+        .resposta[hidden] { display: none; }
+        button { font-size: 1rem; padding: 0.6rem 1.2rem; border: none; border-radius: 0.3rem; color: #ffffff; cursor: pointer; }
+        button:disabled { opacity: 0.5; cursor: wait; }
+        .aprovar { background: #2f855a; }
+        .recusar { background: #c53030; }
+    </style>
+</head>
+<body>
+<main>
+    <h1>Sua Ordem de Serviço</h1>
+    <p class="mensagem" id="mensagem" role="status"></p>
+    <section id="ordem" hidden>
+        <p>Veículo: <strong id="veiculo"></strong></p>
+        <p>Situação: <strong id="situacao"></strong></p>
+        <section id="orcamento" hidden>
+            <h2>Orçamento, versão <span id="versao"></span></h2>
+            <table>
+                <thead><tr><th>Item</th><th>Quantidade</th><th>Valor unitário</th></tr></thead>
+                <tbody id="itens"></tbody>
+            </table>
+            <p>Total: <strong id="total"></strong>. Validade: <span id="validade"></span> dias.</p>
+        </section>
+        <div class="resposta" id="resposta" hidden>
+            <button type="button" class="aprovar" id="aprovar">Aprovar orçamento</button>
+            <button type="button" class="recusar" id="recusar">Recusar orçamento</button>
+        </div>
+    </section>
+</main>
+<script>
+    const ROTA_DE_ACOMPANHAMENTO = "/api/v1/acompanhamento/";
+    const AGUARDANDO_APROVACAO = "AGUARDANDO_APROVACAO";
+    const FALHA_INESPERADA = "Não foi possível consultar a Ordem de Serviço. Confira o link do e-mail e tente de novo.";
+    const LINK_INCOMPLETO = "Link incompleto: falta o código de acompanhamento.";
+
+    const codigo = new URLSearchParams(window.location.search).get("codigo");
+    const elemento = id => document.getElementById(id);
+
+    class ErroDaOficina extends Error {
+    }
+
+    async function chamar(metodo, caminho) {
+        const resposta = await fetch(ROTA_DE_ACOMPANHAMENTO + encodeURIComponent(codigo) + caminho, {method: metodo});
+        const corpo = await resposta.json();
+        if (!resposta.ok) {
+            throw new ErroDaOficina(corpo.mensagem);
+        }
+        return corpo;
+    }
+
+    function mostrarMensagem(texto) {
+        elemento("mensagem").textContent = texto;
+    }
+
+    function mostrarFalha(erro) {
+        mostrarMensagem(erro instanceof ErroDaOficina ? erro.message : FALHA_INESPERADA);
+    }
+
+    function formatarDinheiro(dinheiro) {
+        return new Intl.NumberFormat("pt-BR", {style: "currency", currency: dinheiro.moeda}).format(dinheiro.valor);
+    }
+
+    function linhaDoItem(item) {
+        const linha = document.createElement("tr");
+        [item.nome, item.quantidade ?? "", formatarDinheiro(item.valor)].forEach(texto => {
+            const celula = document.createElement("td");
+            celula.textContent = texto;
+            linha.append(celula);
+        });
+        return linha;
+    }
+
+    function exibirOrcamento(orcamento) {
+        elemento("orcamento").hidden = !orcamento;
+        if (!orcamento) {
+            return;
+        }
+        elemento("versao").textContent = orcamento.versao;
+        elemento("itens").replaceChildren(...orcamento.itens.map(linhaDoItem));
+        elemento("total").textContent = formatarDinheiro(orcamento.total);
+        elemento("validade").textContent = orcamento.validadeDias;
+    }
+
+    function exibir(acompanhamento) {
+        elemento("veiculo").textContent = acompanhamento.veiculo;
+        elemento("situacao").textContent = acompanhamento.status;
+        exibirOrcamento(acompanhamento.orcamentoMaisRecente);
+        elemento("resposta").hidden = acompanhamento.status !== AGUARDANDO_APROVACAO;
+        elemento("ordem").hidden = false;
+    }
+
+    function bloquearBotoes(bloqueados) {
+        elemento("aprovar").disabled = bloqueados;
+        elemento("recusar").disabled = bloqueados;
+    }
+
+    async function carregar() {
+        try {
+            exibir(await chamar("GET", ""));
+        } catch (erro) {
+            mostrarFalha(erro);
+        }
+    }
+
+    async function responder(caminho, resultado) {
+        bloquearBotoes(true);
+        try {
+            const acompanhamento = await chamar("POST", caminho);
+            exibir(acompanhamento);
+            mostrarMensagem(resultado + " A situação agora é " + acompanhamento.status + ".");
+        } catch (erro) {
+            mostrarFalha(erro);
+            await carregar();
+        } finally {
+            bloquearBotoes(false);
+        }
+    }
+
+    elemento("aprovar").addEventListener("click", () => responder("/orcamento/aprovacao", "Orçamento aprovado."));
+    elemento("recusar").addEventListener("click", () => responder("/orcamento/reprovacao", "Orçamento recusado."));
+
+    function iniciar() {
+        if (!codigo) {
+            mostrarMensagem(LINK_INCOMPLETO);
+            return;
+        }
+        carregar();
+    }
+
+    iniciar();
+</script>
+</body>
+</html>

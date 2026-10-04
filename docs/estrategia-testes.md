@@ -24,6 +24,7 @@ Este documento define O QUE testar, ONDE exigir os 80% e COMO medir, para que a 
 | F13 | **Fila de atendimento:** a listagem sem filtro ordena por Status da OS (Em execução, Aguardando aprovação, Em diagnóstico, Recebida) e, no mesmo status, da mais antiga para a mais nova; as encerradas ficam fora e **continuam alcançáveis** pelo filtro de status e pelo identificador | ADR-026 | unitário (prioridade e ordem) e integração (dados do seed) |
 | F14 | **Pedido inicial do Cliente:** a abertura da OS com serviços e peças abre a versão 1 do Orçamento com a OS ainda Recebida, e a inclusão é recusada depois que o diagnóstico é concluído | ADR-026 e ADR-006 | unitário (agregado e caso de uso) e integração (borda) |
 | F15 | **Notificação por transição:** cada transição de status envia exatamente um e-mail ao cliente, a do orçamento pelo e-mail do orçamento, e **falha no envio derruba a transição**, deixando a OS no estado anterior | ADR-026 | unitário (porta de notificação) e integração (envio que falha e ciclo inteiro) |
+| F16 | **Resposta ao orçamento pelo e-mail:** o e-mail do orçamento leva o link da página pública de resposta com o Código de acompanhamento, e a página é servida sem JWT, com os botões de aprovar e recusar chamando a notificação externa de aprovação e de recusa | ADR-026 | integração (link no e-mail e página servida sem JWT) |
 
 ## 2. Domínios críticos (onde os 80% são exigidos) e justificativa
 

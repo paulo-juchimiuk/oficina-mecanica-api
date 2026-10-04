@@ -58,7 +58,7 @@ class NotificacaoAoClientePorEmail implements NotificacaoAoCliente {
 
                 Situacao atual: %s
 
-                Acompanhe em: %s
+                Aprove ou recuse o orcamento em: %s
                 """.formatted(versao.versao(), versao.total().moeda(), versao.total().valor(),
                 versao.validadeDias(), status, enderecoDeAcompanhamento(codigoAcompanhamento));
     }
@@ -74,6 +74,6 @@ class NotificacaoAoClientePorEmail implements NotificacaoAoCliente {
     }
 
     private String enderecoDeAcompanhamento(CodigoAcompanhamento codigoAcompanhamento) {
-        return urlDeAcompanhamento + "/" + codigoAcompanhamento.valor();
+        return urlDeAcompanhamento + "?codigo=" + codigoAcompanhamento.valor();
     }
 }

@@ -46,7 +46,7 @@ springdoc:
 
 oficina:
   acompanhamento:
-    url-base: ${OFICINA_ACOMPANHAMENTO_URL_BASE:http://localhost:8080/api/v1/acompanhamento}
+    url-base: ${OFICINA_ACOMPANHAMENTO_URL_BASE:http://localhost:8080/acompanhamento.html}
 
   email:
     remetente: ${OFICINA_EMAIL_REMETENTE:oficina@oficina.local}

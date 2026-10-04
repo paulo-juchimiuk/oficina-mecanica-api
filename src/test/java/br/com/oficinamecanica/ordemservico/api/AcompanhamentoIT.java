@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.mail.MailSender;
 import org.springframework.test.web.servlet.ResultActions;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.nullValue;
@@ -164,6 +165,22 @@ class AcompanhamentoIT extends IntegracaoBase {
 
         aprovar(codigo).andExpect(status().isConflict())
                 .andExpect(jsonPath("$.codigo").value("TRANSICAO_INVALIDA"));
+    }
+
+    @Test
+    @DisplayName("deve servir sem token a pagina de resposta ao orcamento, com os botoes que chamam a aprovacao e a recusa")
+    void deveServirAPaginaDeRespostaSemToken() throws Exception {
+        String pagina = mockMvc.perform(get("/acompanhamento.html"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML))
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+
+        assertThat(pagina)
+                .contains("Aprovar orçamento")
+                .contains("Recusar orçamento")
+                .contains(PREFIXO + "/acompanhamento/")
+                .contains("/orcamento/aprovacao")
+                .contains("/orcamento/reprovacao");
     }
 
     private ResultActions aprovar(String codigo) throws Exception {

@@ -172,7 +172,7 @@ class OrcamentoIT extends IntegracaoBase {
     }
 
     @Test
-    @DisplayName("deve enviar ao Cliente um e-mail com destinatario, assunto e o link que carrega o Codigo")
+    @DisplayName("deve enviar ao Cliente um e-mail com destinatario, assunto e o link da pagina de resposta com o Codigo")
     void deveEnviarEmailComOLinkDoCodigo() throws Exception {
         UUID id = ordemEmDiagnostico();
         incluirItens(id, corpoComServicoEPeca(2)).andExpect(status().isOk());
@@ -186,7 +186,7 @@ class OrcamentoIT extends IntegracaoBase {
         assertThat(mensagem.getTo()).containsExactly(EMAIL_DO_CLIENTE);
         assertThat(mensagem.getText())
                 .contains(codigo)
-                .contains("/acompanhamento/" + codigo)
+                .contains("acompanhamento.html?codigo=" + codigo)
                 .contains("220.00")
                 .contains("AGUARDANDO_APROVACAO");
     }
