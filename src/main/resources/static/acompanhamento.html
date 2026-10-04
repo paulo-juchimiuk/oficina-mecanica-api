@@ -30,6 +30,7 @@
         <p>Situação: <strong id="situacao"></strong></p>
         <section id="orcamento" hidden>
             <h2>Orçamento, versão <span id="versao"></span></h2>
+            <p id="reparo-adicional" hidden>Reparo adicional: <span id="descricao"></span></p>
             <table>
                 <thead><tr><th>Item</th><th>Quantidade</th><th>Valor unitário</th></tr></thead>
                 <tbody id="itens"></tbody>
@@ -91,6 +92,8 @@
             return;
         }
         elemento("versao").textContent = orcamento.versao;
+        elemento("descricao").textContent = orcamento.descricao ?? "";
+        elemento("reparo-adicional").hidden = !orcamento.descricao;
         elemento("itens").replaceChildren(...orcamento.itens.map(linhaDoItem));
         elemento("total").textContent = formatarDinheiro(orcamento.total);
         elemento("validade").textContent = orcamento.validadeDias;
