@@ -77,7 +77,9 @@ Cada passo, com o nome que aparece no log, está em "Pipeline de CI/CD".
 | Execução local com Docker Compose | Docker Compose | v5.5.1 |
 | Execução local sem Docker e testes | Java | 25.0.4, fixada em [`.sdkmanrc`](.sdkmanrc) |
 | Execução local sem Docker e testes | Maven | 3.9.9 |
-| Provisionamento com Terraform e deploy em Kubernetes | Docker, `kind`, Terraform e `kubectl` | na tabela de pré-requisitos de [`infra/README.md`](infra/README.md) |
+| Provisionamento com Terraform e deploy em Kubernetes | conta AWS e `aws` CLI | 2.37.9 |
+| Provisionamento com Terraform e deploy em Kubernetes | Terraform | 1.16.1 |
+| Provisionamento com Terraform e deploy em Kubernetes | `kubectl` | v1.35.9 |
 
 ## Execução local com Docker Compose
 
@@ -156,29 +158,79 @@ docker compose run --rm --no-deps seed
 
 ## Provisionamento com Terraform
 
-O ambiente de execução em Kubernetes é provisionado por código, no diretório [`infra/`](infra/): um cluster local com `kind`, de um nó de controle e um nó de trabalho, e o banco de dados dentro dele, com segredo, volume persistente, Deployment e Service. **O que cada recurso é, os pré-requisitos e o porquê de cada decisão estão em [`infra/README.md`](infra/README.md)** (ADR-024). O ambiente provisionado é local e descartável, e não descreve um ambiente de produção em nuvem.
+**Quem não tem conta AWS roda a aplicação pela [execução local com Docker Compose](#execução-local-com-docker-compose) e vê o cluster no vídeo.** Esta seção reproduz o ambiente na nuvem, e ele custa: cerca de US$ 0,20 por hora com o cluster de pé, e de 10 a 15 minutos para subir e outro tanto para destruir.
 
-**A porta 8080 é de um ambiente por vez.** O cluster publica a porta `30080` do nó de controle em `127.0.0.1:8080`, que é a mesma porta que o `docker compose` usa para a aplicação. Com o ambiente de Compose de pé, o `terraform apply` falha na criação do nó com `exit status 125`, que é o Docker recusando publicar uma porta ocupada. **Derrube um antes de subir o outro:** `docker compose down`.
+O ambiente de execução em Kubernetes é provisionado por código, no diretório [`infra/`](infra/), na AWS: a rede, um cluster EKS de dois nós, os complementos do cluster e o banco de dados dentro dele, com segredo, volume persistente, Deployment e Service (ADR-028). **O que cada recurso é, os pré-requisitos e o porquê de cada decisão estão em [`infra/README.md`](infra/README.md).**
 
-**Os dois limites de `inotify` do núcleo também precisam estar levantados antes do primeiro `apply`**, senão o segundo nó do cluster não sobe. Os valores e o comando estão nos pré-requisitos de [`infra/README.md`](infra/README.md).
+**Uma vez por conta, antes do primeiro `apply`**, porque o próprio Terraform depende disso: o bucket do estado e a cota de vCPUs, nos pré-requisitos de [`infra/README.md`](infra/README.md), e a identidade da pipeline, que é o provedor de identidade do GitHub na conta e a role que a pipeline assume. A role só aceita quem chega pela branch `main` deste repositório; o porquê está na seção da pipeline (ADR-029).
 
 ```bash
-terraform -chdir=infra init
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com
+aws iam create-role --role-name oficina-github-actions \
+  --assume-role-policy-document file://politica-de-confianca.json
+aws iam attach-role-policy --role-name oficina-github-actions \
+  --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+```
+
+O `politica-de-confianca.json` traz o ID da conta e os dois formatos em que o GitHub identifica a branch `main` de um repositório:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::<id-da-conta>:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+          "token.actions.githubusercontent.com:sub": [
+            "repo:<dono>@<id-do-dono>/<repositorio>@<id-do-repositorio>:ref:refs/heads/main",
+            "repo:<dono>/<repositorio>:ref:refs/heads/main"
+          ]
+        }
+      }
+    }
+  ]
+}
+```
+
+**O provisionamento.** O `backend.hcl` recebe o nome do bucket do estado, e o `terraform.tfvars`, o ARN de quem aplica e o da role da pipeline:
+
+```bash
+cp infra/backend.hcl.example infra/backend.hcl
+cp infra/terraform.tfvars.example infra/terraform.tfvars
+terraform -chdir=infra init -backend-config=backend.hcl
 terraform -chdir=infra plan -out=plano.tfplan
 terraform -chdir=infra apply plano.tfplan
 ```
 
-O `apply` leva cerca de um minuto, acompanha o banco até ele estar pronto, e termina imprimindo o caminho do kubeconfig, o namespace e o endereço interno do banco. Conferindo:
+O `plan` mostra 32 recursos a criar. O `apply` levou 12m40s na medição, quase todo esperando a AWS criar o cluster e os nós, acompanha o banco até ele estar pronto, e termina imprimindo o nome do cluster, a região, o comando de acesso, o namespace e o endereço interno do banco. Conferindo:
 
 ```bash
+aws eks update-kubeconfig --region us-east-1 --name oficina
 kubectl get nodes                                     # dois nós Ready
 kubectl -n oficina rollout status deployment/banco    # banco de pé
 terraform -chdir=infra output
 ```
 
-Todos os comandos deste README rodam da raiz do repositório; por isso o Terraform é chamado com `-chdir=infra`. Para desfazer, `terraform -chdir=infra destroy`, que apaga o cluster e, com ele, os dados do banco. Se o `apply` for interrompido ou falhar antes de o banco ficar pronto, o cluster pode ficar de pé fora do estado do Terraform, e aí quem o remove é `kind delete cluster --name oficina`.
+O `update-kubeconfig` acrescenta o cluster ao `~/.kube/config` e o torna o contexto corrente; quem usa o `kubectl` com outros clusters volta para o seu com `kubectl config use-context <nome>`. O mesmo `apply`, sobre o mesmo estado, roda pela pipeline, pelo botão do workflow "Infraestrutura" (seção da pipeline).
 
-**O `apply` troca o contexto corrente do `kubectl`.** Ele acrescenta ao `~/.kube/config` a entrada do cluster criado e a torna corrente; o `destroy` a remove e deixa o `kubectl` sem contexto corrente, sem apagar os demais. Quem usa o `kubectl` com outros clusters volta para o seu com `kubectl config use-context <nome>`.
+**Para desfazer**, e o ambiente é feito para ser desfeito ao fim de cada uso:
+
+```bash
+terraform -chdir=infra plan -destroy -out=destruicao.tfplan
+terraform -chdir=infra apply destruicao.tfplan
+```
+
+A destruição apaga tudo, inclusive os dados do banco, e levou 11m38s na medição. Depois dela, a conferência de que nada ficou cobrando na conta, e o que fazer se algo sobrar, estão em [`infra/README.md`](infra/README.md#como-destruir).
+
+Todos os comandos deste README rodam da raiz do repositório; por isso o Terraform é chamado com `-chdir=infra`.
 
 ## Deploy em Kubernetes
 
@@ -414,6 +466,6 @@ A correspondência entre cada termo do negócio e seu identificador está no glo
 
 ## Decisões de arquitetura
 
-São **27**, cada uma com fundamento de negócio, fundamento técnico e o porquê, em [`docs/decisoes.md`](docs/decisoes.md). Onde a alternativa recusada é o próprio argumento, ela aparece em uma linha.
+São **28**, cada uma com fundamento de negócio, fundamento técnico e o porquê, em [`docs/decisoes.md`](docs/decisoes.md). Onde a alternativa recusada é o próprio argumento, ela aparece em uma linha.
 
 **Os códigos `ADR-0xx` citados neste README, no contrato da API e nos testes referem-se a esse documento.**

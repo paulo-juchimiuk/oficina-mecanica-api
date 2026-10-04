@@ -1,6 +1,6 @@
 # Decisões de arquitetura (ADRs)
 
-São 27 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento técnico** e **o porquê**. Onde a alternativa recusada é o próprio argumento, ela aparece em uma linha. Onde algo ficou fora do MVP, isso está declarado, e não omitido.
+São 28 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento técnico** e **o porquê**. Onde a alternativa recusada é o próprio argumento, ela aparece em uma linha. Onde algo ficou fora do MVP, isso está declarado, e não omitido.
 
 ---
 
@@ -360,6 +360,8 @@ São 27 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento t�
 
 **Consequência aceita:** o runner hospedado do provedor de CI não alcança um cluster que roda na máquina do desenvolvedor, então a etapa de publicação do pipeline precisa de um runner com acesso ao cluster. O estado do Terraform é local, então a pipeline não executa `apply`: ela encontra o ambiente já provisionado. E o desenho da arquitetura entregue descreve um ambiente local, não um ambiente de produção em nuvem, o que precisa estar dito no README para que documento e ambiente não se contradigam.
 
+**Substituído pelo ADR-028 na Fase 2**, que leva o cluster para a AWS. Este registro fica como histórico da decisão.
+
 ---
 
 ## ADR-025: Clean Architecture, com o framework fora dos casos de uso
@@ -524,3 +526,33 @@ O enunciado pede o banco provisionado pelo Terraform e, na pipeline, o deploy do
 **Alternativa recusada:** escalar por CPU e memória juntas. É a leitura mais literal do enunciado, e a conta acima mostra que ela prende a aplicação no máximo de réplicas depois do primeiro pico. Helm e Kustomize ficam fora pelo mesmo motivo do ADR-024: o enunciado pede manifestos YAML, e uma camada a mais esconderia o que precisa ficar à vista. Um cluster efêmero criado dentro do job hospedado não dependeria da máquina ligada, mas publicaria num cluster que morre com o job e que não é o provisionado pelo Terraform. O `terraform apply` na pipeline, com o estado num caminho fixo fora do checkout, seria um mecanismo a mais para manter em sincronia com o terminal. E o Docker Hub traria uma conta e um segredo a mais.
 
 **Consequência aceita:** os manifestos seguem os valores padrão do Terraform, o nome do cluster, o namespace e o nome do banco, então quem trocar esses valores no `terraform.tfvars` troca também em `k8s/`. E a opção do `metrics-server` confia no certificado do kubelet sem verificá-lo, o que só é aceitável num cluster local e descartável. O deploy depende de a máquina estar ligada, com o cluster de pé e o runner rodando, e o terminal do runner fica preso enquanto ele estiver ligado.
+
+---
+
+## ADR-028: Cluster Kubernetes na AWS (EKS), provisionado por Terraform
+
+**Decisão:** o cluster Kubernetes desta fase é um **Amazon EKS** na região `us-east-1`, provisionado pelo Terraform em `infra/`, e o **banco de dados é provisionado pelo mesmo `apply`, dentro do cluster**. Um assunto por arquivo: `rede.tf` cria a VPC com duas sub-redes públicas, o internet gateway e a rota de saída; `iam.tf`, as roles do cluster, dos nós e do driver de volumes, só com políticas gerenciadas pela AWS; `eks.tf`, o cluster em Kubernetes 1.35, em suporte padrão e com acesso por access entry; `nos.tf`, dois nós `t3.medium` em número fixo; `acesso.tf`, o usuário de quem aplica e a role da pipeline como administradores do cluster; `complementos.tf`, o agente de Pod Identity, o driver de volumes EBS e o `metrics-server`; `armazenamento.tf`, a StorageClass `gp3`; `namespace.tf` e `banco.tf`, o namespace e o banco, com segredo, volume, Deployment e Service. O estado fica num bucket S3, com trava nativa. Os objetos da aplicação ficam em manifestos YAML em `/k8s`, aplicados com `kubectl` (ADR-029). **Não se usa `helm`, nem módulo pronto.**
+
+**Fundamento de negócio:** o enunciado pede o *"provisionamento do cluster Kubernetes (local ou cloud)"* e deixa a escolha com quem constrói. A disciplina de Terraform da fase ensina o provisionamento na AWS do começo ao fim, e a aula de criação de infraestrutura na AWS é esta mesma stack: VPC, sub-redes públicas, EKS, node group e access entry. Na aula ao vivo de apresentação do Tech Challenge, o professor sugere mostrar no vídeo a subida da infraestrutura. O custo, que é o argumento contra a nuvem, fica contido por construção: o ambiente sobe e desce na mesma sessão de uso, e um alarme de orçamento na conta avisa se algo ficar de pé.
+
+**Fundamento técnico:**
+
+- **A rede segue a aula, com duas sub-redes em vez de três.** O EKS exige duas zonas, e a terceira só serviria a um terceiro nó que a cota de uma conta nova não comporta. As zonas são escolhidas sem a de ID `use1-az3`, que o EKS não aceita em `us-east-1`. Sem NAT e sem sub-rede privada, como na aula.
+- **Kubernetes 1.35, com a política de suporte e o modo de acesso declarados.** A versão da aula está hoje em suporte estendido, que cobra seis vezes mais pela hora do plano de controle; a 1.35 fica em suporte padrão até março de 2027 e é a mesma versão em que os manifestos foram provados. Os dois atributos vão escritos porque o padrão da API é o suporte estendido e o modo de acesso antigo, por ConfigMap, e o modo de acesso não se muda depois.
+- **Dois nós `t3.medium`, fixos**, 4 vCPUs dentro da cota de 5 de uma conta nova, com folga para a aplicação em até 4 réplicas, o banco e a caixa de e-mail.
+- **O banco é um Deployment de uma réplica com volume EBS**, criado pelo driver CSI com identidade própria por Pod Identity, e não pela role dos nós, que todo Pod herdaria. A disciplina de Kubernetes cita o EBS entre os backends de volume persistente e ensina a StorageClass que o liga.
+- **O estado fica num bucket S3, com a trava do próprio backend** (`use_lockfile`), porque o terminal e a pipeline aplicam a mesma infraestrutura. A trava por tabela DynamoDB, que a aula de backends cita, está declarada obsoleta pela HashiCorp.
+- **Três comportamentos da AWS, medidos, estão tratados no código** e descritos em `infra/README.md`: a permissão de administrador associada ao cluster leva alguns segundos para valer dentro dele; os nós falam com a API do cluster pelo endereço público dela, então a rota de saída precisa sair depois deles na destruição; e o driver de volumes precisa de alguns segundos depois de liberado o volume do banco para apagá-lo, antes de ser removido.
+
+**Porquê:** o que a nuvem muda é onde o cluster roda e quanto ele custa por hora. O que não muda é o que a avaliação olha: os mesmos objetos de Kubernetes, o mesmo método do Terraform (`plan`, `apply`, `destroy`, estado), o banco provisionado junto do cluster e o mesmo caminho de execução local para quem corrige. E a nuvem acrescenta o que a fase ensina e um cluster na máquina do desenvolvedor não mostra: rede, identidade e um estado que o terminal e a pipeline dividem.
+
+**Alternativas recusadas:**
+
+- **Cluster local com `kind`**, que foi a decisão do ADR-024. Ela se sustentava no controle do ambiente na hora da gravação e no custo zero. Deixa de ser a melhor quando a fase ensina a nuvem e o custo fica contido pela destruição ao fim de cada sessão.
+- **RDS para o banco:** nenhuma aula da fase o provisiona, ele cobra por hora mesmo parado, e a persistência dentro do cluster é o que a disciplina de Kubernetes ensina.
+- **NAT gateway e sub-rede privada:** cobram por hora e por volume trafegado, e a própria aula não os cria.
+- **Service do tipo `LoadBalancer`:** cria um balanceador fora do Terraform, que cobra por hora e é o resto mais comum depois da destruição. O acesso é por `kubectl port-forward` (ADR-029).
+- **Módulos prontos de VPC e de EKS:** não aparecem nas aulas, que copiam os recursos da documentação do provider, e o de EKS cria por padrão uma chave KMS, mais um recurso a sobrar.
+- **Plano gratuito da AWS:** a conta fecha sozinha quando o crédito acaba ou aos seis meses, e os tipos de instância do plano são pequenos demais para a aplicação em quatro réplicas.
+
+**Consequência aceita:** o ambiente custa cerca de US$ 0,20 por hora de pé; a subida levou 12m40s e a destruição 11m38s na medição; e ele depende de terceiros que o cluster local não tinha, a AWS e o GitHub Actions. Entre as sessões de uso o cluster não existe, e a pipeline trata isso (ADR-029). Reproduzir o Kubernetes exige conta AWS: quem não tem roda a aplicação pelo `docker compose`, o caminho de execução local do README, e vê o cluster no vídeo. O bucket do estado e a identidade da pipeline nascem fora do Terraform, uma vez, porque ele depende dos dois.

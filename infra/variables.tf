@@ -1,25 +1,53 @@
+variable "regiao" {
+  description = "Regiao da AWS onde a rede e o cluster sao criados"
+  type        = string
+  default     = "us-east-1"
+}
+
 variable "nome_do_cluster" {
-  description = "Nome do cluster kind, usado tambem no contexto do kubeconfig"
+  description = "Nome do cluster EKS, usado tambem como prefixo da rede e das roles"
   type        = string
   default     = "oficina"
+}
+
+variable "versao_do_kubernetes" {
+  description = "Versao do Kubernetes do cluster, dentro do suporte padrao da AWS"
+  type        = string
+  default     = "1.35"
+}
+
+variable "tipo_do_no" {
+  description = "Tipo de instancia EC2 dos nos do cluster"
+  type        = string
+  default     = "t3.medium"
+}
+
+variable "quantidade_de_nos" {
+  description = "Numero fixo de nos do cluster, que nao escala sozinho"
+  type        = number
+  default     = 2
+}
+
+variable "cidr_da_vpc" {
+  description = "Faixa de enderecos da VPC, dividida em uma sub-rede publica por zona"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "arn_do_administrador" {
+  description = "ARN do usuario IAM que administra o cluster pelo Terraform e pelo kubectl"
+  type        = string
+}
+
+variable "arn_da_pipeline" {
+  description = "ARN da role que a pipeline assume por OIDC para provisionar e publicar"
+  type        = string
 }
 
 variable "namespace" {
   description = "Namespace que isola os objetos da oficina dentro do cluster"
   type        = string
   default     = "oficina"
-}
-
-variable "porta_do_no" {
-  description = "Porta NodePort que a aplicacao publica dentro do cluster"
-  type        = number
-  default     = 30080
-}
-
-variable "porta_do_hospedeiro" {
-  description = "Porta da maquina local mapeada para a porta NodePort da aplicacao"
-  type        = number
-  default     = 8080
 }
 
 variable "banco_nome" {
@@ -35,7 +63,7 @@ variable "banco_usuario" {
 }
 
 variable "banco_senha" {
-  description = "Senha do usuario do banco, valida apenas neste ambiente local"
+  description = "Senha do usuario do banco, com valor padrao de avaliacao"
   type        = string
   default     = "oficina_local"
   sensitive   = true

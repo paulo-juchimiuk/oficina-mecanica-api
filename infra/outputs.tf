@@ -1,6 +1,16 @@
-output "caminho_do_kubeconfig" {
-  description = "Arquivo de acesso ao cluster criado, para uso do kubectl"
-  value       = kind_cluster.oficina.kubeconfig_path
+output "nome_do_cluster" {
+  description = "Nome do cluster EKS criado"
+  value       = aws_eks_cluster.oficina.name
+}
+
+output "regiao" {
+  description = "Regiao onde o cluster foi criado"
+  value       = var.regiao
+}
+
+output "comando_do_kubeconfig" {
+  description = "Comando que aponta o kubectl para o cluster criado"
+  value       = "aws eks update-kubeconfig --region ${var.regiao} --name ${aws_eks_cluster.oficina.name}"
 }
 
 output "namespace" {

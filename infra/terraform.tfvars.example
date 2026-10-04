@@ -1,7 +1,8 @@
 nome_do_cluster = "oficina"
 namespace       = "oficina"
 
-porta_do_hospedeiro = 8080
+arn_do_administrador = "arn:aws:iam::123456789012:user/administrador"
+arn_da_pipeline      = "arn:aws:iam::123456789012:role/oficina-github-actions"
 
 banco_nome    = "oficina"
 banco_usuario = "oficina"

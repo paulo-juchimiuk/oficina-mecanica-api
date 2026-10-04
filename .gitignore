@@ -37,3 +37,4 @@ zap-report.*
 *.tfvars
 !*.tfvars.example
 infra/*-config
+infra/backend.hcl

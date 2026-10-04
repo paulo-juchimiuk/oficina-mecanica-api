@@ -22,7 +22,8 @@ resource "kubernetes_persistent_volume_claim" "banco" {
   wait_until_bound = false
 
   spec {
-    access_modes = ["ReadWriteOnce"]
+    access_modes       = ["ReadWriteOnce"]
+    storage_class_name = kubernetes_storage_class_v1.gp3.metadata[0].name
 
     resources {
       requests = {
