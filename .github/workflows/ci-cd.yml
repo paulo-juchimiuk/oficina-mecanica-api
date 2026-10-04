@@ -37,6 +37,23 @@ jobs:
       - name: Testes automatizados
         run: mvn -B verify
 
+      - name: Cobertura dos testes
+        run: |
+          COBERTURA=$(awk -F, '
+            NR == 1 { for (i = 1; i <= NF; i++) coluna[$i] = i; next }
+            {
+              linhas_perdidas += $coluna["LINE_MISSED"]
+              linhas_cobertas += $coluna["LINE_COVERED"]
+              instrucoes_perdidas += $coluna["INSTRUCTION_MISSED"]
+              instrucoes_cobertas += $coluna["INSTRUCTION_COVERED"]
+            }
+            END {
+              printf "linhas %.2f%%, instruções %.2f%%",
+                100 * linhas_cobertas / (linhas_perdidas + linhas_cobertas),
+                100 * instrucoes_cobertas / (instrucoes_perdidas + instrucoes_cobertas)
+            }' target/site/jacoco/jacoco.csv)
+          echo "Cobertura dos testes: $COBERTURA" | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Terraform
         uses: hashicorp/setup-terraform@v4.0.1
         with:
