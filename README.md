@@ -2,7 +2,7 @@
 
 API de gestão para oficina mecânica de médio porte: ordem de serviço, orçamento com aprovação do cliente, controle de estoque e acompanhamento do atendimento. Back-end em **Clean Architecture**, com o domínio modelado por DDD.
 
-Tech Challenge da pós-graduação em Arquitetura de Software (FIAP). A **Fase 1** entregou o domínio, a API e o ambiente local. A **Fase 2** evolui esta mesma aplicação: a arquitetura passa a ser Clean Architecture com a regra de dependência provada no build (ADR-025), e o atendimento ganha o pedido inicial do cliente na abertura, a fila de atendimento com exclusão lógica das encerradas, a notificação externa de aprovação do orçamento e o aviso por e-mail a cada mudança de status (ADR-026). E a aplicação passa a rodar em Kubernetes, publicada por manifestos e por uma pipeline de CI/CD num cluster local que o Terraform provisiona junto com o banco (ADR-024), com escala automática pela CPU (ADR-027).
+Tech Challenge da pós-graduação em Arquitetura de Software (FIAP). A **Fase 1** entregou o domínio, a API e o ambiente local. A **Fase 2** evolui esta mesma aplicação: a arquitetura passa a ser Clean Architecture com a regra de dependência provada no build (ADR-025), e o atendimento ganha o pedido inicial do cliente na abertura, a fila de atendimento com exclusão lógica das encerradas, a notificação externa de aprovação do orçamento e o aviso por e-mail a cada mudança de status (ADR-026). E a aplicação passa a rodar em Kubernetes na AWS, num cluster EKS que o Terraform provisiona junto com o banco (ADR-028), publicada por manifestos e por uma pipeline de CI/CD que também provisiona e destrói o ambiente, com escala automática pela CPU (ADR-029).
 
 ## Objetivos
 
@@ -12,7 +12,7 @@ A primeira versão substituiu a planilha pelo registro que o próprio fluxo de t
 
 **O objetivo desta fase é evoluir essa aplicação para garantir qualidade, resiliência e escalabilidade.** A mudança de fundo é arquitetural, e ela deixa de ser promessa de documento porque o build prova: as dependências apontam para o centro e o framework não entra no anel dos casos de uso. Sobre essa base, o atendimento ganha o que o fluxo pedia e não tinha: o cliente pede serviço já na abertura, a fila mostra primeiro o que está na bancada e esconde o que já saiu, a resposta ao orçamento chega de fora por notificação, e cada mudança de status é avisada ao cliente por e-mail.
 
-A outra metade do objetivo é o ambiente. Ele deixa de depender de alguém lembrar a sequência de comandos: o cluster e o banco nascem de código, cada push na `main` é construído e testado pela pipeline e, com o runner ligado, publicado no cluster, a publicação troca as réplicas sem perder chamada, e a aplicação ganha réplicas quando a carga sobe e as devolve quando ela cai.
+A outra metade do objetivo é o ambiente. Ele deixa de depender de alguém lembrar a sequência de comandos: o cluster e o banco nascem de código, pela pipeline ou pelo terminal, e são destruídos ao fim de cada uso; cada push na `main` é construído e testado pela pipeline e, com o cluster de pé, publicado nele; a publicação troca as réplicas sem perder chamada, e a aplicação ganha réplicas quando a carga sobe e as devolve quando ela cai.
 
 O recorte segue sendo de MVP: back-end, com gestão de ordens de serviço, clientes e peças, e a única tela é a página pública de resposta ao orçamento.
 
@@ -234,28 +234,21 @@ Todos os comandos deste README rodam da raiz do repositório; por isso o Terrafo
 
 ## Deploy em Kubernetes
 
-Com o cluster provisionado (seção anterior), a aplicação é publicada pelos manifestos de [`k8s/`](k8s/), aplicados com `kubectl`. O `terraform apply` já deixa o `kubectl` apontando para o cluster criado.
+Com o cluster provisionado (seção anterior) e o `kubectl` apontando para ele (`aws eks update-kubeconfig`), a aplicação é publicada pelos manifestos de [`k8s/`](k8s/), aplicados com `kubectl`. A pipeline faz essa publicação a cada push na `main` (seção seguinte); os comandos abaixo fazem o mesmo à mão.
 
 | Arquivo | Objeto | O que é |
 |---|---|---|
 | `oficina-app-deployment.yaml` | Deployment `oficina-app` | a API, com pedido e limite de CPU e memória, as sondas de inicialização, de prontidão e de vivacidade, e uma pausa de 10 segundos antes de desligar cada réplica, para nenhuma chamada cair numa réplica que está saindo |
-| `oficina-app-service.yaml` | Service `oficina-app` | `NodePort` na porta `30080`, que o cluster publica em `127.0.0.1:8080` |
+| `oficina-app-service.yaml` | Service `oficina-app` | `ClusterIP` na porta 8080, alcançado de fora do cluster por `kubectl port-forward` |
 | `oficina-app-configmap.yaml` | ConfigMap `oficina-app` | endereço do banco, servidor de e-mail, fuso horário e log de acesso |
-| `oficina-app-secret.yaml` | Secret `oficina-app` | o segredo de assinatura do JWT, com o mesmo valor local de avaliação do `docker-compose.yml`. Usuário e senha do banco não estão aqui: a aplicação os lê do Secret `banco`, criado pelo Terraform |
+| `oficina-app-secret.yaml` | Secret `oficina-app` | o segredo de assinatura do JWT, com o mesmo valor de avaliação do `docker-compose.yml`. Usuário e senha do banco não estão aqui: a aplicação os lê do Secret `banco`, criado pelo Terraform |
 | `oficina-app-hpa.yaml` | HorizontalPodAutoscaler `oficina-app` | de 1 a 4 réplicas, pela CPU, com alvo de 70%. O Deployment não declara `replicas`, porque o HPA é o dono do número: um valor fixo no manifesto seria reposto a cada `kubectl apply`, desfazendo a escala |
 | `email-deployment.yaml` e `email-service.yaml` | Deployment e Service `email` | a caixa de e-mail do ambiente, com a mesma imagem do compose |
 | `seed-job.yaml` | Job `seed` | a carga dos dados de demonstração, pelo mesmo `seed/carrega.sh` do compose |
-| `metrics-server.yaml` | `metrics-server`, em `kube-system` | o coletor de CPU e memória que o HPA consulta |
 
-Os manifestos seguem os valores padrão do Terraform: cluster `oficina`, namespace `oficina` e banco `oficina`. Quem trocar esses valores no `terraform.tfvars` troca também em `k8s/` e nos comandos abaixo.
+O coletor de CPU e memória que o HPA consulta, o `metrics-server`, não está em `k8s/`: ele é um complemento do cluster, criado pelo Terraform (ADR-028). Os manifestos seguem os valores padrão do Terraform: cluster `oficina`, namespace `oficina` e banco `oficina`. Quem trocar esses valores no `terraform.tfvars` troca também em `k8s/` e nos comandos abaixo.
 
-**A imagem.** O Deployment usa a imagem `ghcr.io/paulo-juchimiuk/oficina-mecanica-api:main`. Para publicar o código desta cópia, construa a imagem com esse nome e carregue-a nos nós do cluster; como a política de pull é `IfNotPresent`, o cluster usa a imagem carregada em vez de buscá-la no registro:
-
-```bash
-docker build -t ghcr.io/paulo-juchimiuk/oficina-mecanica-api:main .
-kind load docker-image --name oficina \
-  ghcr.io/paulo-juchimiuk/oficina-mecanica-api:main
-```
+**A imagem.** O Deployment usa `ghcr.io/paulo-juchimiuk/oficina-mecanica-api:main`, que a pipeline publica a cada push na `main` no GitHub Container Registry, num pacote público: os nós do cluster a puxam sem credencial. Publicado à mão, o manifesto leva a imagem do último push; pela pipeline, ele leva a do próprio commit.
 
 **A publicação:**
 
@@ -268,20 +261,26 @@ kubectl -n oficina rollout status deployment/oficina-app --timeout=300s
 kubectl -n oficina wait --for=condition=complete job/seed --timeout=300s
 ```
 
-O Job é apagado antes do `apply` porque o modelo de Pod de um Job não pode mudar depois de criado; como a carga é idempotente (ADR-015), rodá-la de novo não altera nada, e ela só carrega com o banco vazio. O ConfigMap `seed` é gerado de `seed/` na hora, e não versionado em `k8s/`, para que o script e os dados tenham um dono só. A carga espera o schema, que o Flyway cria no boot da aplicação, então ela termina logo depois de a aplicação ficar pronta, o que nesta máquina leva cerca de 20 segundos.
+O Job é apagado antes do `apply` porque o modelo de Pod de um Job não pode mudar depois de criado; como a carga é idempotente (ADR-015), rodá-la de novo não altera nada, e ela só carrega com o banco vazio. O ConfigMap `seed` é gerado de `seed/` na hora, e não versionado em `k8s/`, para que o script e os dados tenham um dono só. A carga espera o schema, que o Flyway cria no boot da aplicação, então ela termina logo depois de a aplicação ficar pronta: na medição, foram cerca de 50 segundos do `apply` ao rollout concluído.
 
-**Conferindo.** O `kubectl top` passa a responder até um minuto depois do primeiro `apply`, que é o tempo de o `metrics-server` colher as primeiras amostras; antes disso ele devolve `error: Metrics API not available`, e basta repetir o comando.
+**Conferindo.** O `kubectl top` passa a responder até um minuto depois de a aplicação subir, que é o tempo de o `metrics-server` colher as primeiras amostras; antes disso ele devolve `error: Metrics API not available`, e basta repetir o comando.
 
 ```bash
 kubectl -n oficina get deployment,service,configmap,secret,hpa,job
 kubectl top pods -n oficina
-curl -s localhost:8080/actuator/health/readiness
 ```
 
-Com o cluster de pé, a API, o Swagger e a autenticação respondem nos mesmos endereços do ambiente de Compose, em `localhost:8080`. A caixa de e-mail fica dentro do cluster; para abri-la, encaminhe a porta dela, num terminal que fica preso enquanto o encaminhamento durar, e abra `http://localhost:8025`:
+**O acesso à API e à caixa de e-mail é por `port-forward`**, um terminal para cada, que fica preso enquanto o encaminhamento durar:
 
 ```bash
+kubectl -n oficina port-forward service/oficina-app 8080:8080
 kubectl -n oficina port-forward service/email 8025:8025
+```
+
+Com os dois de pé, a API, o Swagger e a autenticação respondem nos mesmos endereços do ambiente de Compose, em `localhost:8080`, e a caixa de e-mail em `http://localhost:8025`; o link do e-mail do orçamento aponta para `localhost:8080` e abre pelo mesmo encaminhamento. As portas são as do Compose, então os dois ambientes não ficam de pé ao mesmo tempo na mesma máquina: `docker compose down` antes.
+
+```bash
+curl -s localhost:8080/actuator/health/readiness
 ```
 
 **Escalabilidade automática.** O HPA mede a CPU das réplicas contra o pedido de cada uma, `250m`, e mantém entre 1 e 4 réplicas, com alvo de 70%. Para simular aumento de carga, um Pod dentro do cluster chama o login em laço; o login confere a senha com BCrypt, que é caro em CPU de propósito, então cada chamada pesa de verdade:
@@ -295,59 +294,59 @@ kubectl -n oficina run gerador-carga --image=busybox:1.36 \
 kubectl -n oficina get hpa oficina-app -w
 ```
 
-Nesta máquina, a CPU média passou do alvo em cerca de 30 segundos, e o HPA chegou a 4 réplicas em menos de um minuto, direto ou passando por 3, conforme o valor da primeira leitura acima do alvo. Para ver a volta, apague o gerador:
+Na medição, o HPA subiu para 2 réplicas 34 segundos depois de a carga começar, pediu 4 aos 49 segundos, e as 4 ficaram prontas em 1m30s, duas em cada nó. Para ver a volta, apague o gerador:
 
 ```bash
 kubectl -n oficina delete pod gerador-carga
 ```
 
-A CPU cai abaixo do alvo em pouco mais de um minuto, e o HPA espera a janela de estabilização de 5 minutos antes de reduzir as réplicas, para não oscilar com uma queda momentânea: nesta máquina, a volta a 1 réplica veio cerca de 6 minutos depois de o gerador ser apagado.
+A volta a 1 réplica veio 5m50s depois de o gerador ser apagado: o HPA espera a janela de estabilização de 5 minutos antes de reduzir as réplicas, para não oscilar com uma queda momentânea.
 
-A escala é só pela CPU, e a conta que exclui a memória está no ADR-027: a memória de uma réplica quase não muda entre parada e sob carga, então ela não acompanha a demanda e, somada à CPU, impediria a volta a 1 réplica.
+A escala é só pela CPU, e a conta que exclui a memória está no ADR-029: a memória de uma réplica quase não muda entre parada e sob carga, então ela não acompanha a demanda e, somada à CPU, impediria a volta a 1 réplica.
 
 ## Pipeline de CI/CD
 
-A pipeline é do GitHub Actions, em [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml). Ela dispara em todo `push` e `pull_request` na `main`, e pelo botão **Run workflow** da aba Actions.
+A pipeline é do GitHub Actions, em dois workflows, os dois em runner hospedado pelo GitHub (`ubuntu-24.04`):
+
+- [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml), o **"CI/CD"**, dispara em todo `push` e `pull_request` na `main`, e pelo botão **Run workflow** da aba Actions. Ele constrói, testa, publica a imagem e publica a aplicação no cluster.
+- [`.github/workflows/infra.yml`](.github/workflows/infra.yml), o **"Infraestrutura"**, dispara só pelo botão **Run workflow**, com a escolha entre `apply` e `destroy`. Ele provisiona ou destrói o ambiente inteiro com o Terraform, sobre o mesmo estado que o terminal usa, e mostra as saídas no resumo da execução.
 
 ### O fluxo de deploy
 
-| Ordem | Job | Onde roda | O que faz | Quando |
-|---|---|---|---|---|
-| 1 | Build e testes | runner hospedado pelo GitHub | build da aplicação; testes unitários e de integração, com Testcontainers; o percentual de cobertura de linhas e de instruções do projeto inteiro, no log e no resumo da execução; `terraform init`, `fmt -check` e `validate` de `infra/` | sempre |
-| 2 | Build da imagem Docker | runner hospedado pelo GitHub | constrói a imagem e a publica no GitHub Container Registry com duas tags, o SHA do commit e `main` | na `main`, fora de pull request |
-| 3 | Deploy no cluster Kubernetes | runner auto-hospedado, com o rótulo `oficina-local` | os cinco passos abaixo | na `main`, fora de pull request |
+| Ordem | Job | O que faz | Quando |
+|---|---|---|---|
+| 1 | Build e testes | build da aplicação; testes unitários e de integração, com Testcontainers; o percentual de cobertura de linhas e de instruções do projeto inteiro, no log e no resumo da execução; `terraform init`, `fmt -check` e `validate` de `infra/`, sem credencial | sempre |
+| 2 | Build da imagem Docker | constrói a imagem e a publica no GitHub Container Registry com duas tags, o SHA do commit e `main` | na `main`, fora de pull request |
+| 3 | Deploy no cluster Kubernetes | os passos abaixo | na `main`, fora de pull request |
 
 Os passos do deploy, com o nome que aparece no log:
 
-1. **Conferência do cluster:** gera um kubeconfig próprio a partir do `kind` e confere os nós e o banco provisionado. O job não usa o contexto corrente do `kubectl` da máquina, então não publica em outro cluster que a máquina conheça.
-2. **Carga da imagem no cluster:** baixa do registro a imagem do commit e a carrega nos nós, com a tag do commit e com `main`.
-3. **Aplicação dos manifestos:** troca a tag `main` pela do commit numa cópia dos manifestos e confere a troca antes de qualquer comando no cluster; depois apaga o Job da carga anterior, gera o ConfigMap `seed`, aplica a cópia e espera o rollout. Cada commit publicado vira uma revisão do Deployment com a imagem dele, que `kubectl -n oficina rollout history deployment/oficina-app` lista; executar de novo o mesmo commit não cria revisão, porque o Deployment não muda.
-4. **Deploy do banco de dados:** confere o banco que o Terraform provisionou, mostra no log o que o Flyway fez no boot da aplicação, a migration aplicada ou o aviso de que o schema já está em dia, e espera a carga de demonstração. Vem depois da aplicação dos manifestos porque o schema nasce no boot da aplicação e a carga espera por ele.
-5. **Conferência da aplicação:** chama a sonda de prontidão pela porta 8080.
+1. **Credencial da AWS:** assume a role da pipeline por OIDC, com uma credencial que vale só durante o job.
+2. **kubectl na versão do cluster:** baixa o `kubectl` 1.35.9 e confere a soma dele contra a fixada no workflow.
+3. **Conferência do cluster:** pergunta à AWS se o cluster existe. **Se não existe, escreve "Cluster oficina não encontrado: publicação pulada" no resumo, os passos seguintes não rodam, e o job termina verde**, porque o ambiente só fica de pé enquanto é usado. Se existe e está ativo, gera um kubeconfig no diretório temporário do job e confere os nós e o banco provisionado. Qualquer outra situação falha o job.
+4. **Aplicação dos manifestos:** troca a tag `main` pela do commit numa cópia dos manifestos e confere a troca antes de qualquer comando no cluster; depois apaga o Job da carga anterior, gera o ConfigMap `seed`, aplica a cópia e espera o rollout. Cada commit publicado vira uma revisão do Deployment com a imagem dele, que `kubectl -n oficina rollout history deployment/oficina-app` lista; executar de novo o mesmo commit não cria revisão, porque o Deployment não muda.
+5. **Deploy do banco de dados:** confere o banco que o Terraform provisionou, mostra no log o que o Flyway fez no boot da aplicação, a migration aplicada ou o aviso de que o schema já está em dia, e espera a carga de demonstração. Vem depois da aplicação dos manifestos porque o schema nasce no boot da aplicação e a carga espera por ele.
+6. **Conferência da aplicação:** abre um `port-forward` no próprio job e chama a sonda de prontidão.
 
-**Quem provisiona o banco.** O Terraform provisiona o banco, e a pipeline não roda `terraform apply`: o estado do Terraform é local, e um `apply` disparado pela pipeline teria um estado diferente do `apply` feito no terminal, e tentaria criar um cluster que já existe. Na pipeline, o deploy do banco de dados é o passo que confirma o banco, o schema e a carga (ADR-027).
+**Quem provisiona o banco.** O Terraform provisiona o banco junto com o cluster, e a pipeline roda esse `apply` pelo botão do "Infraestrutura"; na publicação, o deploy do banco de dados é o passo que confirma o banco, o schema e a carga (ADR-029). O `apply` é por botão, e não a cada push, porque o cluster é destruído ao fim de cada uso, e recriá-lo a cada commit o deixaria cobrando sem ninguém olhar.
 
-### O runner auto-hospedado
+### O ambiente inteiro pela pipeline
 
-O deploy precisa alcançar o cluster, que roda na máquina de quem o provisionou, e o runner hospedado pelo GitHub não alcança essa máquina. Por isso o terceiro job roda num runner registrado nela.
+1. **Actions, "Infraestrutura", Run workflow, `apply`.** Cerca de 13 minutos; ao fim, as saídas aparecem no resumo da execução.
+2. **Actions, "CI/CD", Run workflow.** Publica a aplicação no cluster recém-criado, com o banco e a carga.
+3. **Ao fim do uso, Actions, "Infraestrutura", Run workflow, `destroy`.** Cerca de 12 minutos, e a conferência de que nada ficou cobrando está em [`infra/README.md`](infra/README.md#como-destruir).
 
-**Registrar, uma vez:** em **Settings, Actions, Runners, New self-hosted runner**, escolha Linux x64 e siga os comandos que a própria página mostra, numa pasta fora do clone, por exemplo `~/actions-runner`. Quando o `config.sh` pedir rótulos adicionais, informe `oficina-local`. Não instale como serviço.
+**Nunca dispare o "CI/CD" com o "Infraestrutura" rodando.** Cada workflow tem a sua fila, e uma não espera a outra: uma publicação no meio de um `apply` ou de um `destroy` encontra o cluster pela metade.
 
-**Ligar, a cada janela de trabalho,** num terminal que fica preso enquanto o runner estiver ligado:
+### Identidade da pipeline na AWS
 
-```bash
-cd ~/actions-runner && ./run.sh
-```
+A pipeline não guarda chave de acesso. A cada execução, o GitHub emite um token assinado, e a AWS o troca por uma credencial temporária da role `oficina-github-actions`, que a política de confiança só entrega a quem chega pela branch `main` deste repositório. Um pull request não alcança a role: o assunto do token dele não é a `main`, o deploy não roda em pull request, e o GitHub não entrega token a pull request vindo de fork. A role tem permissão de administrador, porque o Terraform cria rede, IAM, cluster e instâncias; o controle está em quem pode assumi-la (ADR-029). Como criar o provedor de identidade e a role está na seção "Provisionamento com Terraform".
 
-A máquina precisa ter o Docker, o `kind` e o `kubectl` no `PATH`, e o cluster precisa estar de pé (seção "Provisionamento com Terraform").
-
-**Com o runner desligado, o deploy espera na fila**, e os dois primeiros jobs rodam normalmente. O job enfileirado começa sozinho quando o runner é ligado, e falha se passar 24 horas na fila.
-
-**Repositório público com runner auto-hospedado.** A disciplina de DevOps alerta que runner auto-hospedado não é recomendado para repositório público, porque o código de um pull request pode rodar na infraestrutura dele. Aqui isso é contido por cinco medidas, detalhadas no ADR-027: o repositório exige aprovação para rodar workflow de colaborador externo; o deploy só roda em `push` na `main` e pelo botão; o runner tem rótulo próprio e fica ligado só nas janelas de trabalho, nunca como serviço; o workflow pede a permissão mínima; e nenhum segredo fica gravado no runner.
+Os workflows leem quatro segredos do repositório, em **Settings, Secrets and variables, Actions**: `AWS_ROLE_ARN`, o ARN da role; `TF_STATE_BUCKET`, o nome do bucket do estado; e `TF_VAR_arn_do_administrador` e `TF_VAR_arn_da_pipeline`, os dois ARNs que o Terraform recebe como administradores do cluster.
 
 ### A imagem no registro
 
-A imagem fica em `ghcr.io/paulo-juchimiuk/oficina-mecanica-api`, publicada com o token que o próprio job recebe, sem conta nem segredo a mais. Quando o pacote está público, quem aplica os manifestos sem construir a imagem recebe a do último push na `main`: basta pular o `docker build` e o `kind load` da seção "Deploy em Kubernetes".
+A imagem fica em `ghcr.io/paulo-juchimiuk/oficina-mecanica-api`, publicada com o token que o próprio job recebe, sem conta nem segredo a mais. O pacote é público: os nós do cluster a puxam sem credencial, e quem aplica os manifestos à mão recebe a do último push na `main`.
 
 ## Testes
 
@@ -466,6 +465,6 @@ A correspondência entre cada termo do negócio e seu identificador está no glo
 
 ## Decisões de arquitetura
 
-São **28**, cada uma com fundamento de negócio, fundamento técnico e o porquê, em [`docs/decisoes.md`](docs/decisoes.md). Onde a alternativa recusada é o próprio argumento, ela aparece em uma linha.
+São **29**, cada uma com fundamento de negócio, fundamento técnico e o porquê, em [`docs/decisoes.md`](docs/decisoes.md). Onde a alternativa recusada é o próprio argumento, ela aparece em uma linha.
 
 **Os códigos `ADR-0xx` citados neste README, no contrato da API e nos testes referem-se a esse documento.**

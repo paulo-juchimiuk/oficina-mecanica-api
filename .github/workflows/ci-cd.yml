@@ -20,7 +20,7 @@ env:
 jobs:
   build-e-testes:
     name: Build e testes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1
@@ -70,7 +70,7 @@ jobs:
     name: Build da imagem Docker
     needs: build-e-testes
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
@@ -107,40 +107,65 @@ jobs:
     name: Deploy no cluster Kubernetes
     needs: imagem
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, oficina-local]
+    runs-on: ubuntu-24.04
+    concurrency: deploy
     permissions:
       contents: read
-      packages: read
+      id-token: write
     env:
       CLUSTER: oficina
       NAMESPACE: oficina
+      REGIAO: us-east-1
+      KUBECTL_VERSAO: v1.35.9
+      KUBECTL_SHA256: 3cfeaf80be482b435b0aa214aff6e0b2c312ee23c0ff20810c75517b6004c6eb
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
-      - name: Conferência do cluster
+      - name: Credencial da AWS
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.REGIAO }}
+
+      - name: kubectl na versão do cluster
         run: |
-          kind get kubeconfig --name "$CLUSTER" > "$RUNNER_TEMP/kubeconfig"
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -fsSLo "$RUNNER_TEMP/bin/kubectl" "https://dl.k8s.io/release/$KUBECTL_VERSAO/bin/linux/amd64/kubectl"
+          echo "$KUBECTL_SHA256  $RUNNER_TEMP/bin/kubectl" | sha256sum --check
+          chmod +x "$RUNNER_TEMP/bin/kubectl"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Conferência do cluster
+        id: cluster
+        run: |
+          set +e
+          STATUS=$(aws eks describe-cluster --name "$CLUSTER" --region "$REGIAO" --query cluster.status --output text 2> "$RUNNER_TEMP/erro")
+          CODIGO=$?
+          set -e
+          if [ "$CODIGO" -ne 0 ] && grep -q ResourceNotFoundException "$RUNNER_TEMP/erro"; then
+            echo "existe=false" >> "$GITHUB_OUTPUT"
+            echo "Cluster $CLUSTER não encontrado: publicação pulada" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ "$CODIGO" -ne 0 ]; then
+            cat "$RUNNER_TEMP/erro"
+            exit 1
+          fi
+          if [ "$STATUS" != ACTIVE ]; then
+            echo "Cluster $CLUSTER em $STATUS: publicação recusada" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          aws eks update-kubeconfig --name "$CLUSTER" --region "$REGIAO" --kubeconfig "$RUNNER_TEMP/kubeconfig"
           echo "KUBECONFIG=$RUNNER_TEMP/kubeconfig" >> "$GITHUB_ENV"
           KUBECONFIG="$RUNNER_TEMP/kubeconfig" kubectl get nodes
           KUBECONFIG="$RUNNER_TEMP/kubeconfig" kubectl -n "$NAMESPACE" get deployment banco
-
-      - name: Login no GHCR
-        uses: docker/login-action@v4.6.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Carga da imagem no cluster
-        run: |
-          docker pull "$IMAGEM:$GITHUB_SHA"
-          docker tag "$IMAGEM:$GITHUB_SHA" "$IMAGEM:main"
-          kind load docker-image "$IMAGEM:$GITHUB_SHA" "$IMAGEM:main" --name "$CLUSTER"
+          echo "existe=true" >> "$GITHUB_OUTPUT"
 
       - name: Aplicação dos manifestos
+        if: steps.cluster.outputs.existe == 'true'
         run: |
           cp -r k8s "$RUNNER_TEMP/k8s"
           sed -i "s|$IMAGEM:main|$IMAGEM:$GITHUB_SHA|" "$RUNNER_TEMP/k8s/oficina-app-deployment.yaml"
@@ -151,6 +176,7 @@ jobs:
           kubectl -n "$NAMESPACE" rollout status deployment/oficina-app --timeout=300s
 
       - name: Deploy do banco de dados
+        if: steps.cluster.outputs.existe == 'true'
         run: |
           kubectl -n "$NAMESPACE" rollout status deployment/banco --timeout=120s
           kubectl -n "$NAMESPACE" logs deployment/oficina-app | grep -E 'Successfully applied|is up to date'
@@ -158,4 +184,9 @@ jobs:
           kubectl -n "$NAMESPACE" logs job/seed
 
       - name: Conferência da aplicação
-        run: curl -fsS --max-time 10 http://localhost:8080/actuator/health/readiness
+        if: steps.cluster.outputs.existe == 'true'
+        run: |
+          kubectl -n "$NAMESPACE" port-forward service/oficina-app 8080:8080 > "$RUNNER_TEMP/port-forward.log" 2>&1 &
+          ENCAMINHAMENTO=$!
+          curl -fsS --retry 10 --retry-connrefused --retry-delay 2 --max-time 10 http://localhost:8080/actuator/health/readiness
+          kill "$ENCAMINHAMENTO"

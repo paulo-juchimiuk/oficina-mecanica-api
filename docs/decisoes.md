@@ -1,6 +1,6 @@
 # Decisões de arquitetura (ADRs)
 
-São 28 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento técnico** e **o porquê**. Onde a alternativa recusada é o próprio argumento, ela aparece em uma linha. Onde algo ficou fora do MVP, isso está declarado, e não omitido.
+São 29 decisões. Cada uma traz o **fundamento de negócio**, o **fundamento técnico** e **o porquê**. Onde a alternativa recusada é o próprio argumento, ela aparece em uma linha. Onde algo ficou fora do MVP, isso está declarado, e não omitido.
 
 ---
 
@@ -527,6 +527,8 @@ O enunciado pede o banco provisionado pelo Terraform e, na pipeline, o deploy do
 
 **Consequência aceita:** os manifestos seguem os valores padrão do Terraform, o nome do cluster, o namespace e o nome do banco, então quem trocar esses valores no `terraform.tfvars` troca também em `k8s/`. E a opção do `metrics-server` confia no certificado do kubelet sem verificá-lo, o que só é aceitável num cluster local e descartável. O deploy depende de a máquina estar ligada, com o cluster de pé e o runner rodando, e o terminal do runner fica preso enquanto ele estiver ligado.
 
+**Substituído pelo ADR-029 na Fase 2**, que leva a publicação e o provisionamento para a pipeline na nuvem. Este registro fica como histórico da decisão.
+
 ---
 
 ## ADR-028: Cluster Kubernetes na AWS (EKS), provisionado por Terraform
@@ -556,3 +558,77 @@ O enunciado pede o banco provisionado pelo Terraform e, na pipeline, o deploy do
 - **Plano gratuito da AWS:** a conta fecha sozinha quando o crédito acaba ou aos seis meses, e os tipos de instância do plano são pequenos demais para a aplicação em quatro réplicas.
 
 **Consequência aceita:** o ambiente custa cerca de US$ 0,20 por hora de pé; a subida levou 12m40s e a destruição 11m38s na medição; e ele depende de terceiros que o cluster local não tinha, a AWS e o GitHub Actions. Entre as sessões de uso o cluster não existe, e a pipeline trata isso (ADR-029). Reproduzir o Kubernetes exige conta AWS: quem não tem roda a aplicação pelo `docker compose`, o caminho de execução local do README, e vê o cluster no vídeo. O bucket do estado e a identidade da pipeline nascem fora do Terraform, uma vez, porque ele depende dos dois.
+
+---
+
+## ADR-029: A pipeline na nuvem: OIDC, provisionamento por botão e publicação sem runner próprio
+
+**Decisão:** a aplicação é publicada no cluster do ADR-028 por manifestos YAML em `/k8s`, aplicados com `kubectl`: Deployment, Service, ConfigMap, Secret e HorizontalPodAutoscaler da aplicação, a caixa de e-mail do ambiente e o Job da carga de demonstração. O HPA escala a aplicação de 1 a 4 réplicas **só pela CPU**, com alvo de 70% do pedido de cada réplica. O Service é `ClusterIP`, e o acesso é por `kubectl port-forward`. São dois workflows do GitHub Actions, os dois em runner hospedado pelo GitHub: **`ci-cd.yml`**, que a cada push na `main` faz o build, os testes e a conferência do Terraform, publica a imagem no GitHub Container Registry e publica a aplicação no cluster, e **`infra.yml`**, o workflow "Infraestrutura", que **provisiona ou destrói o ambiente por botão**, com o `apply` ou o `destroy` do Terraform sobre o mesmo estado que o terminal usa. A pipeline entra na AWS **por OIDC**, assumindo uma role só, sem chave guardada. Substitui o ADR-027 inteiro: o que dele continua valendo está reafirmado abaixo.
+
+**Fundamento de negócio:** o uso do sistema varia ao longo do dia, e a capacidade precisa acompanhar essa variação sem alguém ajustando réplicas à mão. Cada mudança no código precisa chegar ao ambiente pelo mesmo caminho, construída e testada antes. E o ambiente custa por hora, então ele só existe quando alguém o usa: a pipeline precisa saber criá-lo e destruí-lo, e precisa saber se comportar quando ele não existe.
+
+**Fundamento técnico:** as escolhas dos manifestos respondem a comportamentos do Kubernetes medidos, a métrica do HPA responde a uma conta feita com o uso medido das réplicas, e a forma da pipeline responde a onde o cluster roda e a quanto ele custa. As seções abaixo trazem as quatro partes.
+
+### 1. O que os manifestos decidem
+
+- **O Deployment não declara `replicas`.** Quem decide o número de réplicas é o HPA, e o `minReplicas` dele é o piso. Com um número fixo no manifesto, cada `kubectl apply` devolveria o Deployment àquele número e desfaria a escala em andamento.
+- **Toda réplica declara pedido e limite de CPU e de memória.** O HPA calcula a utilização como o uso dividido pelo pedido, e sem pedido não há percentual para comparar com o alvo.
+- **Três sondas HTTP, como a aula de probes da disciplina de Kubernetes ensina:** inicialização, prontidão e vivacidade. Prontidão e vivacidade usam endpoints próprios, `/actuator/health/readiness` e `/actuator/health/liveness`, com os intervalos do exemplo da aula: prontidão a cada 5 segundos com espera de 3, vivacidade a cada 10 com espera de 5. A sonda de inicialização repete o endpoint da vivacidade, porque existe para segurar a vivacidade até o boot terminar: a cada 5 segundos, por até 3 minutos. O boot leva cerca de 30 segundos num nó `t3.medium`, e uma espera fixa de 2 minutos, como a do exemplo, deixaria cada réplica nova fora do Service justamente na janela em que o HPA precisa dela.
+- **A atualização é gradual e não perde capacidade:** `RollingUpdate` com `maxUnavailable: 0` e `maxSurge: 1`.
+- **Cada réplica espera 10 segundos antes de começar a desligar**, por um `preStop` com `sleep`. Quando uma réplica sai, a retirada dela do Service e o desligamento da aplicação correm ao mesmo tempo, e por um instante chamadas ainda chegam a uma réplica que já parou de aceitar conexão. Medido com duas réplicas e chamadas contínuas durante um rollout: sem a pausa, 3 de 405 chamadas falharam; com a pausa, nenhuma de 418. É o ajuste que a documentação do Spring Boot recomenda para o Kubernetes.
+- **O Service é `ClusterIP`, e o acesso de fora do cluster é por `kubectl port-forward`**, o método que a aula de Services da disciplina de Kubernetes usa, e que passa pela API do cluster com a credencial de quem o roda. Nenhuma porta dos nós fica aberta para a internet, e nenhum balanceador é criado fora do Terraform.
+- **Configuração e segredo ficam separados.** O ConfigMap guarda o que não é sensível, e o Secret guarda o segredo do JWT, com o mesmo valor de avaliação do `docker-compose.yml`. Usuário e senha do banco não são repetidos: a aplicação os lê do Secret `banco`, que o Terraform cria, e o fato fica com um dono só.
+- **A carga de demonstração é um Job** que roda o mesmo `seed/carrega.sh` do compose, lendo os arquivos de um ConfigMap gerado de `seed/` na hora da publicação. O Job é apagado antes de cada `apply`, porque o modelo de Pod de um Job não pode mudar depois de criado; como a carga é idempotente (ADR-015), rodá-la de novo não altera nada.
+- **Todo objeto da aplicação declara o namespace `oficina`**, então `kubectl apply -f k8s/` publica no lugar certo qualquer que seja o namespace corrente de quem o roda; e o endereço curto do banco, `banco:5432`, só resolve de dentro do namespace dele, pelo motivo registrado em `infra/README.md`.
+- **O `metrics-server` não está em `/k8s`:** ele é um complemento do cluster, criado pelo Terraform (ADR-028), na versão que a AWS valida para a versão do Kubernetes, e confia no certificado do kubelet sem precisar desligar a verificação.
+
+### 2. A escala pela CPU, e a conta que exclui a memória
+
+A aula de dimensionamento automático da disciplina de Kubernetes apresenta o HPA com CPU, memória e métricas personalizadas, diz que *"a escolha da métrica certa dependerá do aplicativo e das necessidades específicas do ambiente"*, e o exemplo dela monitora só a CPU, com alvo de 70%. O manifesto daqui é o mesmo exemplo na versão atual da API, `autoscaling/v2`. O máximo é 4, e não 10, porque o cluster são dois nós `t3.medium`: quatro réplicas de `250m` e 512 MiB, mais o banco e a caixa de e-mail, cabem com folga na CPU e na memória que os dois nós oferecem aos Pods.
+
+**Por que a memória fica fora, medido e não estimado.** O HPA calcula as réplicas desejadas de cada métrica como `teto(réplicas atuais × uso ÷ alvo)` e segue a maior das contas. Contra um pedido de 512 MiB, a réplica usou 277 MiB antes da carga, cada uma das quatro usou cerca de 300 MiB sob carga, e a que sobrou depois da descida seguiu em 302 MiB com a CPU parada: 54%, 59% e 59%. A memória de uma JVM quase não se move com a carga, porque o heap que ela ocupou continua ocupado. Com a memória como segunda métrica e o mesmo alvo de 70%, a conta dela depois de a carga acabar daria `teto(4 × 59 ÷ 70) = 4`, e o HPA ficaria em 4 réplicas enquanto a CPU já pedisse 1. **O "CPU/memória" do enunciado é lido como uma ou outra**, e a métrica que acompanha a demanda desta aplicação é a CPU.
+
+**A carga que prova a escala** é um Pod dentro do cluster chamando o login em laço, como a aula de dimensionamento automático faz com um laço em bash chamando a aplicação, ao lado do K6. O login confere a senha com BCrypt, que custa CPU a cada chamada, e isso simula o aumento de carga sem instalar ferramenta. Medido no cluster da AWS: o HPA subiu para 2 réplicas 34 segundos depois de a carga começar, pediu 4 aos 49 segundos, e as 4 estavam prontas em 1m30s, duas em cada nó. Com a carga desligada, voltou a 1 réplica 5m50s depois, dos quais 5 minutos são a janela de estabilização padrão da descida.
+
+### 3. A pipeline
+
+- **Dois arquivos.** `.github/workflows/ci-cd.yml`, o nome que a aula de fundamentos da disciplina de GitHub Actions usa, dispara em `push` e `pull_request` na `main` e pelo botão de execução manual. `.github/workflows/infra.yml`, o workflow "Infraestrutura", dispara só pelo botão, com a escolha entre `apply` e `destroy`. Os dois rodam em `ubuntu-24.04`, versão fixada porque o rótulo `ubuntu-latest` troca de versão maior entre outubro e novembro de 2026, com ferramentas de versão nova.
+- **Build e testes:** o build da aplicação e o `mvn verify`, com os testes de integração em Testcontainers. No mesmo job, `terraform init -backend=false`, `fmt -check` e `validate`, que conferem o código do Terraform sem credencial e sem estado, a cada push e a cada pull request.
+- **A imagem, só na `main` e fora de pull request:** publicada no GitHub Container Registry com o token do próprio job, com a tag do SHA do commit, que é imutável, e a tag `main`. O pacote é público, e os nós do cluster puxam a imagem sem credencial nenhuma.
+- **O deploy, só na `main` e fora de pull request**, em quatro passos: a **conferência do cluster**, que pergunta à AWS se o cluster existe, e só com ele `ACTIVE` gera um kubeconfig no diretório temporário do job e confere os nós e o banco; a **aplicação dos manifestos**, com a tag do SHA no lugar de `main` numa cópia dos manifestos, conferida antes de qualquer comando no cluster, de modo que cada commit publicado vira exatamente uma revisão do Deployment; o **deploy do banco de dados**; e a **conferência da aplicação**, que chama a sonda de prontidão por um `port-forward` aberto no próprio job.
+- **O `kubectl` do job é baixado na versão do cluster e conferido por uma soma fixada no workflow.** O que vem no runner está duas versões menores acima, fora da distância de uma versão que o Kubernetes garante entre cliente e servidor.
+- **Publicação e provisionamento têm cada um a sua fila** (`concurrency`): dois deploys não rodam juntos, nem dois `apply`.
+
+### 4. A identidade da pipeline na AWS
+
+**Por OIDC, e não por chave guardada em segredo.** O GitHub emite para cada execução um token assinado, e a AWS o troca por uma credencial temporária da role `oficina-github-actions`, que vale só durante o job. A apostila de CI/CD para arquiteturas serverless, da disciplina de DevOps, diz que a melhor prática é o OpenID Connect; os exemplos das aulas usam chaves de acesso porque o ambiente de laboratório delas não permite criar role.
+
+**A política de confiança é o controle.** A role só aceita um token cuja audiência seja `sts.amazonaws.com` e cujo assunto seja a branch `main` deste repositório, nos dois formatos que o GitHub emite para um repositório criado depois de 15/07/2026: com os IDs do dono e do repositório, e com os nomes. Um pull request não alcança a role por três caminhos independentes: o assunto dele não é a `main`, o job de deploy não roda em pull request, e o GitHub não entrega o token a um pull request vindo de fork. Na `main` só o dono do repositório escreve.
+
+**`AdministratorAccess`, e a divergência declarada do menor privilégio.** O Terraform cria rede, IAM, cluster, instâncias e lê o bucket do estado; uma política sob medida para isso tem centenas de linhas e quebra a cada recurso novo. O que restringe a role é quem pode assumi-la, e não o que ela pode fazer: é uma role só, para o provisionamento e a publicação, porque uma segunda role para o deploy dobraria a configuração sem reduzir o que a primeira já pode.
+
+**Sem runner próprio.** Com o cluster na AWS, o runner hospedado pelo GitHub o alcança pela API pública dele, autenticado pela role. O alerta da aula de otimização de pipelines da disciplina de DevOps, de que *"self-hosted runners não são recomendados para repositórios públicos"*, não se aplica aqui: nenhum job deste repositório roda em máquina de alguém.
+
+### 5. O banco de dados e o provisionamento na pipeline
+
+O enunciado pede o banco provisionado pelo Terraform e, na pipeline, o deploy do banco de dados. **O Terraform provisiona o banco junto com o cluster, e a pipeline roda esse `terraform apply`, pelo botão do workflow "Infraestrutura"**, sobre o estado no bucket S3 que o terminal também usa. A aula de IaC em pipelines da disciplina de DevOps e a aula de Terraform Cloud da disciplina de Terraform põem o `apply` na esteira, e na aula ao vivo de apresentação do Tech Challenge o professor pede a infraestrutura inteira em código e na esteira. O passo "Deploy do banco de dados" do `ci-cd.yml` confirma o banco provisionado de pé, mostra no log o que o Flyway fez no boot da aplicação e espera a carga de demonstração.
+
+**Por botão, e não a cada push.** O cluster é destruído ao fim de cada sessão de uso. Um `apply` a cada push recriaria o EKS em 12 minutos a cada commit e o deixaria cobrando até alguém lembrar de destruí-lo. A doutrina da apostila, o `plan` na integração contínua e o `apply` em ambiente controlado, fica atendida pelo `validate` a cada push e pelo `apply` só por ação explícita de quem tem escrita na `main`, com o `plan` impresso no log antes de ser aplicado.
+
+**Com o cluster destruído, o deploy termina verde e diz que pulou.** A conferência do cluster distingue três casos: o cluster não existe, e o job escreve no resumo "Cluster oficina não encontrado: publicação pulada" e os passos seguintes não rodam; o cluster existe mas não está ativo, e o job falha; ou a pergunta à AWS falha por outro motivo, permissão ou região, e o job falha. Um job vermelho a cada push entre sessões treinaria quem olha a pipeline a ignorar o vermelho.
+
+**Porquê:** é a configuração que sobe e desce sozinha com a demanda desta aplicação, num cluster que só existe enquanto é usado, com a pipeline capaz de criá-lo, publicar nele e destruí-lo, sem chave guardada e sem máquina de ninguém no caminho.
+
+**Alternativas recusadas:**
+
+- **`apply` a cada push na `main`**, a demonstração literal da aula de IaC em pipelines: com o cluster destruído entre sessões, cada push recriaria e deixaria de pé um cluster que cobra por hora.
+- **Provisionamento só pelo terminal:** o estado mora num bucket que o terminal e a pipeline alcançam, e o material e o professor põem o `apply` na esteira.
+- **Chaves de acesso em segredos do repositório**, como nos exemplos das aulas: credencial de longa duração que vaza por qualquer descuido, contra uma credencial que vale só durante o job.
+- **Política IAM sob medida** e **duas roles**: as razões estão na seção 4.
+- **Service `NodePort`:** no EKS exigiria abrir a porta no security group dos nós e expor na internet uma API com usuário de demonstração.
+- **Service `LoadBalancer`:** cria um balanceador pelo controlador da AWS, fora do Terraform, que cobra por hora e impede a VPC de ser apagada se sobrar.
+- **Amazon ECR:** um repositório a mais no Terraform, imagens que sobrevivem à destruição e uma credencial a mais, para o mesmo papel que o GitHub Container Registry cumpre com o token do job.
+- **Escalar por CPU e memória juntas:** a conta da seção 2 mostra que a memória prende a aplicação no máximo de réplicas depois do primeiro pico.
+- **Helm e Kustomize:** o enunciado pede manifestos YAML, e uma camada a mais esconderia o que precisa ficar à vista.
+
+**Consequência aceita:** o bucket do estado e a identidade da pipeline nascem fora do Terraform, uma vez, e estão descritos no README. O ID da conta AWS aparece no log público das execuções, e a AWS não o classifica como segredo; os ARNs vêm de segredos do repositório e saem mascarados. Quem olha a aba Actions vê a última execução de cada workflow, então a última publicação antes de destruir o ambiente é um deploy de verdade, com o cluster de pé. A API só é alcançável da máquina de quem roda o `port-forward`, com credencial no cluster. E as duas filas não se enxergam: disparar uma publicação com o "Infraestrutura" rodando é erro de quem dispara, e o README diz isso.

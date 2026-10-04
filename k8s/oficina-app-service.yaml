@@ -4,11 +4,10 @@ metadata:
   name: oficina-app
   namespace: oficina
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: oficina-app
   ports:
     - name: http
       port: 8080
       targetPort: http
-      nodePort: 30080

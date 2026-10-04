@@ -1,0 +1,74 @@
+name: Infraestrutura
+
+on:
+  workflow_dispatch:
+    inputs:
+      acao:
+        description: O que fazer com a infraestrutura
+        type: choice
+        options: [apply, destroy]
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency: infra
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  terraform:
+    name: Terraform ${{ inputs.acao }}
+    runs-on: ubuntu-24.04
+    env:
+      ACAO: ${{ inputs.acao }}
+      BUCKET_DO_ESTADO: ${{ secrets.TF_STATE_BUCKET }}
+      TF_VAR_arn_do_administrador: ${{ secrets.TF_VAR_ARN_DO_ADMINISTRADOR }}
+      TF_VAR_arn_da_pipeline: ${{ secrets.TF_VAR_ARN_DA_PIPELINE }}
+      TF_IN_AUTOMATION: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Terraform
+        uses: hashicorp/setup-terraform@v4.0.1
+        with:
+          terraform_version: 1.16.1
+          terraform_wrapper: false
+
+      - name: Credencial da AWS
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Inicialização
+        run: terraform -chdir=infra init -input=false -backend-config="bucket=$BUCKET_DO_ESTADO"
+
+      - name: Conferência do código
+        run: |
+          terraform -chdir=infra fmt -check
+          terraform -chdir=infra validate
+
+      - name: Plano
+        run: |
+          OPCOES=(-input=false -out=plano.tfplan)
+          if [ "$ACAO" = destroy ]; then OPCOES+=(-destroy); fi
+          terraform -chdir=infra plan "${OPCOES[@]}"
+
+      - name: Execução do plano
+        run: terraform -chdir=infra apply -input=false plano.tfplan
+
+      - name: Saídas
+        if: inputs.acao == 'apply'
+        run: |
+          {
+            echo '```'
+            terraform -chdir=infra output
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
