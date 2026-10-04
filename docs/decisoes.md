@@ -391,13 +391,13 @@ Os quatro pacotes de cada contexto já eram esses quatro círculos, e a direçã
 
 **Alternativa recusada:** Arquitetura Hexagonal. Ela cabe nos mesmos quatro pacotes e custaria praticamente o mesmo, porque as portas de saída já existem e `api` e `infrastructure` já são adaptadores. Recusada porque a tabela da disciplina indica a Hexagonal para *"sistemas que precisam se comunicar com múltiplas interfaces"*, e este sistema tem uma borda, REST, e uma persistência, PostgreSQL, e porque a Clean nomeia os anéis que os quatro pacotes já são.
 
-**Limites declarados, dois:** o artigo desenha uma porta de entrada por caso de uso, a Use Case Input Port, e aqui não existe interface separada para isso, porque o único chamador de um caso de uso é a borda REST e a interface não teria segundo implementador nem segundo consumidor. E a configuração de segurança segue sendo a única classe de `infrastructure` que importa de `api`, limite que o ADR-003 já declarava: ela monta o corpo do 401 no envelope do contrato e conhece o prefixo das rotas, que são fatos da borda HTTP. Ela também libera sem JWT as duas sondas de saúde do actuator, vivacidade e prontidão, porque o Kubernetes as consulta sem credencial; as duas leem só o estado de disponibilidade da aplicação, sem consultar banco nem e-mail, e nenhum outro endpoint do actuator é exposto.
+**Limites declarados, dois:** o artigo desenha uma porta de entrada por caso de uso, a Use Case Input Port, e aqui não existe interface separada para isso, porque o único chamador de um caso de uso é a borda REST e a interface não teria segundo implementador nem segundo consumidor. E a configuração de segurança segue sendo a única classe de `infrastructure` que importa de `api`, limite que o ADR-003 já declarava: ela monta o corpo do 401 no envelope do contrato e conhece o prefixo das rotas, que são fatos da borda HTTP. Ela também libera sem JWT as duas sondas de saúde do actuator, vivacidade e prontidão, porque o Kubernetes as consulta sem credencial; as duas leem só o estado de disponibilidade da aplicação, sem consultar banco nem e-mail, e nenhum outro endpoint do actuator é exposto. E libera a página pública de resposta ao orçamento, `/acompanhamento.html`, pelo mesmo motivo: quem a abre é o cliente, sem credencial. Ela é um arquivo estático, sem dado nenhum, e só chama as rotas públicas de acompanhamento que já existem.
 
 ---
 
 ## ADR-026: As APIs da Fase 2
 
-**Decisão:** as cinco mudanças de API que a fase pede entram sem rota nova além do que o enunciado descreve, e cada uma tem a leitura adotada declarada aqui: **(1)** os identificadores de status continuam os de hoje, com a tabela de nomes no README e no contrato; **(2)** a abertura da OS aceita serviços e peças opcionais; **(3)** as duas rotas públicas de resposta ao orçamento são a entrada da notificação externa; **(4)** a listagem sem filtro devolve a fila de atendimento ordenada por status, sem as encerradas; **(5)** toda transição de status envia e-mail ao cliente, e o envio é atômico com a transição.
+**Decisão:** as cinco mudanças de API que a fase pede entram sem rota de API nova além do que o enunciado descreve, e a única superfície nova é uma página estática; cada uma tem a leitura adotada declarada aqui: **(1)** os identificadores de status continuam os de hoje, com a tabela de nomes no README e no contrato; **(2)** a abertura da OS aceita serviços e peças opcionais; **(3)** as duas rotas públicas de resposta ao orçamento são a entrada da notificação externa, e o e-mail do orçamento leva o cliente até elas por uma página pública de resposta; **(4)** a listagem sem filtro devolve a fila de atendimento ordenada por status, sem as encerradas; **(5)** toda transição de status envia e-mail ao cliente, como complemento do item 3, e o envio é atômico com a transição.
 
 **Fundamento de negócio:** as cinco mudanças descrevem o mesmo atendimento visto de fora: o cliente pede serviço no balcão, acompanha por um código, responde ao orçamento sem login, recebe aviso a cada passo, e o atendente trabalha por uma fila que mostra primeiro o que está na bancada.
 
@@ -427,6 +427,10 @@ Os quatro pacotes de cada contexto já eram esses quatro círculos, e a direçã
 
 **Alternativa recusada:** um endpoint único com a decisão no corpo da requisição. Traria de volta a escrita de decisão como dado, contra o ADR-022, que é a razão de as transições serem disparadas por comando e não por escrita de status.
 
+**O e-mail do orçamento é o front da notificação externa.** Ele leva o link de uma página pública de resposta, `/acompanhamento.html?codigo=<código>`, servida pela própria aplicação como arquivo estático, fora do prefixo da API, com o endereço vindo de `oficina.acompanhamento.url-base`. A página consulta a situação pela rota pública de acompanhamento, mostra o orçamento e, só em `AGUARDANDO_APROVACAO`, os botões de aprovar e de recusar, que chamam as duas rotas acima por `POST`. É a atualização de status por ferramenta como e-mail que a fase pede: o cliente recebe o orçamento, clica, e a OS muda de status pela aprovação ou pela recusa.
+
+**Alternativas recusadas para o front:** links que aprovam e recusam por `GET` direto nas rotas, porque `GET` é método seguro e não pode ter efeito colateral (RFC 9110, seção 9.2.1), um cliente de e-mail que pré-carrega os links aprovaria o orçamento sozinho, e a transição deixaria de ser disparada por comando, contra o ADR-022; a página servida por um controller sob `/api/v1`, porque o contrato promete JSON sob o prefixo; e um front-end em contêiner próprio, que custaria uma segunda imagem e um segundo serviço no compose e em `k8s/` para uma tela só.
+
 ### 4. A fila de atendimento, com exclusão lógica por status
 
 **Decisão:** a listagem sem filtro devolve a fila ordenada por `EM_EXECUCAO`, `AGUARDANDO_APROVACAO`, `EM_DIAGNOSTICO`, `RECEBIDA` e, dentro do mesmo status, das mais antigas para as mais novas; as OSs `FINALIZADA`, `ENTREGUE` e `CANCELADA` ficam **fora** dela. Com o filtro de status, a listagem devolve as OSs daquele status, **inclusive as encerradas**.
@@ -439,7 +443,9 @@ Os quatro pacotes de cada contexto já eram esses quatro círculos, e a direçã
 
 ### 5. E-mail a cada transição de status
 
-**Decisão:** **toda transição de status envia um e-mail ao cliente**, com o status novo e o endereço de acompanhamento, pela mesma porta de notificação que envia o orçamento. **O envio é atômico com a transição:** se o e-mail não sai, a transição não acontece. **Cada transição produz exatamente um e-mail:** quando a transição gera orçamento, o e-mail do orçamento é a notificação dela, porque já carrega o status novo e o mesmo endereço. **A abertura da OS também notifica**, porque é a transição que entrega o código de acompanhamento ao cliente, sem o qual a notificação externa de aprovação não tem como chegar.
+**Decisão:** **toda transição de status envia um e-mail ao cliente**, com o status novo e o endereço de acompanhamento, que é a mesma página, pela mesma porta de notificação que envia o orçamento. **O envio é atômico com a transição:** se o e-mail não sai, a transição não acontece. **Cada transição produz exatamente um e-mail:** quando a transição gera orçamento, o e-mail do orçamento é a notificação dela, porque já carrega o status novo e o mesmo endereço. **A abertura da OS também notifica**, porque é a transição que entrega o código de acompanhamento ao cliente, sem o qual a notificação externa de aprovação não tem como chegar.
+
+**O aviso é complemento do item 3.** A atualização de status por e-mail que a fase pede é a resposta ao orçamento pelo link; o aviso a cada passo mantém o cliente informado das transições que ele não decide.
 
 **Fundamento de negócio:** o cliente da oficina liga para saber do carro. O aviso a cada passo é o que substitui o telefonema, e é por isso que ele carrega o endereço de acompanhamento em vez de só o nome do status.
 
@@ -451,7 +457,7 @@ Os quatro pacotes de cada contexto já eram esses quatro círculos, e a direçã
 
 **A notificação lê o contato do cliente da OS mesmo com o cadastro inativado**, e a razão está no ADR-014: Ordem de Serviço encerrada é documento de uma relação de consumo e não pode virar registro órfão porque alguém limpou um cadastro. O guard da inativação recusa apagar cadastro com OS **em andamento**, mas uma OS já finalizada pode ter o cliente inativado depois, e a entrega dela precisa continuar possível. Abrir OS nova para cliente inativo segue recusado, porque essa é a superfície do cadastro, e não a de uma OS que já existe.
 
-**O status vai no identificador da API, não em nome de exibição.** Um segundo vocabulário para o mesmo fato precisaria de dono, e a tabela do README já liga o identificador ao nome do enunciado.
+**O status vai no identificador da API, não em nome de exibição, no e-mail e na página de resposta.** Um segundo vocabulário para o mesmo fato precisaria de dono, e a tabela do README já liga o identificador ao nome do enunciado.
 
 **Alternativa recusada:** atomicidade só onde o e-mail habilita ação do cliente e melhor esforço nas demais. Cria duas políticas para o mesmo fato, e a segunda é a que perde aviso sem ninguém ver.
 

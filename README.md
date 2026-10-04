@@ -14,7 +14,7 @@ A primeira versão substituiu a planilha pelo registro que o próprio fluxo de t
 
 A outra metade do objetivo é o ambiente. Ele deixa de depender de alguém lembrar a sequência de comandos: o cluster e o banco nascem de código, cada push na `main` é construído e testado pela pipeline e, com o runner ligado, publicado no cluster, a publicação troca as réplicas sem perder chamada, e a aplicação ganha réplicas quando a carga sobe e as devolve quando ela cai.
 
-O recorte segue sendo de MVP: back-end, sem interface gráfica, com gestão de ordens de serviço, clientes e peças.
+O recorte segue sendo de MVP: back-end, com gestão de ordens de serviço, clientes e peças, e a única tela é a página pública de resposta ao orçamento.
 
 ## Documentação DDD
 
@@ -25,9 +25,9 @@ Event Storming dos dois fluxos, Domain Storytelling (AS-IS e TO-BE), Context Map
 ## O que o sistema faz
 
 - **Ordem de Serviço** com máquina de estados (Recebida, Em diagnóstico, Aguardando aprovação, Em execução, Finalizada, Entregue, mais Cancelada, o sétimo status decidido no ADR-008), com mudança automática de status conforme as ações no sistema.
-- **Orçamento** gerado automaticamente a partir dos itens de serviço e de peça, enviado ao cliente por e-mail, e respondido pela **notificação externa de aprovação ou de recusa**: duas rotas públicas que quem está fora do sistema chama portando o código de acompanhamento, sem exigir login do cliente.
+- **Orçamento** gerado automaticamente a partir dos itens de serviço e de peça, enviado ao cliente por e-mail, e respondido pela **notificação externa de aprovação ou de recusa**: duas rotas públicas que quem está fora do sistema chama portando o código de acompanhamento, sem exigir login do cliente. O e-mail do orçamento leva o link de uma página pública de resposta, com os botões de aprovar e de recusar que chamam essas rotas.
 - **CRUDs** de clientes, veículos, serviços e peças, este último com controle de estoque (reserva, baixa, entrada e consulta de peças abaixo do estoque mínimo).
-- **Atualização de status por e-mail:** toda transição de status envia ao cliente um e-mail com o status novo e o endereço de acompanhamento. **A leitura adotada do requisito é esta**, notificar o cliente, e ela está fundamentada no ADR-026. O envio é atômico com a transição: se o e-mail não sai, a transição não acontece, porque falha visível é preferível a notificação perdida em silêncio. A transição que gera orçamento é notificada pelo e-mail do orçamento, que já carrega o status novo e o mesmo endereço, então cada transição produz exatamente um e-mail.
+- **Atualização de status por e-mail:** o e-mail do orçamento leva o cliente à página de resposta, e o clique em aprovar ou em recusar muda o status da OS pela notificação externa. **A leitura adotada do requisito é esta**, e ela está fundamentada no ADR-026. Como complemento, toda transição de status envia ao cliente um e-mail com o status novo e o endereço de acompanhamento, que é a mesma página. O envio é atômico com a transição: se o e-mail não sai, a transição não acontece, porque falha visível é preferível a notificação perdida em silêncio. A transição que gera orçamento é notificada pelo e-mail do orçamento, que já carrega o status novo e o mesmo endereço, então cada transição produz exatamente um e-mail.
 - **Tempo médio de execução** dos serviços, calculado a partir dos timestamps das transições de status.
 - **Autenticação JWT** nas APIs administrativas e validação de dados sensíveis (documento e placa) como regra de domínio.
 
@@ -69,6 +69,16 @@ Cada caixa diz de onde vem: o `terraform apply` de [`infra/`](infra/) cria o clu
 
 Cada passo, com o nome que aparece no log, está em "Pipeline de CI/CD".
 
+## Pré-requisitos
+
+| Caminho | Ferramenta | Versão testada |
+|---|---|---|
+| Execução local com Docker Compose | Docker Engine | 29.8.2 |
+| Execução local com Docker Compose | Docker Compose | v5.5.1 |
+| Execução local sem Docker e testes | Java | 25.0.4, fixada em [`.sdkmanrc`](.sdkmanrc) |
+| Execução local sem Docker e testes | Maven | 3.9.9 |
+| Provisionamento com Terraform e deploy em Kubernetes | Docker, `kind`, Terraform e `kubectl` | na tabela de pré-requisitos de [`infra/README.md`](infra/README.md) |
+
 ## Execução local com Docker Compose
 
 Pré-requisitos: Docker e Docker Compose, com as portas **5432**, **8080**, **1025** e **8025** livres. Se houver um PostgreSQL ou outra aplicação ocupando alguma delas na máquina, o `docker compose up` falha com `port is already allocated`: pare o serviço local, ou ajuste o mapeamento no `docker-compose.yml`.
@@ -109,9 +119,9 @@ Com o ambiente de pé:
 
 As duas primeiras servem a especificação **gerada a partir do código**, e ela difere do contrato versionado em conteúdo, não em quantidade de rotas: a especificação gerada traz o título e a área de negócio de cada operação, mas **nenhuma delas tem descrição longa**; **não publica as respostas de erro nem o schema `Erro`**; não carrega as restrições de valor monetário (mínimo, teto e moeda única); **não traz o `info.description`**, que é onde moram as convenções de autorização e de erro de protocolo; expõe uma propriedade de validação de campo cruzado que o contrato não tem; e sai em OpenAPI 3.1.0 contra 3.0.3 do arquivo versionado. **O `openapi.yaml` é a fonte de verdade do contrato completo**, e é ele que deve ser lido para conhecer o contrato; o Swagger UI serve para experimentar as chamadas.
 
-A documentação, o login, as três rotas de acompanhamento do cliente e as duas sondas de saúde (`/actuator/health/liveness` e `/actuator/health/readiness`) são públicos: as de acompanhamento pelo ADR-007, e as sondas porque o Kubernetes as consulta sem credencial. As sondas leem só o estado de disponibilidade da própria aplicação, sem consultar banco nem e-mail, então uma chamada anônima não gera trabalho fora dela. A raiz `/actuator/health` exige JWT, e nenhum outro endpoint do actuator é exposto. Todas as demais rotas **sob `/api/v1`** exigem JWT.
+A documentação, o login, as três rotas de acompanhamento do cliente, a página de resposta ao orçamento (`/acompanhamento.html`) e as duas sondas de saúde (`/actuator/health/liveness` e `/actuator/health/readiness`) são públicos: as de acompanhamento pelo ADR-007, a página pelo ADR-026, e as sondas porque o Kubernetes as consulta sem credencial. As sondas leem só o estado de disponibilidade da própria aplicação, sem consultar banco nem e-mail, então uma chamada anônima não gera trabalho fora dela. A raiz `/actuator/health` exige JWT, e nenhum outro endpoint do actuator é exposto. Todas as demais rotas **sob `/api/v1`** exigem JWT.
 
-Para experimentar a superfície do cliente sem autenticar, use o código de acompanhamento da Ordem de Serviço que a carga deixa aguardando aprovação: `ACMP-e5a312adaec084e9ea783e0ff3f142a6`.
+Para experimentar a superfície do cliente sem autenticar, use o código de acompanhamento da Ordem de Serviço que a carga deixa aguardando aprovação, `ACMP-e5a312adaec084e9ea783e0ff3f142a6`, ou abra a página de resposta dela em http://localhost:8080/acompanhamento.html?codigo=ACMP-e5a312adaec084e9ea783e0ff3f142a6.
 
 ## Autenticação
 
@@ -180,7 +190,7 @@ Com o cluster provisionado (seção anterior), a aplicação é publicada pelos 
 | `oficina-app-service.yaml` | Service `oficina-app` | `NodePort` na porta `30080`, que o cluster publica em `127.0.0.1:8080` |
 | `oficina-app-configmap.yaml` | ConfigMap `oficina-app` | endereço do banco, servidor de e-mail, fuso horário e log de acesso |
 | `oficina-app-secret.yaml` | Secret `oficina-app` | o segredo de assinatura do JWT, com o mesmo valor local de avaliação do `docker-compose.yml`. Usuário e senha do banco não estão aqui: a aplicação os lê do Secret `banco`, criado pelo Terraform |
-| `oficina-app-hpa.yaml` | HorizontalPodAutoscaler `oficina-app` | de 1 a 4 réplicas, pela CPU, com alvo de 70% |
+| `oficina-app-hpa.yaml` | HorizontalPodAutoscaler `oficina-app` | de 1 a 4 réplicas, pela CPU, com alvo de 70%. O Deployment não declara `replicas`, porque o HPA é o dono do número: um valor fixo no manifesto seria reposto a cada `kubectl apply`, desfazendo a escala |
 | `email-deployment.yaml` e `email-service.yaml` | Deployment e Service `email` | a caixa de e-mail do ambiente, com a mesma imagem do compose |
 | `seed-job.yaml` | Job `seed` | a carga dos dados de demonstração, pelo mesmo `seed/carrega.sh` do compose |
 | `metrics-server.yaml` | `metrics-server`, em `kube-system` | o coletor de CPU e memória que o HPA consulta |
@@ -251,7 +261,7 @@ A pipeline é do GitHub Actions, em [`.github/workflows/ci-cd.yml`](.github/work
 
 | Ordem | Job | Onde roda | O que faz | Quando |
 |---|---|---|---|---|
-| 1 | Build e testes | runner hospedado pelo GitHub | build da aplicação; testes unitários e de integração, com Testcontainers; `terraform init`, `fmt -check` e `validate` de `infra/` | sempre |
+| 1 | Build e testes | runner hospedado pelo GitHub | build da aplicação; testes unitários e de integração, com Testcontainers; o percentual de cobertura de linhas e de instruções do projeto inteiro, no log e no resumo da execução; `terraform init`, `fmt -check` e `validate` de `infra/` | sempre |
 | 2 | Build da imagem Docker | runner hospedado pelo GitHub | constrói a imagem e a publica no GitHub Container Registry com duas tags, o SHA do commit e `main` | na `main`, fora de pull request |
 | 3 | Deploy no cluster Kubernetes | runner auto-hospedado, com o rótulo `oficina-local` | os cinco passos abaixo | na `main`, fora de pull request |
 
@@ -297,7 +307,7 @@ Roda os testes unitários (Surefire, `*Test`) e os de integração (Failsafe, `*
 
 ### Cobertura
 
-O relatório do JaCoCo fica em `target/site/jacoco/index.html` após o `mvn verify`.
+O relatório do JaCoCo fica em `target/site/jacoco/index.html` após o `mvn verify`. Na pipeline, o passo **Cobertura dos testes** mostra o percentual de linhas e de instruções do projeto inteiro, que é outro número que o do gate abaixo.
 
 O build tem **gate de cobertura de 80% nos domínios críticos**, medido sobre os pacotes `domain` de cada contexto delimitado mais o `shared.domain`, que guarda a hierarquia de erros do domínio, e não sobre o projeto inteiro. Abaixo disso, o `mvn verify` falha.
 
