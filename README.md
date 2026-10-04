@@ -49,7 +49,7 @@ A **listagem sem filtro** devolve a fila de atendimento nesta ordem de prioridad
 
 ## Desenho da arquitetura
 
-O ambiente desenhado é local e descartável, e não descreve um ambiente de produção em nuvem (ADR-024). Os dois primeiros desenhos seguem o C4 Model e continuam o C4 de Contexto e de Contêiner da documentação DDD: o diagrama de componentes abre o contêiner da API REST, e o diagrama de implantação mostra onde cada contêiner roda.
+O ambiente desenhado roda na AWS e é descartável: ele é criado e destruído a cada uso, e não descreve um ambiente de produção (ADR-028). Os dois primeiros desenhos seguem o C4 Model e continuam o C4 de Contexto e de Contêiner da documentação DDD: o diagrama de componentes abre o contêiner da API REST, e o diagrama de implantação mostra onde cada contêiner roda.
 
 ### Componentes da aplicação
 
@@ -59,13 +59,13 @@ Os pacotes de cada contexto delimitado estão em "Estrutura do projeto", e a reg
 
 ### Infraestrutura provisionada
 
-![Diagrama de implantação do ambiente local: máquina, cluster kind, namespaces oficina e kube-system, e o que cada um executa](docs/arquitetura/infraestrutura.svg)
+![Diagrama de implantação na AWS: conta, VPC, cluster EKS, namespaces oficina e kube-system, a máquina de quem opera com o port-forward e o registro de imagens](docs/arquitetura/infraestrutura.svg)
 
-Cada caixa diz de onde vem: o `terraform apply` de [`infra/`](infra/) cria o cluster, o namespace e o banco, e os manifestos de [`k8s/`](k8s/) publicam o resto. Os comandos estão em "Provisionamento com Terraform" e "Deploy em Kubernetes".
+Cada caixa diz de onde vem: o `terraform apply` de [`infra/`](infra/) cria a rede, o cluster, o `metrics-server`, o namespace e o banco, e os manifestos de [`k8s/`](k8s/) publicam o resto. Os comandos estão em "Provisionamento com Terraform" e "Deploy em Kubernetes".
 
 ### Fluxo de deploy
 
-![Fluxo de deploy da pipeline de CI/CD: build e testes, imagem no GitHub Container Registry e deploy no cluster pelo runner auto-hospedado](docs/arquitetura/fluxo-de-deploy.svg)
+![Fluxo de deploy da pipeline de CI/CD: build e testes, imagem no GitHub Container Registry, deploy no cluster EKS por OIDC e o workflow que provisiona e destrói o ambiente](docs/arquitetura/fluxo-de-deploy.svg)
 
 Cada passo, com o nome que aparece no log, está em "Pipeline de CI/CD".
 
