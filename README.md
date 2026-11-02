@@ -22,6 +22,12 @@ Event Storming dos dois fluxos, Domain Storytelling (AS-IS e TO-BE), Context Map
 
 **Link da documentação:** https://miro.com/app/board/uXjVHuneCTk=/?share_link_id=665030044859
 
+## Vídeo de demonstração
+
+O ambiente em execução na AWS: o provisionamento da infraestrutura, a pipeline de CI/CD, o deploy no cluster, o consumo das APIs e a escalabilidade automática.
+
+**Link do vídeo:** https://youtu.be/syAbocY3Xqw
+
 ## O que o sistema faz
 
 - **Ordem de Serviço** com máquina de estados (Recebida, Em diagnóstico, Aguardando aprovação, Em execução, Finalizada, Entregue, mais Cancelada, o sétimo status decidido no ADR-008), com mudança automática de status conforme as ações no sistema.
